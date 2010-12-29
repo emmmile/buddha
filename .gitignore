@@ -1,0 +1,5 @@
+*.pro.user
+*.o
+/moc_*.cpp
+/buddha
+/Makefile
