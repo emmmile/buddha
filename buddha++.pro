@@ -23,6 +23,11 @@ SOURCES += buddha.cpp \
            renderWindow.cpp \
            staticutils.cpp
 
+#######
+# to enable profiling (test on linux) :
+# uncomment the 3 directive below, run buddha++ and quit normally
+# then run : gprof ./buddha
+#######
 #QMAKE_CFLAGS += -pg
 #QMAKE_CXXFLAGS += -pg
 #QMAKE_LFLAGS += -pg
