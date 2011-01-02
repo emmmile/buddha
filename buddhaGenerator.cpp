@@ -27,13 +27,19 @@
 
 
 #include "buddhaGenerator.h"
+#include "staticStuff.h"
 #define STEP		16
 #define METTHD		16000
 
 using namespace std;
 
 // these are not for the buddhabrot, are others functions
-int BuddhaGenerator::anti ( unsigned int& calculated ) {
+
+// this is the anti-buddhabrot evaluate function
+// it would be nice to put a flag somewhere and have the possibility
+// somewhere to choose from the interface if render the buddhabrot or
+// the antibuddhabrot.
+/*int BuddhaGenerator::anti ( unsigned int& calculated ) {
 	complex z;
 	unsigned int i;
 	
@@ -68,7 +74,7 @@ int BuddhaGenerator::test ( unsigned int& calculated ) {
 	
 	calculated = b->high;
 	return b->high;
-}
+}*/
 
 
 
@@ -96,6 +102,7 @@ int BuddhaGenerator::test ( unsigned int& calculated ) {
 
 
 void BuddhaGenerator::initialize ( Buddha* b ) {
+	qDebug() << "BuddhaGenerator::initialize()";
 	this->b = b;
 	
 	seed = powf ( (unsigned long int) this & 0xFF, M_PI ) + ( ( (unsigned long int) this >> 16 ) & 0xFFFF );
@@ -103,46 +110,48 @@ void BuddhaGenerator::initialize ( Buddha* b ) {
 	buf.state = (int32_t*) statebuf; // this fixes the segfault
 	initstate_r( seed, statebuf, sizeof( statebuf ), &buf );
 	
-	raw = (unsigned int*) calloc( 3 * b->size, sizeof( unsigned int ) );
+	raw = (unsigned int*) realloc( raw, 3 * b->size * sizeof( unsigned int ) );
+	memset( raw, 0, 3 * b->size * sizeof( unsigned int ) );
 	seq.resize( b->high );
 	
-	status = RUNNING;
-	memory = OK;
+	status = RUN;
 	
-	printf( "Created generator with seed %ld\n", seed );
+	qDebug() << "Initialized generator" << (void*) this << "with seed" << seed;
 }
 
-void BuddhaGenerator::setStatus ( CurrentStatus s ) {
-	status = s;
-}
-
-void BuddhaGenerator::handleMemory ( ) {
-	if ( memory == REALLOC ) {
-		if ( raw ) free( raw );
-		raw = (unsigned int*) calloc( b->size * 3, sizeof( unsigned int ) );
-	}
+bool BuddhaGenerator::flow ( ) {
+	//qDebug() <<"flow()\n" );
+	// note that pauseCondition has been set previously
+	//QMutexLocker lock ( &mutex );
 	
-	if ( memory == CLEAN ) {
-		memset( raw, 0, 3 * b->size * sizeof( int ) );
+	if ( status == PAUSE ) {
+		pauseCondition->wakeOne();
+		resumeCondition.wait( &mutex );
 	}
-	
-	seq.resize( b->high );
-	memory = OK;
-}
-
-bool BuddhaGenerator::flowControl ( ) {
-	if ( status == ABORTED )
-		return false;
-		
-		
-	if ( status == PAUSED ) {
-		b->generatorReady.wakeOne();
-		wcondition.wait( &wmutex );
-		
-		handleMemory( );
-	}
+	if ( status == STOP ) return false;
 	
 	return true;
+}
+
+
+void BuddhaGenerator::pause ( QWaitCondition* pauseCondition ) {
+	//QMutexLocker lock ( &mutex );
+	status = PAUSE;
+	this->pauseCondition = pauseCondition;
+	pauseCondition->wait( &mutex );
+}
+
+void BuddhaGenerator::resume ( ) {
+	//QMutexLocker lock ( &mutex );
+	status = RUN;
+	resumeCondition.wakeOne();
+}
+
+void BuddhaGenerator::stop ( QWaitCondition* pauseCondition ) {
+	//QMutexLocker lock ( &mutex );
+	status = STOP;
+	this->pauseCondition = pauseCondition;
+	pauseCondition->wait( &mutex );
 }
 
 
@@ -312,17 +321,13 @@ int BuddhaGenerator::normal ( ) {
 	maxIndex = evaluate( calculated );
 
 	// draw on the plot, synchronization stuff
-	wmutex.lock();
+	QMutexLocker locker( &mutex );
 	for ( unsigned int j = 0; (int) j <= maxIndex && j < b->high; j++ )
 		drawPoint( seq[j], j < b->highr, j < b->highg, j < b->highb );
 	
-	if ( !flowControl( ) ) {
-		wmutex.unlock();
+	if ( !flow( ) ) 
 		return -1;
-	}
-	wmutex.unlock();
-	
-	return calculated;
+	else 	return calculated;
 }
 
 
@@ -334,7 +339,6 @@ int BuddhaGenerator::metropolis ( ) {
 	int selectedOrbitCount = 0, proposedOrbitCount = 0, selectedOrbitMax = 0, proposedOrbitMax = 0, j;
 	double radius = 4.656612875245796924105E-10 / b->scale * 40.0; // 100.0;
 	//double add = 0.0; // 5.0 / b->scale;
-	int32_t result;
 	
 	// search a point that has some contribute in the interested area
 	selectedOrbitMax = findPoint( calculated );
@@ -351,14 +355,21 @@ int BuddhaGenerator::metropolis ( ) {
 	// Now i'm using something proportional on "how much the point is important".. For example how long the sequence
 	// is and how many points falls on the window.
 	for ( j = 0; j < max( selectedOrbitCount * 256, selectedOrbitMax * 2 ); j++ ) {
-		
+		// I put the check here because of the "continue"'s in the middle that makes the thread
+		// a little bit slow to respond to the changes of status
+		mutex.lock();
+		if ( !flow( ) ) {
+			mutex.unlock();
+			return -1;
+		}
+		mutex.unlock();
+
 		seq[0] = ok;
 		// the radius of the mutations influences a lot the quality of the rendering AND the speed.
 		// I think that choose a random radius is the best way otherwise I noticed some geometric artifacts
 		// around the point (-1.8, 0) for example. This artifacts however depend also on the number of iterations
 		// explained above.
-		random_r( &buf, &result );
-		seq[0].mutate( result * radius /* + add */, &buf );
+		seq[0].mutate( random( &buf ) * radius /* + add */, &buf );
 		
 		// calculate the new sequence
 		proposedOrbitMax = evaluate( calculated );
@@ -373,32 +384,21 @@ int BuddhaGenerator::metropolis ( ) {
 		
 		// calculus of the transitional probability. One point is more probable of being
 		// chose if generates a lot of points in the window
-		/*double accept = double( proposedOrbitMax ) / double( selectedOrbitMax );
-		double reject = double( selectedOrbitMax ) / double( proposedOrbitMax );
-		double alpha = exp( log(proposedOrbitCount* accept) - log(selectedOrbitCount* reject) );*/
 		double alpha =  proposedOrbitMax * proposedOrbitMax * proposedOrbitCount /
 				double( selectedOrbitMax * selectedOrbitMax * selectedOrbitCount );
 		
-		random_r( &buf, &result );
-		if ( alpha > result * 4.656612875245796924105E-10 ) {
+		if ( alpha > scaleToOnePositive( random( &buf ) ) ) {
 			ok = seq[0];
 			selectedOrbitCount = proposedOrbitCount;
 			selectedOrbitMax = proposedOrbitMax;
 		}
 		
-		
 		total += calculated;
-		
+
 		// draw the points
-		wmutex.lock();
+		QMutexLocker locker( &mutex );
 		for ( unsigned int h = 0; (int) h <= proposedOrbitMax && h < b->high && proposedOrbitCount > 0; h++ )
 			drawPoint( seq[h], h < b->highr, h < b->highg, h < b->highb );
-		
-		if ( !flowControl( ) ) {
-			wmutex.unlock();
-			return -1;
-		}
-		wmutex.unlock();
 	}
 	
 	return total;
@@ -406,18 +406,15 @@ int BuddhaGenerator::metropolis ( ) {
 
 
 void BuddhaGenerator::run ( ) {
-	int exit;
+	int exit = 0;
 	
 	do {
 		exit = metropolis( );
-		
-		/*wmutex.lock();
-		if ( !flowControl( ) ) {
-			wmutex.unlock();
-			break;
-		}
-		wmutex.unlock();*/
 	} while ( exit != -1 );
+	
+	// another thread maybe is waiting that I've finished
+	if ( pauseCondition )
+		pauseCondition->wakeOne();
 }
 
 

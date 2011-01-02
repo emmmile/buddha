@@ -3,25 +3,23 @@
 ######################################################################
 
 TEMPLATE = app
-TARGET = 
+TARGET =
 DEPENDPATH += .
 INCLUDEPATH += .
 
 # Input
 HEADERS += buddha.h \
-           buddhaGenerator.h \
-           complex.h \
-           controlWindow.h \
-           pngSaver.h \
-           renderWindow.h \
-           staticutils.h
+	   buddhaGenerator.h \
+	   complex.h \
+	   controlWindow.h \
+	   renderWindow.h \
+	   staticStuff.h
 SOURCES += buddha.cpp \
-           buddhaGenerator.cpp \
-           controlWindow.cpp \
-           main.cpp \
-           pngSaver.cpp \
-           renderWindow.cpp \
-           staticutils.cpp
+	   buddhaGenerator.cpp \
+	   controlWindow.cpp \
+	   main.cpp \
+	   renderWindow.cpp \
+	   staticStuff.cpp
 
 ###############################################
 # to enable profiling                         #

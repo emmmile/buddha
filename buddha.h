@@ -30,6 +30,9 @@
 #ifndef BUDDHA_H
 #define BUDDHA_H
 
+
+#define TEST		0
+
 #include <string>
 #include <vector>
 #include <cmath>
@@ -39,18 +42,16 @@
 #include <QWaitCondition>
 #include <QImage>
 #include <cstdio>
+#include <QDebug>
 #include "complex.h"
+#include "staticStuff.h"
 
 
 using namespace std;
 
-#define ZOOM 		1
-//#define FPS 		4
-#define TEST		0
 
 
-enum CurrentStatus { PAUSED, ABORTED, RUNNING };
-enum MemoryStatus { OK, CLEAN, REALLOC };
+enum CurrentStatus { PAUSE, STOP, RUN };
 
 class BuddhaGenerator;
 
@@ -61,21 +62,22 @@ class BuddhaGenerator;
 class Buddha : public QThread {
 	Q_OBJECT
 	
+	
+	int threads;
+	vector<BuddhaGenerator*> generators;
+	CurrentStatus generatorsStatus;
+	
+	void preprocessImage ( );
+	void createImage ( );
 public:	
-	// for the communication with the GUI
+	// for the communication with the GUI XXX maibe it can be removed
 	QMutex mutex;
-	QWaitCondition stopped, restarted;
 	
 	// for waiting that a BuddhaGenerator has been stopped
-	QWaitCondition generatorReady;
-	QTimer* timer;
+	QWaitCondition pauseCondition;
 	
-	
-	bool cleaned;
-	CurrentStatus status;	
-	MemoryStatus memory;
-	bool contrastChanged;
-	
+	// since this class is also used as "container" for the various generators
+	// I use directly public variables instead private members and functions like set*()
 	// buddhabrot characteristics
 	double maxre, maxim;
 	double minre, minim;
@@ -92,12 +94,9 @@ public:
 	unsigned int h;
 	unsigned int size;
 	
-	// to choose between metropolis and the normal algorithm
-	bool mode;
-	
 	
 	// things for the plot
-	unsigned int* raw;
+	unsigned int* raw;		// i want to avoid this in the future XXX
 	unsigned int* RGBImage;		// here will be built the QImage
 	float rmul, gmul, bmul, realContrast, realLightness;
 	int contrast, lightness;
@@ -105,10 +104,7 @@ public:
 
 
 
-	BuddhaGenerator* generators;
-	int threads;
-	float fps;
-	void setFps( float );
+	
 
 
 
@@ -117,28 +113,27 @@ public:
 
 	void setContrast( int value );
 	void setLightness( int value );
-	void set( double cre, double cim, double scale, uint r, uint g, uint b, QSize wsize );
-	void setStatus( CurrentStatus s );
-	void setAlgorithm ( bool m );
-	void clear ( );
-	void realloc ( );
-	void lock( ) { mutex.lock(); }
-	void unlock( ) { mutex.unlock(); }
 	
 	
-	
+	void run( );
+signals:
+	void imageCreated( );
+	void stoppedGenerators( bool);
+	void startedGenerators( bool);
+	void settedValues( );
+public slots:
+	// never call directly these functions from the GUI!!!
+	void startGenerators( );
+	void stopGenerators( );
+	void updateRGBImage( );
 	void pauseGenerators( );
 	void resumeGenerators( );
-	bool pauseGenerator ( int i, unsigned int msec = UINT_MAX );
-	void resumeGenerator ( int i );
-	
-	void run();
-	void toImage ( );
-	void preprocessImage ( );
-signals:
-	void doneIteration( );
-public slots:
-	void updateRGBImage( );
+	void set( double cre, double cim, double scale, uint r, uint g, uint b, QSize wsize, bool pause );
+	void clearBuffers ( );
+	void resizeBuffers ( );
+	void resizeSequences ( );
+	void changeThreadNumber( int threads );
+	void saveScreenshot ( QString fileName );
 };
 
 

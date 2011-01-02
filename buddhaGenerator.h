@@ -41,7 +41,6 @@
 #include <cstdio>
 #include <iostream>
 #include "buddha.h"
-#include "staticutils.h"
 using namespace std;
 
 
@@ -50,11 +49,33 @@ using namespace std;
 
 class BuddhaGenerator : public QThread {
 public:	
+	// general data and utility functions
 	Buddha* b;
+	BuddhaGenerator( ) {
+		raw = NULL;
+	}
+	~BuddhaGenerator ( ) {
+		delete[] raw;
+	}
+	void initialize ( Buddha* b );
+
 
 	// for the raw image and the sequence of points
 	vector<complex> seq;
 	unsigned int* raw;
+	
+	void drawPoint ( complex& c, bool r, bool g, bool b );
+	int inside ( complex& c );
+	int evaluate ( unsigned int& calculated );
+	int findPoint ( unsigned int& calculated );
+	double distance ( unsigned int slen );
+	unsigned int contribute(int);
+	int normal();
+	int metropolis();
+	
+	
+	
+	
 	
 	// things for the random stuff
 	struct random_data buf;
@@ -62,38 +83,19 @@ public:
 	unsigned long int seed;
 	
 	
-	// for the synchronization
-	QMutex wmutex;
-	QWaitCondition wcondition;
+	
+	
+	// for the synchronization and for controlling the execution
+	QMutex mutex;
+	QWaitCondition resumeCondition;		// this is to stop the Worker
+	QWaitCondition* pauseCondition; 	// this to inform another thread that I'm paused or stopped
 	CurrentStatus status;
-	MemoryStatus memory;
 	
-	// utily functions
-	void initialize ( Buddha* b );
-	void setStatus ( CurrentStatus s );
-	
-	
-	// calculus
-	void drawPoint ( complex& c, bool r, bool g, bool b );
-	int inside ( complex& c );
-	int evaluate ( unsigned int& calculated );
-	int findPoint ( unsigned int& calculated );
-	int test ( unsigned int& calculated );
-	double distance ( unsigned int slen );
-	
-	unsigned int contribute(int);
-	int normal();
-	int metropolis();
-	
-	// this is the anti-buddhabrot evaluate function
-	// it would be nice to put a flag somewhere and have the possibility
-	// somewhere to choose from the interface if render the buddhabrot or
-	// the antibuddhabrot.
-	int anti ( unsigned int& calculated );
-	
-	void run ( );
-	void handleMemory( );
-	bool flowControl ( );
+	void pause ( QWaitCondition* pauseCondition );
+	void stop ( QWaitCondition* stopCondition );
+	void resume ( );
+	bool flow ( );				// test if we have to stop, pause or whatever
+	void run ( );	
 };
 
 #endif

@@ -27,20 +27,11 @@
 
 
 #include "controlWindow.h"
-#include "staticutils.h"
 #include <QVBoxLayout>
 #include <QtGui>
 #include <iostream>
 
 
-
-ControlWindow::~ControlWindow ( ) {
-	_print( "ControlWindow destructor...");
-	
-	delete b;
-	delete icon;
-	delete renderWin;
-}
 
 ControlWindow::ControlWindow ( )  {
 	cre = initialCre;
@@ -54,6 +45,7 @@ ControlWindow::ControlWindow ( )  {
 	fps = initialFps;
 	step = 10 / scale;
 	
+	//timer = new QTimer( this );
 	b = new Buddha( );
 	icon = new QIcon( "resources/icon.png" );
 	setWindowIcon( *icon );
@@ -75,7 +67,7 @@ ControlWindow::ControlWindow ( )  {
 	setCentralWidget( centralWidget );
 	setMenuBar( menuBar );
 
-	resize( 500, 400 );
+	resize( 600, 400 );
 	//step = scale / 1000;
 	
 	//setLightness( lightSlider->value() );
@@ -88,10 +80,8 @@ ControlWindow::ControlWindow ( )  {
 	
 	setLightness( initialLight );
 	setContrast( initialContrast );
-	setAlgorithm( false );
-	setValues ( cre, cim, scale );
+	putValues ( cre, cim, scale );
 	setFps( initialFps );
-
 
 	connect( greenSlider, SIGNAL( valueChanged( int ) ), this, SLOT( setGreenIterationDepth( int ) ) );
 	connect( blueSlider, SIGNAL( valueChanged( int ) ), this, SLOT( setBlueIterationDepth( int ) ) );
@@ -99,24 +89,41 @@ ControlWindow::ControlWindow ( )  {
 	connect( reBox, SIGNAL( valueChanged( double ) ), this, SLOT( setCre( double ) ) );
 	connect( imBox, SIGNAL( valueChanged( double ) ), this, SLOT( setCim( double ) ) );
 	connect( zoomBox, SIGNAL( valueChanged( double ) ), this, SLOT( setScale( double ) ) );
-	connect( normalRadio, SIGNAL( toggled( bool) ), this, SLOT( setAlgorithm( bool ) ) );
 
 	connect( lightSlider, SIGNAL( valueChanged( int ) ), this, SLOT( setLightness( int ) ) );
 	connect( contrastSlider, SIGNAL( valueChanged( int ) ), this, SLOT( setContrast( int ) ) );
 	connect( fpsSlider, SIGNAL( valueChanged( int ) ), this, SLOT( setFps( int ) ) );
+	connect( threadsSlider, SIGNAL( valueChanged( int ) ), this, SLOT( setThreadNum( int ) ) );
 	connect( startButton, SIGNAL( clicked() ), this, SLOT(handleStartButton()));
-	connect( currentButton, SIGNAL( clicked() ), this, SLOT( handleCurrentButton() ) );
+	//connect( currentButton, SIGNAL( clicked() ), this, SLOT( handleCurrentButton() ) );
 	connect( resetButton, SIGNAL( clicked() ), this, SLOT( handleResetButton() ) );
-	connect( defaultButton, SIGNAL( clicked() ), this, SLOT( handleDefaultButton() ) );
+	//connect( defaultButton, SIGNAL( clicked() ), this, SLOT( handleDefaultButton() ) );
 	connect( normalZoom, SIGNAL( toggled( bool) ), renderWin, SLOT( setMouseMode( bool ) ) );
 	
-	// alcuni shortcut li setto anche per renderwin XXX e per deallocarli?
+	// i set some shortcuts also for renderWin
 	connect( new QShortcut( startButton->shortcut(), renderWin ), SIGNAL(activated()), startButton, SLOT(animateClick()) );
-	connect( new QShortcut( defaultButton->shortcut(), renderWin ), SIGNAL(activated()), defaultButton, SLOT(animateClick()) );
-	connect( new QShortcut( currentButton->shortcut(), renderWin ), SIGNAL(activated()), currentButton, SLOT(animateClick()) );
 	connect( new QShortcut( resetButton->shortcut(), renderWin ), SIGNAL(activated()), resetButton, SLOT(animateClick()) );
 	connect( new QShortcut( screenShotAct->shortcut(), renderWin ), SIGNAL(activated()), this, SLOT(saveScreenshot()) );
+	
+	connect( this, SIGNAL( setValues( double, double, double, unsigned int, unsigned int, unsigned int, QSize, bool ) ), 
+		 b, SLOT( set( double, double, double, unsigned int, unsigned int, unsigned int, QSize, bool ) ) );
+
+	connect( this, SIGNAL( startCalculation( ) ), b, SLOT( startGenerators( ) ) );
+	connect( this, SIGNAL( stopCalculation( ) ), b, SLOT( stopGenerators( ) ) );
+	connect( this, SIGNAL( pauseCalculation( ) ), b, SLOT( pauseGenerators( ) ) );
+	connect( this, SIGNAL( clearBuffers( ) ), b, SLOT( clearBuffers( ) ) );
+	connect( this, SIGNAL( changeThreadNumber( int ) ), b, SLOT( changeThreadNumber( int ) ) );
+	setThreadNum( threadsSlider->value() );
+
+	// these are for the real-time update of the values directly from the controlWindow
+	connect( reBox, SIGNAL( valueChanged( double ) ), this, SLOT( sendValues( ) ) );
+	connect( imBox, SIGNAL( valueChanged( double ) ), this, SLOT( sendValues( ) ) );
+	connect( zoomBox, SIGNAL( valueChanged( double ) ), this, SLOT( sendValues( ) ) );
+	connect( greenSlider, SIGNAL( valueChanged( int ) ), this, SLOT( sendValues( ) ) );
+	connect( blueSlider, SIGNAL( valueChanged( int ) ), this, SLOT( sendValues( ) ) );
+	connect( redSlider, SIGNAL( valueChanged( int ) ), this, SLOT( sendValues( ) ) );
 }
+
 
 
 void ControlWindow::createGraphBox ( ) {
@@ -172,17 +179,8 @@ void ControlWindow::createGraphBox ( ) {
 	zoomBox->setDecimals( PRECISION / 3 );
 	zoomBox->setToolTip( "Specify the magnification level of the rendered image" );
 	
-
-	
-	algoLabel = new QLabel( "Algorithm:", graphBox );
-	normalRadio = new QRadioButton(tr("&Naive"), graphBox );
-	metropolisRadio = new QRadioButton(tr("&Metropolis"), graphBox );
-	metropolisRadio->setChecked(true);
 	
 	QVBoxLayout *vbox = new QVBoxLayout ( );
-	QHBoxLayout *radioLayout = new QHBoxLayout ( );
-	radioLayout->addWidget( normalRadio );
-	radioLayout->addWidget( metropolisRadio );
 	
 
 	
@@ -201,9 +199,6 @@ void ControlWindow::createGraphBox ( ) {
 	vbox->addWidget( zoomLabel );
 	vbox->addWidget( zoomBox );
 	//vbox->addStretch(1);
-	vbox->addWidget( algoLabel );
-	vbox->addLayout( radioLayout );
-	//vbox->addStretch(1);
         graphBox->setLayout( vbox );
 
 
@@ -218,13 +213,11 @@ void ControlWindow::createRenderBox ( ) {
 	contrastLabel = new QLabel( "Contrast:", renderBox );
 	contrastSlider = new QSlider( renderBox );
 	contrastSlider->setMaximum( maxContrast );
-	//contrastSlider->setValue( contrast );
 	contrastSlider->setOrientation(Qt::Horizontal);
 	
 	lightLabel = new QLabel( "Lightness:", renderBox );
 	lightSlider = new QSlider( renderBox );
 	lightSlider->setMaximum( maxLightness );
-	//lightSlider->setValue( lightness );
 	lightSlider->setOrientation(Qt::Horizontal);
 	
 	fpsLabel = new QLabel( "Frames per second:", renderBox );
@@ -236,8 +229,10 @@ void ControlWindow::createRenderBox ( ) {
 	threadsLabel = new QLabel( "Threads:", renderBox );
 	threadsSlider = new QSlider( renderBox );
 	threadsSlider->setMinimum( 1 );
-	threadsSlider->setMaximum( 4 );
+	threadsSlider->setMaximum( QThread::idealThreadCount() );
 	threadsSlider->setOrientation(Qt::Horizontal);
+	updateThreadLabel( QThread::idealThreadCount() );
+	threadsSlider->setValue( QThread::idealThreadCount() );
 	
 	QVBoxLayout *vbox = new QVBoxLayout ( );
 	vbox->addWidget( contrastLabel );
@@ -256,7 +251,7 @@ void ControlWindow::createRenderBox ( ) {
 void ControlWindow::createActions ( ) {
 	exitAct = new QAction(tr("E&xit"), this);
 	exitAct->setShortcut(tr("Ctrl+Q"));
-	connect(exitAct, SIGNAL(triggered()), this, SLOT(exit()));
+	connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
 
 	aboutAct = new QAction(tr("&About Buddha++"), this);
 	connect(aboutAct, SIGNAL(triggered()), this, SLOT(about()));
@@ -265,25 +260,25 @@ void ControlWindow::createActions ( ) {
 	connect(aboutQtAct, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
 	
 	screenShotAct = new QAction( "Save Screenshot", this );
-	screenShotAct->setShortcut( tr( "Alt+Ctrl+S" ) );
+	screenShotAct->setShortcut( tr( "Ctrl+S" ) );
 	screenShotAct->setIcon( QIcon( "resources/save.png" ) );
 	screenShotAct->setEnabled( false );
 	connect(screenShotAct, SIGNAL(triggered()), this, SLOT(saveScreenshot()));
+	connect( this, SIGNAL(screenshotRequest( QString ) ), b, SLOT( saveScreenshot(QString) ) );
 
 	saveAct = new QAction( "Save Configuration", this );
-	saveAct->setShortcut( tr( "Ctrl+S" ) );
+	saveAct->setShortcut( tr( "Alt+Ctrl+S" ) );
 	saveAct->setIcon( screenShotAct->icon() );
 	connect(saveAct, SIGNAL(triggered()), this, SLOT(saveConfig()));
 
 	openAct = new QAction( "Open Configuration", this );
-	openAct->setShortcut( tr( "Ctrl+O" ) );
+	openAct->setShortcut( tr( "Alt+Ctrl+O" ) );
 	openAct->setIcon( QIcon("resources/open.png") );
 	connect(openAct, SIGNAL(triggered()), this, SLOT(openConfig()));
 
 }
 
 void ControlWindow::createMenus ( ) {
-	//TODO
 	createActions( );
 	menuBar = new QMenuBar( this );
 	fileMenu = new QMenu(tr("&File"), menuBar );
@@ -292,13 +287,6 @@ void ControlWindow::createMenus ( ) {
 	fileMenu->addAction(screenShotAct);
 	fileMenu->addSeparator();
 	fileMenu->addAction(exitAct);
-
-	//viewMenu = new QMenu(tr("&View"), this);
-	//viewMenu->addAction(zoomInAct);
-	//viewMenu->addAction(zoomOutAct);
-	//viewMenu->addAction(normalSizeAct);
-	//viewMenu->addSeparator();
-	//viewMenu->addAction(fitToWindowAct);
 
 	helpMenu = new QMenu(tr("&Help"), menuBar );
 	helpMenu->addAction(aboutAct);
@@ -312,32 +300,33 @@ void ControlWindow::createMenus ( ) {
 void ControlWindow::createControlBox ( ) {
 	
 	buttonsBox = new QGroupBox( "Controls", this );
-	currentButton = new QPushButton( tr( "&Current" ), buttonsBox );
+	//currentButton = new QPushButton( tr( "&Current" ), buttonsBox );
 	startButton = new QPushButton( tr( "&Start" ), buttonsBox );
 	resetButton = new QPushButton( tr( "&Reset" ), buttonsBox );
-	defaultButton = new QPushButton( tr( "&Default" ), buttonsBox );
+	//defaultButton = new QPushButton( tr( "&Default" ), buttonsBox );
 	startButton->setToolTip( "Press to start/resume/stop rendering" );
-	defaultButton->setToolTip( "Press to set deafult rendering values" );
+	//defaultButton->setToolTip( "Press to set deafult rendering values" );
 	resetButton->setToolTip( "Press to cancel the rendered image" );
-	currentButton->setToolTip( "Press to set current rendering values" );
+	//currentButton->setToolTip( "Press to set current rendering values" );
 	QFont f;
 	f.setBold( true );
 	startButton->setFont( f );
+	resetButton->setDisabled( true );
 	
 	mouseLabel = new QLabel( "Mouse zoom mode:", buttonsBox );
 	normalZoom = new QRadioButton( "On center", buttonsBox );
 	mouseZoom = new QRadioButton( "On cursor", buttonsBox );
 	QVBoxLayout *vbox = new QVBoxLayout ( );
 	QHBoxLayout* radioLayout = new QHBoxLayout( );
-	QHBoxLayout *buttonsLayout = new QHBoxLayout ( );
+	//QHBoxLayout *buttonsLayout = new QHBoxLayout ( );
 	radioLayout->addWidget( normalZoom );
 	radioLayout->addWidget( mouseZoom );
 
-	buttonsLayout->addWidget( currentButton );
-	buttonsLayout->addWidget( resetButton );
+	//buttonsLayout->addWidget( currentButton );
+	//buttonsLayout->addWidget( resetButton );
 
-	vbox->addLayout( buttonsLayout );
-	vbox->addWidget( defaultButton );
+	//vbox->addLayout( buttonsLayout );
+	vbox->addWidget( resetButton );
 	vbox->addWidget( startButton );
 	//vbox->addStretch(1);
 	vbox->addWidget( mouseLabel );
@@ -347,37 +336,31 @@ void ControlWindow::createControlBox ( ) {
 	
 	mouseZoom->setChecked( true );
 	normalZoom->setChecked( false );
+	
+	connect( b, SIGNAL( stoppedGenerators( bool ) ), startButton, SLOT( setEnabled( bool ) ) );
+	connect( b, SIGNAL( stoppedGenerators( bool ) ), resetButton, SLOT( setDisabled( bool ) ) );
+	connect( b, SIGNAL( startedGenerators( bool ) ), resetButton, SLOT( setEnabled( bool ) ) );
+	connect( b, SIGNAL( startedGenerators( bool ) ), startButton, SLOT( setDisabled( bool ) ) );
+}
+
+
+void ControlWindow::sendValues ( bool pause ) {
+	if ( this->valuesChanged() )
+		emit setValues( cre, cim, scale, highr, highg, highb, renderWin->size(), pause );
 }
 
 
 
 
 
-
-
-
-
-
 //// BUTTON HANDLING
-// I agree that this part is not only a little bit confusing from the point of view of the user
-// but it is also very messy from the point of view of the programmer. I think it would be
-// better to think at a completely new (better) way to handle the controls, the buttons etc..
-
 void ControlWindow::handleStartButton ( ) {
-	_print( "handleStartButton()" );	
-	
-	b->lock( );
-	if ( valuesChanged( ) )
-		b->set( cre, cim, scale, highr, highg, highb, renderWin->size() );
-		
-		
-	if ( b->isRunning() ) {
-		b->setStatus( RUNNING );
-		b->restarted.wakeOne( );
-	} else	b->start( );
-	b->unlock( );
+	qDebug() << "ControlWindow::handleStartButton(), thread " << QThread::currentThreadId();
 	
 	
+	emit sendValues( false );
+	emit startCalculation( );
+	renderWin->timer->start( sleepTime );
 	
 	
 	red = redSlider->value();
@@ -387,62 +370,16 @@ void ControlWindow::handleStartButton ( ) {
 	
 	if ( renderWin->isHidden() ) 
 		renderWin->show();
-	
-	// visualize the right text on the button depending on the state of the program
-	viewStartButton( );
 }
 
-
-
-void ControlWindow::handleCurrentButton ( ) {
-	_print( "handleCurrentButton()" );
-	// set the current values
-	setColorSliders( red, green, blue );
-	setImageSliders( loadedLightness, loadedContrast, fps );
-	
-	if ( !b->isRunning() )
-		setValues( initialCre, initialCim, initialScale );
-	else
-		setValues( b->cre, b->cim, b->scale );
-}
 
 void ControlWindow::handleResetButton ( ) {
-	_print( "handleResetButton()" );
-	b->lock();
-	b->setStatus( PAUSED );
-	b->stopped.wait( &(b->mutex) );
-	
-	b->clear();
-	b->setStatus( RUNNING );
-	b->restarted.wakeOne();
-	b->unlock();
-	
 	renderWin->repaint();
-	renderWin->clearBuffers();
-}
-
-void ControlWindow::viewStartButton ( ) {
-	//_print( "viewStartButton()" );
-	
-	b->lock();
-	if ( valuesChanged() || b->cleaned )
-			setButtonStart( );
-	else 	setButtonResume( );
-	b->unlock();
-}
-
-void ControlWindow::handleDefaultButton ( ) {
-	//_print( "handleDefaultButton()" );
-	setColorSliders( initialRed, initialGreen, initialBlue );
-	setValues( initialCre, initialCim, initialScale );
-	setImageSliders( initialLight, initialContrast, initialFps );
-	
-	//updateValues( );
-	//viewStartButton ( );
+	//renderWin->clearBuffers();
+	emit clearBuffers( );
 }
 
 bool ControlWindow::valuesChanged ( ) {
-	//_print( "valuesChanged()" );
 	
 	return  cre != b->cre || cim != b->cim || scale != b->scale ||
 		highr != b->highr || highg != b->highg || highb != b->highb ||
@@ -451,7 +388,6 @@ bool ControlWindow::valuesChanged ( ) {
 
 
 void ControlWindow::setColorSliders ( int r, int g, int b ) {
-	//_print( "setColorSliders()" );
 	redSlider->setSliderPosition( r );
 	greenSlider->setSliderPosition( g );
 	blueSlider->setSliderPosition( b );
@@ -463,7 +399,7 @@ void ControlWindow::setImageSliders ( int l, int c, int f ) {
 	fpsSlider->setValue( f );
 }
 
-void ControlWindow::setValues ( double cre, double cim, double scale ) {
+void ControlWindow::putValues ( double cre, double cim, double scale ) {
 	reBox->setValue( cre );
 	imBox->setValue( cim );
 	zoomBox->setValue( scale );
@@ -474,7 +410,7 @@ void ControlWindow::setValues ( double cre, double cim, double scale ) {
 	setCre( cre );
 	setCim( cim );
 	setScale( scale );
-	viewStartButton();
+	//viewStartButton();
 }
 
 
@@ -505,68 +441,69 @@ void ControlWindow::updateFpsLabel( ) {
 	fpsLabel->setText( "Frames per second: [" + QString::number( fps / 10.0, 'f', 1 ) + "]" );
 }
 
+void ControlWindow::updateThreadLabel( int value ) {
+	threadsLabel->setText( "Threads: [" + QString::number( value ) + "]" );
+}
+
 void ControlWindow::setRedIterationDepth ( int value ) {
-	//_print( "setRedIterationDepth()" );
 	highr = (int) pow( 2.0, value / 2.0 );
 	updateRedLabel( );
-	viewStartButton ( );
+	//viewStartButton ( );
 }
 
 void ControlWindow::setGreenIterationDepth ( int value ) {
-	//_print( "setGreenIterationDepth()" );
 	highg = (int) pow( 2.0, value / 2.0 );
 	updateGreenLabel( );
-	viewStartButton ( );
+	//viewStartButton ( );
 }
 
 void ControlWindow::setBlueIterationDepth ( int value ) {
-	//_print( "setBlueIterationDepth()" );
 	highb = (int) pow( 2.0, value / 2.0 );
 	updateBlueLabel( );
-	viewStartButton ( );
+	//viewStartButton ( );
 }
 
 void ControlWindow::setLightness ( int value ) {
-	//_print( "setLightness()" );
 	lightness = value;
 	//b->setLightness( (double) value / ( lightSlider->maximum() - value + 1 ) );
-	//printf( "Lightness: %d %lf\n", value,(double) value / ( lightSlider->maximum() - value ) );
+	//qDebug() <<"Lightness: %d %lf\n", value,(double) value / ( lightSlider->maximum() - value ) );
 	b->setLightness( value );
 }
 
 void ControlWindow::setContrast ( int value ) {
-	//_print( "setContrast()" );
 	contrast = value;
 	// ottengo un valore fra 0.0 e 2.0
 	//b->setContrast( (double) value / contrastSlider->maximum() * 2.0 );
 	b->setContrast( value );
 }
 
+
+
+
 void ControlWindow::setFps ( int value ) {
 	fps = value;
-	float toSet = ( fps == 0 ) ? 0.0 : fps / 10.0;
-	b->setFps( toSet );
+	float toSet = ( ( fps == 0 ) ? 0.0 : fps / 10.0 );
+	sleepTime = (toSet == 0.0) ? 0x0FFFFFFF : 1000.0f / toSet;
 	updateFpsLabel( );
+	
+	if ( renderWin->timer->isActive() ) { renderWin->timer->stop(); renderWin->timer->start( sleepTime ); }
 }
 
 void ControlWindow::setCre ( double d ) {
-	//_print( "setCre()" );
 	cre = d;
 	if ( cre < minRe ) cre = minRe;
 	if ( cre > maxRe ) cre = maxRe;
-	viewStartButton ( );
+	//viewStartButton ( );
 }
 
 void ControlWindow::setCim ( double d ) {
-	//_print( "setCim()" );
 	cim = d;
 	if ( cim < minIm ) cim = minIm;
 	if ( cim > maxIm ) cim = maxIm;
-	viewStartButton ( );
+	//viewStartButton ( );
 }
 
 void ControlWindow::setScale ( double d ) {
-	//_print( "setScale()" );
 	scale = d;
 	
 	if ( scale < minScale ) scale = minScale;
@@ -574,10 +511,13 @@ void ControlWindow::setScale ( double d ) {
 	step = 10 / scale;
 	imBox->setSingleStep( step );
 	reBox->setSingleStep( step );
-	viewStartButton ( );
+	//viewStartButton ( );
 }
 
-
+void ControlWindow::setThreadNum ( int value ) {
+	updateThreadLabel( value );
+	emit changeThreadNumber( value );
+}
 
 
 
@@ -595,43 +535,27 @@ void ControlWindow::setScale ( double d ) {
 // UTILITY FUNCTIONS
 
 
-void ControlWindow::renderWinClosed ( ) {
-	b->lock();
-	b->setStatus( PAUSED );
-	b->unlock();
-	
+void ControlWindow::renderWinClosed ( ) {	
 	screenShotAct->setEnabled( false );
-	viewStartButton( );
-}
-
-void ControlWindow::render ( ) {
-	b->lock();
-	b->setStatus( PAUSED );
-	b->stopped.wait( &(b->mutex) );
+	renderWin->timer->stop( );
 	
-	b->set( cre, cim, scale, highr, highg, highb, renderWin->size() );
-	b->setStatus( RUNNING );
-	b->restarted.wakeOne();
-	b->unlock();
+	// here an asynchronous termination is sufficient
+	emit stopCalculation( );
+	emit clearBuffers( );
 }
 
 void ControlWindow::closeEvent ( QCloseEvent* ) {
 	exit( );
 }
 
-void ControlWindow::setAlgorithm( bool algo ) {
-	b->lock();
-	b->setAlgorithm( algo );
-	b->unlock();
-}
-
 void ControlWindow::exit ( ) {
+	// close the rendering window
 	renderWin->close();
-	b->lock();
-	b->setStatus( ABORTED );
-	b->restarted.wakeOne( );
-	b->unlock();
-	_print( "ControlWindow::exit() called." );
+	// XXX I think this is not completely correct because also if the stopCalculation()
+	// has been sent, i'm not shure that it has been executed by the buddha thread
+	// so I should wait for the signal stoppedCalculation and then this two lines
+	// that stops the buddha event loop
+	b->exit();
 	b->wait();
 }
 
@@ -654,24 +578,31 @@ void ControlWindow::about ( ) {
 
 
 void ControlWindow::saveScreenshot ( ) {
+	// simply opens a dialog and send a save request to the buddha thread
 	QString name = "[" + QString::number( this->cre ) + ", " + QString::number(cim ) + "].png";
 	QString fileName = QFileDialog::getSaveFileName( this, tr("Save Screenshot"), 
 			   "./" + name, tr("Image Files (*.png)"));
-	renderWin->saveScreenshot( fileName );
+			   
+	emit screenshotRequest( fileName );
 }
 
 
+
+
+
+
+// TODO these functions are completely to review
 void ControlWindow::saveConfig ( ) {
 	QString name = "[" + QString::number( this->cre ) + ", " + QString::number(cim ) + "].Buddha++";
 	QString fileName = QFileDialog::getSaveFileName( this, tr("Save Current Config"), "./" + name,
 			   tr("Buddha++ Files (*.Buddha++)") );
-	if ( fileName.isNull() ) return;
+	/*if ( fileName.isNull() ) return;
 	QFile file( fileName );
 	file.open(QIODevice::WriteOnly);
 	QDataStream out( &file );
 
 	out << red << green << blue << cre << cim << scale << lightness << contrast << renderWin->size();
-	file.close();
+	file.close();*/
 }
 
 
@@ -679,7 +610,7 @@ void ControlWindow::openConfig ( ) {
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Open"),
 			   "./", tr("Buddha++ Files (*.Buddha++)") );
 
-	if ( fileName.isNull() ) return;
+	/*if ( fileName.isNull() ) return;
 	QFile file( fileName );
 	file.open(QIODevice::ReadOnly);
 	QDataStream in( &file );
@@ -696,27 +627,8 @@ void ControlWindow::openConfig ( ) {
 		return;
 	}
 
-	
-	
-	
-	this->setValues(r, i, s );
 	this->setColorSliders(rr, gg, bb);
 	loadedContrast = cc;
 	loadedLightness = ll;
-	this->setImageSliders( ll, cc, initialFps );
-	
-	/*if ( ws != renderWin->size() ) {
-		if ( !b->cleaned ) {
-			int answer = QMessageBox::question( this, "Do you want to reset current rendering?", 
-				     "The selected configuration has a different rendering size compared "
-				     "with the current values. Changing the size of the render window will erase the "
-				     "current calculus. Do you want to continue?", QMessageBox::Yes | QMessageBox::No );
-		
-			if ( answer == QMessageBox::No ) return;
-		}
-		
-		renderWin->resize( ws );
-		renderWin->clearBuffers( );
-		renderWin->repaint();
-	}*/
+	this->setImageSliders( ll, cc, initialFps );*/
 }

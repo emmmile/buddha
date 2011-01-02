@@ -34,8 +34,6 @@
 #include <QWidget>
 #include <QStatusBar>
 #include "buddha.h"
-#include "pngSaver.h"
-//#include "ControlWindow.h"
 
 
 
@@ -53,12 +51,16 @@ class ControlWindow;
 class RenderWindow : public QWidget {
 	Q_OBJECT
 private:
-	QImage out;
+	bool disabledDrawing;		// sometimes I don't want to draw because I'm waitinf for a signal from buddha
+	QImage out;			// last frame
+	
+	bool alreadySent;
+	bool resizeSent;
+	Buddha* b;
 	ControlWindow* parent;
 	//QStatusBar* status;
 	QColor selection, selectionBorder;
 	bool zoomMode;
-	bool drawed;
 	double mousex;
 	double mousey;
 	QPoint begMouse;
@@ -68,36 +70,23 @@ private:
 	static const int defaultWidth = 800;
 	static const int defaultHeight = 600;
 	static const double zoomFactor = 2.0;
-	Buddha* b;
+	
+	
 	void scroll ( int dx, int dy );
 	void zoom ( double f, int cutdx = 0, int cutdy = 0 );
 	
-	PNGSaver saver;
-	
-	#if ZOOM
-	unsigned char alpha;
-	unsigned char lastAlpha;
-	QImage over;
-	bool haveSomething;
-	void setAlpha( );
-	unsigned char alphaStep;
-	#endif
 public slots:
-	void updateImage( );
+	void receivedFrame( );
 	void setMouseMode( bool );
+	void sendFrameRequest( );
+	void canRestartDrawing( );
 public:
 	
 
+	QTimer* timer;
 	RenderWindow( ControlWindow* parent, Buddha* b );
 	
 	bool valuesChanged( );
-	void clearBuffers ( );
-	
-
-	void saveScreenshot( QString fileName );
-	#if ZOOM
-	void setAlphaStep( unsigned char );
-	#endif
 protected:
 	void paintEvent(QPaintEvent *event);
 	void resizeEvent(QResizeEvent *event);
@@ -107,7 +96,9 @@ protected:
 	void mouseMoveEvent(QMouseEvent *event);
 	void mouseReleaseEvent(QMouseEvent *event);
 	void closeEvent(QCloseEvent* event );
-	
+signals:
+	void frameRequest( );
+	//void resizeBuffers( );
 };
 
 #endif

@@ -31,6 +31,9 @@
 #define COMPLEX_H
 
 #include <iostream>
+#include "staticStuff.h"
+
+
 
 /// semplified structure to store complex numbers and generate random complex numbers
 class complex {
@@ -81,12 +84,10 @@ public:
 	}
 	
 	inline void random2 ( struct random_data* buf ) {
-		int32_t result;
-		
-		random_r( buf, &result );
-		re = ( result << 1 ) * 9.31322575049159384821E-10;
-		random_r( buf, &result );
-		im = ( result << 1 ) * 9.31322575049159384821E-10;
+		//re = ( random( buf ) << 1 ) * 9.31322575049159384821E-10;
+		//im = ( random( buf ) << 1 ) * 9.31322575049159384821E-10;
+		re = scaleToTwo( random( buf ) );
+		im = scaleToTwo( random( buf ) );
 	}
 	
 	inline double mod ( ) {
@@ -95,13 +96,9 @@ public:
 	
 	
 	inline double randomCircle ( struct random_data* buf ) {
-		int32_t result;	
-		
 		while ( TRUE ) {
-			random_r( buf, &result );
-			re = ( result << 1 ) * 4.656612875245796924105E-10;
-			random_r( buf, &result );
-			im = ( result << 1 ) * 4.656612875245796924105E-10;
+			re = scaleToOne( random( buf ) );
+			im = scaleToOne( random( buf ) );
 	
 			double s = mod( );
 			if ( s < 1.0 ) return s;

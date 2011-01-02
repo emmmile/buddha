@@ -31,7 +31,8 @@
 #include <iostream>
 #include "renderWindow.h"
 #include "controlWindow.h"
-#include "staticutils.h"
+
+
 
 using namespace std;
 
@@ -44,25 +45,23 @@ void RenderWindow::closeEvent ( QCloseEvent* ) {
 RenderWindow::RenderWindow ( ControlWindow* parent, Buddha* b ) {
 	this->parent = parent;
 	this->b = b;
-
-	connect( b, SIGNAL(doneIteration(/*const QImage&*/)), this, SLOT(updateImage(/*const QImage &*/)));
+	timer = new QTimer( this );
+	mousex = mousey = 0.0;
+	alreadySent = false;
+	resizeSent = false;
+	disabledDrawing = false;
 
 	#ifndef QT_NO_CURSOR
 	setCursor(Qt::CrossCursor);
 	#endif
 	setMouseTracking( true );
 	resize( defaultWidth, defaultHeight );
-	mousex = mousey = 0.0;
 	setWindowIcon( parent->windowIcon() );
 	
-	#if ZOOM
-	alpha = 0;
-	haveSomething = false;
-	alphaStep = 20;
-        over = QImage( defaultWidth, defaultHeight, QImage::Format_ARGB32 );
-	setAlpha( );
-        over.fill( 0 );
-	#endif
+	connect( timer, SIGNAL( timeout() ), this, SLOT( sendFrameRequest() ) );
+	connect( this, SIGNAL( frameRequest( ) ), b, SLOT( updateRGBImage( ) ) );
+	connect( b, SIGNAL( imageCreated() ), this, SLOT( receivedFrame( ) ) );
+	connect( b, SIGNAL( settedValues( ) ), this, SLOT( canRestartDrawing( ) ) );
 
 	selectionBorder = QColor( 255, 255, 255, 191 );
 	selection = QColor( 255, 255, 255, 63 );
@@ -70,70 +69,73 @@ RenderWindow::RenderWindow ( ControlWindow* parent, Buddha* b ) {
 
 
 
-void RenderWindow::updateImage( ) {
-	#if ZOOM
-	if ( alpha > alphaStep ) 
-		alpha -= alphaStep ;
-	else	alpha = 0;
-	
-	if ( alpha != 0 ) 
-		setAlpha( );
-		
-	haveSomething = true;
-	#endif
+void RenderWindow::sendFrameRequest ( ) {
+	// this only tests if we already sent a frame request, otherwise the request
+	// accumulates on the buddha thread side, and slows a lot the responsivity also of the GUI
+	if ( !alreadySent ) {
+		emit frameRequest( );
+		alreadySent = true;
+	}
+}
 
-	
-	update();
+
+void RenderWindow::receivedFrame( ) {	
+	// a frame has been calculated by the buddha thread, simply I force a repaint
+	alreadySent = false;
+	update( );
+}
+
+// XXX maybe change the name... this can be received also after a resize
+void RenderWindow::canRestartDrawing( ) {
+	disabledDrawing = false;
+
+	// this is a strategy to don't resize the workers at every single resize event
+	// i enable the sending of "resize requests" only if I processed the previous one
+	resizeSent = false;
+	// so, from a resizeEvent to another, there can be a lot of them that has been not
+	// considered, so when I received a "resize done" from the buddha thread a manually
+	// control if the sizes are equal, and if not I send a new request
+	if ( size().height() != (int) b->h || size().width() != (int) b->w )
+		this->resizeEvent( new QResizeEvent( size(), QSize(b->w, b->h ) ) );
 }
 
 
 void RenderWindow::paintEvent( QPaintEvent* ) {
+	//qDebug() << "RenderWindow::paintEvent(), thread " << QThread::currentThreadId();
 	QPoint off( imageOffset.x() < 0 ? 0 : imageOffset.x(), imageOffset.y() < 0 ? 0 : imageOffset.y() );
 
-
-	//ttime();
-	
 	QPainter painter ( this );
 	painter.fillRect( rect(), Qt::black );
 	
-	
-if ( haveSomething ) {
-	b->lock(); // necessary for reading the image
-	out = QImage( (uchar*) b->RGBImage, b->w, b->h, QImage::Format_RGB32 );
-	painter.drawImage( off, out, rect() & rect().translated( -imageOffset ) );
-	b->unlock();
-}
-	
-	//printf( "PaintEvent 1: %lf\n", ttime() );
-
-	#if ZOOM
-	if ( alpha != 0 )
-		painter.drawImage( off, over, rect() & rect().translated( -imageOffset ) );
-	#endif
+	if ( !disabledDrawing ) {
+		// this blocks the interface if it found the buddha thread working. It's not a problem to remove them
+		// but sometimes it visualize an incomplete image (if the buddha thread is already working on the next frame
+		//b->mutex.lock();	// XXX these should be unnecessary
+		out = QImage( (uchar*) b->RGBImage, b->w, b->h, QImage::Format_RGB32 );
+		painter.drawImage( off, out, rect() & rect().translated( -imageOffset ) );
+		//b->mutex.unlock();
+	}
 	
 	painter.setPen( selectionBorder );
 	if ( begMouse != endMouse ) {
-		//painter.setBrush( selection );
+		painter.setBrush( selection );
 		painter.drawRect( QRect( begMouse, endMouse ) );
 	}
 	
-	painter.drawText( 2, size().height() - 2,
-			  "Re: " + QString::number( mousex, 'f', 8 ) +
+	painter.drawText( 2, size().height() - 2, "Re: " + QString::number( mousex, 'f', 8 ) + 
 			  ", Im: " + QString::number( mousey, 'f', 8 ) );
-	
-	
-	//printf( "PaintEvent 2: %lf\n", ttime() );
 }
 
 
 
 void RenderWindow::mousePressEvent(QMouseEvent *event) {
-
-	begMouse = endMouse = event->pos();	
+	qDebug() << "RenderWindow::mousePressEvent()";
+	begMouse = endMouse = event->pos();
 }
 
 
 void RenderWindow::mouseMoveEvent(QMouseEvent *event) {
+	//qDebug() << "RenderWindow::mouseMoveEvent()";
 	mousex = ( event->x() - 0.5 * width() ) / b->scale + b->cre;
 	mousey = ( -event->y() + 0.5 * height() ) / b->scale + b->cim;
 	
@@ -149,11 +151,11 @@ void RenderWindow::mouseMoveEvent(QMouseEvent *event) {
 	
 	
 	update();
-	//status->showMessage( QString::number( x ) + ", " + QString::number( y ) );
 }
 
 
 void RenderWindow::mouseReleaseEvent(QMouseEvent *event) {
+	qDebug() << "RenderWindow::mouseReleaseEvent()";
 	endMouse = event->pos();
 	if ( endMouse == begMouse ) return;
 	
@@ -172,80 +174,71 @@ void RenderWindow::mouseReleaseEvent(QMouseEvent *event) {
 		int dy = -0.5 * ( height() - endMouse.y() - begMouse.y() );
 		scroll( dx, dy );
 		zoom( scale );
-		// TODO ugly
-		parent->setValues( b->cre + dx / b->scale, b->cim - dy / b->scale, parent->getScale() );
-		parent->render();
+		// TODO ugly, this has been just set in the previous call
+		parent->putValues( b->cre + dx / b->scale, b->cim - dy / b->scale, parent->getScale() );
+		parent->sendValues( true );
+		disabledDrawing = true;
 	}
 	if ( event->button() == Qt::RightButton || event->button() == Qt::MidButton ) {
 		imageOffset = endMouse - begMouse;		
 		
 		scroll( -imageOffset.x(), -imageOffset.y() );
-		parent->render();
+		parent->sendValues( true );
+		disabledDrawing = true;
 	}
 	
 	begMouse = endMouse = event->pos();
 }
 
 
-
-
-void RenderWindow::resizeEvent( QResizeEvent* ) {
-	
-	
-	parent->render( );
-	over = QImage( size(), QImage::Format_ARGB32 );
-	over.fill( 0 );
-	haveSomething = false;
-	/*if ( !b->isPaused() ) {
-		cout << "Quasd..\n";
-		// XXX XXX
-	parent->render( );
-		#if ZOOM
-                over = QImage( size(), QImage::Format_ARGB32 );
-                over.fill( 0 );
-		haveSomething = false;
-		#endif
-	} else {
-		//if ( size().width() != parent->b->getW() || size().height() != parent->b->getH() )
-		if ( parent->valuesChanged() )
-			parent->setButtonStart( );
-		else 	parent->setButtonResume( );
-	}*/
+void RenderWindow::resizeEvent( QResizeEvent* resize ) {
+	qDebug() << "RenderWindow::resizeEvent()";
+	qDebug() << "New size: " << resize->size() << ", old size: " << resize->oldSize();
+	if ( resize->oldSize() != QSize(-1,-1) && !resizeSent ) {
+		parent->sendValues( true );
+		disabledDrawing = true;
+		resizeSent = true;
+	}
 }
-
-
 
 
 void RenderWindow::keyPressEvent( QKeyEvent *event ) {
 	switch (event->key()) {
 		case Qt::Key_Plus:
 			zoom( zoomFactor );
-			parent->render();
+			parent->sendValues( true );
+			if ( parent->valuesChanged() ) disabledDrawing = true;
 			break;
 		case Qt::Key_Minus:
 			zoom( 1.0 / zoomFactor );
-			parent->render();
+			parent->sendValues( true );
+			if ( parent->valuesChanged() ) disabledDrawing = true;
 			break;
 		case Qt::Key_Left:
 			scroll(-scrollStep, 0);
-			parent->render();
+			parent->sendValues( true );
+			if ( parent->valuesChanged() ) disabledDrawing = true;
 			break;
 		case Qt::Key_Right:
 			scroll(+scrollStep, 0);
-			parent->render();
+			parent->sendValues( true );
+			if ( parent->valuesChanged() ) disabledDrawing = true;
 			break;
 		case Qt::Key_Down:
 			scroll(0, +scrollStep);
-			parent->render();
+			parent->sendValues( true );
+			if ( parent->valuesChanged() ) disabledDrawing = true;
 			break;
 		case Qt::Key_Up:
 			scroll(0, -scrollStep);
-			parent->render();
+			parent->sendValues( true );
+			if ( parent->valuesChanged() ) disabledDrawing = true;
                         break;
 		default:
 			QWidget::keyPressEvent(event);
 	}
 }
+
 
 
 void RenderWindow::wheelEvent(QWheelEvent *event) {
@@ -258,142 +251,36 @@ void RenderWindow::wheelEvent(QWheelEvent *event) {
 	} else	dx = dy = 0;
 	
 	zoom( factor, dx, dy );
-	parent->render();
+	parent->sendValues( true );
+	if ( parent->valuesChanged() ) disabledDrawing = true;
 }
 
 
-
 void RenderWindow::scroll ( int dx, int dy ) {
+	qDebug() <<"RenderWindow::scroll()";
 	if ( dx == 0 && dy == 0 ) return;
 
 	imageOffset = QPoint( 0, 0 );
-
-	#if ZOOM
-	if ( !haveSomething ) {
-		// if out is empty (I've not obtaine an image from the rendering threads, I create
-		// a black image and I plot on it the one that I had before
-		out = QImage( size(), QImage::Format_RGB32 );
-		out.fill( 0 );
-	}
-	
-	alpha = 255;
-	
-	// I draw over out (the old image, eventually nothing) and then I save the
-	// interesting part like "new" over
-	QPainter painter( &out );
-	
-	b->lock();
-	painter.drawImage( 0, 0, over );
-	painter.end();
-	over = out.copy( QRect( QPoint( dx, dy ), size() ) ).convertToFormat( QImage::Format_ARGB32 );
-	b->unlock();
-	#endif
-	
-	
-	
-	haveSomething = true;
-	parent->setValues( b->cre + dx / b->scale, b->cim - dy / b->scale, parent->getScale() );
-	update( );
+	parent->putValues( b->cre + dx / b->scale, b->cim - dy / b->scale, parent->getScale() );
 }
 
 
 // zoom of a factor factor and translate of dx dy
 void RenderWindow::zoom ( double factor, int cutdx, int cutdy ) {
-	#if ZOOM
+	qDebug() <<"RenderWindow::zoom()";
+	
 	double multiplier = 0.5 - 0.5 / factor;
 	QPoint topLeft( multiplier * ( width() + 2.0 * cutdx ), multiplier * ( height() + 2.0 * cutdy ) );
 	QPoint newCentre( multiplier * 2.0 * cutdx, multiplier * 2.0 * cutdy );
 	
-	// like in scroll(), if I have nothing I build a black image
-	if ( !haveSomething ) {
-		out = QImage( size(), QImage::Format_RGB32 );
-		out.fill( 0 );
-	}
-		
-	alpha = 255;
-	b->lock();
-	QPainter painter( &out );
-	painter.drawImage( QPoint( 0, 0 ), over );
-	painter.end();
-	over = out.copy( QRect( topLeft, size() / factor ) ).convertToFormat( QImage::Format_ARGB32 ).scaled( size() );
-	b->unlock();
-	#endif
-	
-	
-	haveSomething = false;
-	parent->setValues( b->cre + newCentre.x() / b->scale, 
-			   b->cim - newCentre.y() / b->scale,
-			   b->scale * factor );
-	//cout << parent->getCim() << endl;
-	update( );
+	parent->putValues( b->cre + newCentre.x() / b->scale, b->cim - newCentre.y() / b->scale, b->scale * factor );
 }
-
-
-void RenderWindow::clearBuffers ( ) {
-#if ZOOM
-	alpha = 0;
-	update( );
-#endif
-	b->clear( );
-}
-
-#if ZOOM
-// change the transparency of the image.. it seems that the Qt doesn't have a feature like this :S
-void RenderWindow::setAlpha ( ) {
-	ttime();
-	
-	unsigned char* last = over.bits() + over.width() * over.height() * sizeof( int );
-	
-	
-	
-	if ( over.format() == QImage::Format_ARGB32_Premultiplied ) {
-		//float factor = alpha / 255.0f;
-		//for ( unsigned char* j = over.bits(); j < last; ) {
-		//	*(j++) *= factor; *(j++) *= factor; *(j++) *= factor;  *(j++) = alpha;
-		//}
-		cerr << "QImage::Format_ARGB32_Premultiplied Not Supported.\n";
-		return;
-	}
-	
-	
-	
-	for ( unsigned char* j = over.bits() + 3; j < last + 3; j += 4 )
-		*j = alpha;
-}
-
-void RenderWindow::setAlphaStep( unsigned char step ) {
-	alphaStep = step;
-}
-#endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 bool RenderWindow::valuesChanged ( ) {
 	return width() != (int) b->w || height() != (int) b->h;
 }
 
-
-
-void RenderWindow::saveScreenshot( QString fileName ) {
-	saver.set( b, fileName );
-	saver.start( );
-}
-
 void RenderWindow::setMouseMode( bool mode ) {
 	this->zoomMode = mode;
 }
+

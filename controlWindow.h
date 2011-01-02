@@ -67,7 +67,7 @@ public:
 	static const double initialScale = 200;
 	static const double initialCre = 0.0;
 	static const double initialCim = 0.0;
-	static const int initialFps = 40;
+	static const int initialFps = 20;
 	
 	static const double minScale = 100.0;
 	static const double maxScale = 1.34217728E+8 * 128.0;
@@ -77,7 +77,7 @@ public:
 	static const double minIm = -2.0;
 	static const int maxLightness = 200;
 	static const int maxContrast = 200;
-	static const int maxFps = 100;
+	static const int maxFps = 40;
 	
 	// XXX test values
 	//cre = -1.009338378906250; cim = -0.907791137695312; scale = 131072;
@@ -113,9 +113,7 @@ public:
 	QSlider *lightSlider;
 	QLabel *fpsLabel, *threadsLabel;
 	QSlider *fpsSlider, *threadsSlider;
-	QRadioButton* normalRadio, *metropolisRadio;
 	QRadioButton* normalZoom, *mouseZoom;
-	QLabel* algoLabel;
 	QIcon* icon;
 	QLabel* mouseLabel;
 	
@@ -123,6 +121,8 @@ public:
 	QMenu* fileMenu, *viewMenu, *helpMenu;
 	
 	RenderWindow* renderWin;
+	
+	int sleepTime;
 
 	void createGraphBox ( );
 	void createRenderBox ( );
@@ -133,33 +133,32 @@ public:
 	void updateGreenLabel( );
 	void updateBlueLabel( );
 	void updateFpsLabel( );
+	void updateThreadLabel( int );
 	void setColorSliders( int, int, int );
 	void setImageSliders( int, int, int );
 public:
-	QPushButton *currentButton;
+	//QPushButton *currentButton;
 	QPushButton *resetButton;
 	QPushButton *startButton;
-	QPushButton *defaultButton;
+	//QPushButton *defaultButton;
 	QAction* exitAct, *aboutQtAct, *aboutAct, *screenShotAct, *saveAct, *openAct;
 
 	ControlWindow ( );
-	~ControlWindow ( );
 	
 	bool valuesChanged( );
-	void setValues( double, double, double );
+	void putValues( double, double, double );
 	static int expVal ( int x ) { return (int) pow( 2.0, x / 2.0 ); }
 	void setCenter( double, double );
-	void viewStartButton ( );
+	//void viewStartButton ( );
 	double getCre( ) { return cre; }
 	double getCim( ) { return cim; }
 	double getScale( ) { return scale; }
-	void render ( );
 public slots:
 	void handleStartButton( );
 	void handleResetButton( );
-	void handleCurrentButton( );
+	//void handleCurrentButton( );
 	void renderWinClosed( );
-	void handleDefaultButton( );
+	//void handleDefaultButton( );
 	void exit( );
 	void setRedIterationDepth( int value );
 	void setGreenIterationDepth( int value );
@@ -173,13 +172,21 @@ public slots:
 	void setCre ( double d );
 	void setCim ( double d );
 	void setScale ( double d );
-	void setAlgorithm ( bool m );
+	void setThreadNum ( int value );
 	void about ( );
 	void saveScreenshot( );
 	void saveConfig( );
 	void openConfig( );
+	void sendValues( bool pause = true );
 signals:
 	void closed ( );
+	void setValues( double cre, double cim, double scale, uint r, uint g, uint b, QSize wsize, bool pause );
+	void startCalculation( );
+	void stopCalculation( );
+	void pauseCalculation( );
+	void clearBuffers( );
+	void changeThreadNumber( int );
+	void screenshotRequest ( QString fileName );
 protected:
 	void closeEvent ( QCloseEvent * event );
 };
