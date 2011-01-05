@@ -74,18 +74,8 @@ int BuddhaGenerator::test ( unsigned int& calculated ) {
 	
 	calculated = b->high;
 	return b->high;
-}*/
-
-
-
-
-
-
-
-
-
-
-
+}
+*/
 
 
 
@@ -125,8 +115,10 @@ bool BuddhaGenerator::flow ( ) {
 	//QMutexLocker lock ( &mutex );
 	
 	if ( status == PAUSE ) {
-		pauseCondition->wakeOne();
+		//pauseCondition->wakeOne();
+		b->semaphore.release( 1 );
 		resumeCondition.wait( &mutex );
+		//b->semaphore.acquire( 1 );
 	}
 	if ( status == STOP ) return false;
 	
@@ -134,11 +126,10 @@ bool BuddhaGenerator::flow ( ) {
 }
 
 
-void BuddhaGenerator::pause ( QWaitCondition* pauseCondition ) {
+void BuddhaGenerator::pause ( ) {
 	//QMutexLocker lock ( &mutex );
 	status = PAUSE;
-	this->pauseCondition = pauseCondition;
-	pauseCondition->wait( &mutex );
+	//pauseCondition->wait( &mutex );
 }
 
 void BuddhaGenerator::resume ( ) {
@@ -147,11 +138,10 @@ void BuddhaGenerator::resume ( ) {
 	resumeCondition.wakeOne();
 }
 
-void BuddhaGenerator::stop ( QWaitCondition* pauseCondition ) {
+void BuddhaGenerator::stop ( ) {
 	//QMutexLocker lock ( &mutex );
 	status = STOP;
-	this->pauseCondition = pauseCondition;
-	pauseCondition->wait( &mutex );
+	//pauseSemaphore->release( 1 );
 }
 
 
@@ -213,7 +203,7 @@ int BuddhaGenerator::evaluate ( unsigned int& calculated ) {
 			}
 		}
 		
-		z.re = sqr( seq[i].re ) - sqr( seq[i].im ) + seq[0].re;
+		z.re = seq[i].re * seq[i].re - seq[i].im * seq[i].im + seq[0].re;
 		z.im = 2.0 * seq[i].re * seq[i].im + seq[0].im;
 		seq[++i].re = z.re;
 		seq[i].im = z.im;
@@ -309,28 +299,6 @@ unsigned int BuddhaGenerator::contribute ( int maxIndex ) {
 }
 
 
-// normal buddhabrot drawing function, no metropolis
-int BuddhaGenerator::normal ( ) {
-	// normal uniform search
-	int maxIndex;
-	unsigned int calculated = 0;
-	
-	// generate a random point
-	seq[0].randomGaussian2( &buf );
-	// calculate the sequence
-	maxIndex = evaluate( calculated );
-
-	// draw on the plot, synchronization stuff
-	QMutexLocker locker( &mutex );
-	for ( unsigned int j = 0; (int) j <= maxIndex && j < b->high; j++ )
-		drawPoint( seq[j], j < b->highr, j < b->highg, j < b->highb );
-	
-	if ( !flow( ) ) 
-		return -1;
-	else 	return calculated;
-}
-
-
 // the metropolis algorithm. I don't know very much about the teory under this optimization but I think is
 // implemented quite well.. Maybe a better method for the transition probability can be found but I don't know.
 int BuddhaGenerator::metropolis ( ) {
@@ -406,16 +374,14 @@ int BuddhaGenerator::metropolis ( ) {
 
 
 void BuddhaGenerator::run ( ) {
+	//b->semaphore.acquire( 1 );
+
 	int exit = 0;
 	
 	do {
 		exit = metropolis( );
 	} while ( exit != -1 );
 	
-	// another thread maybe is waiting that I've finished
-	if ( pauseCondition )
-		pauseCondition->wakeOne();
+	// the buddha thread maybe is waiting that I've finished
+	b->semaphore.release();
 }
-
-
-

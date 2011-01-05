@@ -132,19 +132,19 @@ void ControlWindow::createGraphBox ( ) {
 	iterationRedLabel = new QLabel( graphBox );
 	redSlider = new QSlider( graphBox );
 	redSlider->setOrientation(Qt::Horizontal);
-	redSlider->setMaximum( 40 );
+	redSlider->setMaximum( maxDepth );
 	redSlider->setSliderPosition( initialRed );
 	redSlider->setToolTip( "After how many iterations a red point will be drawn?" );
 	iterationGreenLabel = new QLabel( graphBox );
 	greenSlider = new QSlider( graphBox );
 	greenSlider->setOrientation(Qt::Horizontal);
-	greenSlider->setMaximum( 40 );
+	greenSlider->setMaximum( maxDepth );
 	greenSlider->setSliderPosition( initialGreen );
 	greenSlider->setToolTip( "After how many iterations a green point will be drawn?" );
 	iterationBlueLabel = new QLabel( graphBox );
 	blueSlider = new QSlider( graphBox );
 	blueSlider->setOrientation(Qt::Horizontal);
-	blueSlider->setMaximum( 40 );
+	blueSlider->setMaximum( maxDepth );
 	blueSlider->setSliderPosition( initialBlue );
 	blueSlider->setToolTip( "After how many iterations a blue point will be drawn?" );
 	

@@ -59,6 +59,7 @@ public:
 	double step;
 	Buddha* b;
 	
+	static const int maxDepth = 40;
 	static const int initialRed = 26;
 	static const int initialGreen = 20;
 	static const int initialBlue = 14;
@@ -90,6 +91,12 @@ public:
 	//cre = -1.267664853065472; cim = -0.355240946698251; scale = 4.29496e+09;
 	// per gli artefatti
 	//cre = -1.991965715937304; cim = 0.0; scale = 8192.0;
+	
+	// very good test for finding random points
+	//cre = -0.402435063612580;
+	//cim = 0.602973178150621;
+	//scale = 2157234.45378;
+	
 	
 	QWidget *centralWidget;
 	QGroupBox *graphBox;

@@ -47,7 +47,7 @@
 #endif
 
 
-// x MUST be an int32t
+// x MUST be an int32_t
 #define scaleToOne(x)		( ( (x) << 1 ) / (double) RAND_MAX )
 #define scaleToTwo(x)		( scaleToOne(x) * 2.0 )
 #define scaleToOnePositive(x)	( (x) / (double) RAND_MAX )

@@ -39,7 +39,7 @@
 #include <stdlib.h>
 #include <QThread>
 #include <QMutex>
-#include <QWaitCondition>
+#include <QSemaphore>
 #include <QImage>
 #include <cstdio>
 #include <QDebug>
@@ -74,7 +74,7 @@ public:
 	QMutex mutex;
 	
 	// for waiting that a BuddhaGenerator has been stopped
-	QWaitCondition pauseCondition;
+	QSemaphore semaphore;
 	
 	// since this class is also used as "container" for the various generators
 	// I use directly public variables instead private members and functions like set*()

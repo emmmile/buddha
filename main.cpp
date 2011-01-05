@@ -36,7 +36,7 @@
 
 
 
-int main ( int argc, char** argv ) {	
+int main ( int argc, char** argv ) {
 	qDebug() << "main(), thread " << QThread::currentThreadId();
 	QApplication app(argc, argv);
 	ControlWindow control;

@@ -192,8 +192,8 @@ void RenderWindow::mouseReleaseEvent(QMouseEvent *event) {
 
 
 void RenderWindow::resizeEvent( QResizeEvent* resize ) {
-	qDebug() << "RenderWindow::resizeEvent()";
-	qDebug() << "New size: " << resize->size() << ", old size: " << resize->oldSize();
+	//qDebug() << "RenderWindow::resizeEvent()";
+	//qDebug() << "New size: " << resize->size() << ", old size: " << resize->oldSize();
 	if ( resize->oldSize() != QSize(-1,-1) && !resizeSent ) {
 		parent->sendValues( true );
 		disabledDrawing = true;

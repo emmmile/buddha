@@ -37,6 +37,7 @@
 #include <QThread>
 #include <QMutex>
 #include <QWaitCondition>
+#include <QSemaphore>
 #include <QImage>
 #include <cstdio>
 #include <iostream>
@@ -70,7 +71,7 @@ public:
 	int findPoint ( unsigned int& calculated );
 	double distance ( unsigned int slen );
 	unsigned int contribute(int);
-	int normal();
+	//int normal();
 	int metropolis();
 	
 	
@@ -87,12 +88,11 @@ public:
 	
 	// for the synchronization and for controlling the execution
 	QMutex mutex;
-	QWaitCondition resumeCondition;		// this is to stop the Worker
-	QWaitCondition* pauseCondition; 	// this to inform another thread that I'm paused or stopped
+	QWaitCondition resumeCondition;		// this is to stop the Worker and wait for the resume signal
 	CurrentStatus status;
 	
-	void pause ( QWaitCondition* pauseCondition );
-	void stop ( QWaitCondition* stopCondition );
+	void pause ( );
+	void stop ( );
 	void resume ( );
 	bool flow ( );				// test if we have to stop, pause or whatever
 	void run ( );	

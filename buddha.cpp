@@ -95,7 +95,7 @@ void Buddha::createImage ( ) {
 
 
 void Buddha::updateRGBImage( ) {
-	qDebug() << "Buddha::updateRGBImage(), thread " << QThread::currentThreadId();
+	//qDebug() << "Buddha::updateRGBImage(), thread " << QThread::currentThreadId();
 	memset( raw, 0, 3 * size * sizeof( int ) );
 	
 	for ( int i = 0; i < threads; ++i ) {
@@ -178,8 +178,7 @@ Buddha::~Buddha ( ) {
 
 void Buddha::changeThreadNumber ( int threads ) {
 	qDebug() << "Buddha::changeThreadNumber(" << threads << "), was " << this->threads;
-	
-	
+
 	// resize the array only if it is bigger
 	if ( threads > (int) generators.size() ) generators.resize( threads );
 	
@@ -195,8 +194,10 @@ void Buddha::changeThreadNumber ( int threads ) {
 	
 	// second case: I have to stop someting
 	for ( int i = threads; i < this->threads; ++i ) {
-		if ( generatorsStatus != STOP )
-			generators[i]->stop( &pauseCondition );
+		if ( generatorsStatus != STOP ) {
+			QMutexLocker locker( &generators[i]->mutex );
+			generators[i]->stop( );
+		}
 	}
 	
 	
@@ -241,11 +242,10 @@ void Buddha::resizeBuffers( ) {
 		QMutexLocker( &generators[i]->mutex );
 		// could be done also indirectly but it not so costly
 		generators[i]->raw = (unsigned int*) realloc( generators[i]->raw, 3 * size * sizeof( unsigned int ) );
-		//memset( generators[i]->raw, 0, 3 * size * sizeof( unsigned int ) );
 	}
 }
 
-void Buddha::clearBuffers ( ) {	
+void Buddha::clearBuffers ( ) {
 	qDebug() << "Buddha::clearBuffers()";
 	mutex.lock();
 	memset( RGBImage, 0, size * sizeof( int ) );
@@ -265,49 +265,66 @@ void Buddha::startGenerators ( ) {
 		generators[i]->initialize( this );
 		generators[i]->start( );
 	}
-	
+
+	//semaphore.acquire( threads );
 	emit startedGenerators( true );	
 	generatorsStatus = RUN;
 }
 
-// TODO this pause-resume functions could be implemented a lot better!!!
-// example: with QSemaphore or however not waiting for a thread after the other
 
+// stop the generators if they're running and if their status is different from STOP.
+// XXX this can cause problems if a generator is in PAUSE, but for how the program is designed
+// I think this is impossible.
+// If the threads were running acquire completely the semaphore.
 void Buddha::stopGenerators ( ) {
 	qDebug() << "Buddha::stopGenerators()";
+
 	for ( int i = 0; i < threads; ++i ) {
 		if ( generators[i]->isRunning() ) {
 			QMutexLocker locker( &generators[i]->mutex );
 			if ( generators[i]->status != STOP )
-				generators[i]->stop( &pauseCondition );
+				generators[i]->stop( );
 		}
 	}
-	
+
+	if ( generatorsStatus == RUN )
+		semaphore.acquire( threads );
+
 	emit stoppedGenerators( true );
 	generatorsStatus = STOP;
 }
 
+// similar to the previous
 void Buddha::pauseGenerators ( ) {
 	qDebug() << "Buddha::pauseGenerators()";
-	for ( int i = 0; i < threads; ++i ) {
+
+	for ( int i = 0; i < threads && generatorsStatus == RUN; ++i ) {
 		if ( generators[i]->isRunning() ) {
 			QMutexLocker locker( &generators[i]->mutex );
 			if ( generators[i]->status == RUN )
-				generators[i]->pause( &pauseCondition );
+				generators[i]->pause( );
 		}
 	}
-	
-	generatorsStatus = PAUSE;
+
+	if ( generatorsStatus == RUN ) {
+		semaphore.acquire( threads );
+		generatorsStatus = PAUSE;
+	}
 }
 
 void Buddha::resumeGenerators ( ) {
-	qDebug() << "Buddha::resumetGenerators()";
-	for ( int i = 0; i < threads; ++i ) {
+	qDebug() << "Buddha::resumeGenerators()";
+
+	// Here I should first release and then re-aquire incrementally the semaphore
+	// from the BuddhaGenerators. I simply leave it acquired.
+
+	for ( int i = 0; i < threads && generatorsStatus == PAUSE; ++i ) {
 		QMutexLocker locker( &generators[i]->mutex );
 		generators[i]->resume( );
 	}
 	
-	generatorsStatus = RUN;
+	if ( generatorsStatus == PAUSE )
+		generatorsStatus = RUN;
 }
 
 
