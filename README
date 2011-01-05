@@ -1,6 +1,5 @@
 Currently to build I use:
 
-qmake -project
 qmake
 make
 
