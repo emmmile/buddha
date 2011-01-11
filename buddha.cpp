@@ -42,7 +42,7 @@
 
 
 Buddha::Buddha( QObject *parent ) : QThread( parent ) {
-	size = w = h = highr = highg = highb = 0;
+        size = w = h = lowr = lowg = lowb = highr = highg = highb = 0;
 	cre = cim = scale = 0.0;
 	raw = NULL;
 	RGBImage = NULL;
@@ -120,7 +120,7 @@ void Buddha::saveScreenshot ( QString fileName ) {
 	out.save( fileName, "PNG" );
 }
 
-void Buddha::set( double re, double im, double s, uint r, uint g, uint b, QSize wsize, bool pause ) {
+void Buddha::set( double re, double im, double s, uint lr, uint lg, uint lb, uint hr, uint hg, uint hb, QSize wsize, bool pause ) {
 	qDebug() << "Buddha::set()";
 	bool haveToClear = (wsize.width() != (int) w) || (wsize.height() != (int) h) ||(re != cre) || (im != cim) || (s != scale);
 	
@@ -143,10 +143,14 @@ void Buddha::set( double re, double im, double s, uint r, uint g, uint b, QSize 
 	maxre = cre + rangere * 0.5;
 	minim = cim - rangeim * 0.5;
 	maxim = cim + rangeim * 0.5;
-	highr = r;
-	highg = g;
-	highb = b;
+        lowr = lr;
+        lowg = lg;
+        lowb = lb;
+        highr = hr;
+        highg = hg;
+        highb = hb;
 	high = max( max( highr, highg ), highb );
+        low = min( min(lowr, lowg), lowb);
 	resizeSequences( );
 	//status = RUN;
 	

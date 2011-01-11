@@ -194,7 +194,7 @@ int BuddhaGenerator::evaluate ( unsigned int& calculated ) {
 	double dist;
 	
 	
-	for ( i = 0; i < b->high - 1; ) {
+        for ( i = 0; i < b->high - 1; ) {
 		if ( seq[i].mod( ) > 4.0 ) {
 			// slower but more beautiful to see. I stop only if I'm outside of the screen.
 			if ( !inside( seq[i] ) ) {
@@ -366,7 +366,7 @@ int BuddhaGenerator::metropolis ( ) {
 		// draw the points
 		QMutexLocker locker( &mutex );
 		for ( unsigned int h = 0; (int) h <= proposedOrbitMax && h < b->high && proposedOrbitCount > 0; h++ )
-			drawPoint( seq[h], h < b->highr, h < b->highg, h < b->highb );
+                        drawPoint( seq[h], h < b->highr && h > b->lowr, h < b->highg && h > b->lowg, h < b->highb && h > b->lowb);
 	}
 	
 	return total;
