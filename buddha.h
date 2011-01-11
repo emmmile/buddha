@@ -82,6 +82,10 @@ public:
 	double maxre, maxim;
 	double minre, minim;
 	double cre, cim;
+        unsigned int low;
+        unsigned int lowr;
+        unsigned int lowg;
+        unsigned int lowb;
 	unsigned int high;
 	unsigned int highr;
 	unsigned int highg;
@@ -128,7 +132,7 @@ public slots:
 	void updateRGBImage( );
 	void pauseGenerators( );
 	void resumeGenerators( );
-	void set( double cre, double cim, double scale, uint r, uint g, uint b, QSize wsize, bool pause );
+        void set( double cre, double cim, double scale, uint lr, uint lg, uint lb, uint hr, uint hg, uint hb, QSize wsize, bool pause );
 	void clearBuffers ( );
 	void resizeBuffers ( );
 	void resizeSequences ( );

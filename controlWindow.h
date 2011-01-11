@@ -38,19 +38,15 @@
 
 
 
-
-
-
-
-
-
-
 class ControlWindow : public QMainWindow {
 	Q_OBJECT
 
 public:
-	unsigned int highr, highg, highb;
-	int red, green, blue;
+        unsigned int lowr, lowg, lowb;
+        unsigned int highr, highg, highb;
+        //int red, green, blue;
+        int minR, minG, minB;
+        int maxR, maxG, maxB;
 	int contrast, lightness, fps;
 	int loadedContrast, loadedLightness;
 	double cre;
@@ -60,9 +56,18 @@ public:
 	Buddha* b;
 	
 	static const int maxDepth = 40;
-	static const int initialRed = 26;
-	static const int initialGreen = 20;
-	static const int initialBlue = 14;
+//   	static const int initialRed = 26;
+//	static const int initialGreen = 20;
+//	static const int initialBlue = 14;
+
+        static const int initialMinR = 0;
+        static const int initialMinG = 0;
+        static const int initialMinB = 0;
+
+        static const int initialMaxR = 128;
+        static const int initialMaxG = 256;
+        static const int initialMaxB = 512;
+
 	static const int initialLight = 100;
 	static const int initialContrast = 100;
 	static const double initialScale = 200;
@@ -110,9 +115,18 @@ public:
 	QDoubleSpinBox *zoomBox;
 	QLabel *iterationGreenLabel;
 	QLabel *iterationBlueLabel;
-	QSlider *redSlider;
-	QSlider *greenSlider;
-	QSlider *blueSlider;
+//	QSlider *redSlider;
+//     	QSlider *greenSlider;
+//	QSlider *blueSlider;
+
+        QSpinBox *minRbox;
+        QSpinBox *minGbox;
+        QSpinBox *minBbox;
+
+        QSpinBox *maxRbox;
+        QSpinBox *maxGbox;
+        QSpinBox *maxBbox;
+
 	QGroupBox *renderBox;
 	QLabel *contrastLabel;
 	QSlider *contrastSlider;
@@ -141,7 +155,7 @@ public:
 	void updateBlueLabel( );
 	void updateFpsLabel( );
 	void updateThreadLabel( int );
-	void setColorSliders( int, int, int );
+        void setColorValues( int, int, int, int, int, int );
 	void setImageSliders( int, int, int );
 public:
 	//QPushButton *currentButton;
@@ -167,9 +181,17 @@ public slots:
 	void renderWinClosed( );
 	//void handleDefaultButton( );
 	void exit( );
-	void setRedIterationDepth( int value );
-	void setGreenIterationDepth( int value );
-	void setBlueIterationDepth( int value );
+        //void setRedIterationDepth( int value );
+        //void setGreenIterationDepth( int value );
+        //void setBlueIterationDepth( int value );
+        void setMinRIteration(int value);
+        void setMinGIteration(int value);
+        void setMinBIteration(int value);
+
+        void setMaxRIteration(int value);
+        void setMaxGIteration(int value);
+        void setMaxBIteration(int value);
+
 	void setLightness( int value );
 	void setContrast( int value );
 	void setFps( int value );
@@ -187,7 +209,7 @@ public slots:
 	void sendValues( bool pause = true );
 signals:
 	void closed ( );
-	void setValues( double cre, double cim, double scale, uint r, uint g, uint b, QSize wsize, bool pause );
+        void setValues( double cre, double cim, double scale, uint lowr, uint lowg, uint lowb, uint highr, uint highg, uint highb, QSize wsize, bool pause );
 	void startCalculation( );
 	void stopCalculation( );
 	void pauseCalculation( );
