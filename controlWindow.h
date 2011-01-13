@@ -44,7 +44,6 @@ class ControlWindow : public QMainWindow {
 public:
         unsigned int lowr, lowg, lowb;
         unsigned int highr, highg, highb;
-        //int red, green, blue;
         int minR, minG, minB;
         int maxR, maxG, maxB;
 	int contrast, lightness, fps;
@@ -55,15 +54,12 @@ public:
 	double step;
 	Buddha* b;
 	
-	static const int maxDepth = 40;
-//   	static const int initialRed = 26;
-//	static const int initialGreen = 20;
-//	static const int initialBlue = 14;
+//	static const int maxDepth = 40;
 
+        // Min/Max iteration values (TODO: should be uint)
         static const int initialMinR = 0;
         static const int initialMinG = 0;
         static const int initialMinB = 0;
-
         static const int initialMaxR = 128;
         static const int initialMaxG = 256;
         static const int initialMaxB = 512;
@@ -75,7 +71,7 @@ public:
 	static const double initialCim = 0.0;
 	static const int initialFps = 20;
 	
-	static const double minScale = 100.0;
+        static const double minScale = 100.0;   //should start at 1, not 100.
 	static const double maxScale = 1.34217728E+8 * 128.0;
 	static const double maxRe = 2.0;
 	static const double maxIm = 2.0;
@@ -114,17 +110,16 @@ public:
 	QLabel *zoomLabel;
 	QDoubleSpinBox *zoomBox;
 	QLabel *iterationGreenLabel;
-	QLabel *iterationBlueLabel;
-//	QSlider *redSlider;
-//     	QSlider *greenSlider;
-//	QSlider *blueSlider;
+        QLabel *iterationBlueLabel;
+
 
         QSpinBox *minRbox;
-        QSpinBox *minGbox;
-        QSpinBox *minBbox;
-
         QSpinBox *maxRbox;
+
+        QSpinBox *minGbox;
         QSpinBox *maxGbox;
+
+        QSpinBox *minBbox;
         QSpinBox *maxBbox;
 
 	QGroupBox *renderBox;
@@ -181,9 +176,7 @@ public slots:
 	void renderWinClosed( );
 	//void handleDefaultButton( );
 	void exit( );
-        //void setRedIterationDepth( int value );
-        //void setGreenIterationDepth( int value );
-        //void setBlueIterationDepth( int value );
+
         void setMinRIteration(int value);
         void setMinGIteration(int value);
         void setMinBIteration(int value);

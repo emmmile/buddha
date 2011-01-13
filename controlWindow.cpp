@@ -84,17 +84,12 @@ ControlWindow::ControlWindow ( )  {
         setMaxRIteration(maxR);
         setMaxGIteration(maxG);
         setMaxBIteration(maxB);
-//	setGreenIterationDepth( green );
-//	setBlueIterationDepth( blue );
 	
 	setLightness( initialLight );
 	setContrast( initialContrast );
 	putValues ( cre, cim, scale );
 	setFps( initialFps );
 
-//	connect( greenSlider, SIGNAL( valueChanged( int ) ), this, SLOT( setGreenIterationDepth( int ) ) );
-//	connect( blueSlider, SIGNAL( valueChanged( int ) ), this, SLOT( setBlueIterationDepth( int ) ) );
-//	connect( redSlider, SIGNAL( valueChanged( int ) ), this, SLOT( setRedIterationDepth( int ) ) );
         connect(minRbox, SIGNAL(valueChanged(int)), this, SLOT(setMinRIteration(int)));
         connect(minGbox, SIGNAL(valueChanged(int)), this, SLOT(setMinGIteration(int)));
         connect(minBbox, SIGNAL(valueChanged(int)), this, SLOT(setMinBIteration(int)));
@@ -135,9 +130,6 @@ ControlWindow::ControlWindow ( )  {
 	connect( reBox, SIGNAL( valueChanged( double ) ), this, SLOT( sendValues( ) ) );
 	connect( imBox, SIGNAL( valueChanged( double ) ), this, SLOT( sendValues( ) ) );
 	connect( zoomBox, SIGNAL( valueChanged( double ) ), this, SLOT( sendValues( ) ) );
-//	connect( greenSlider, SIGNAL( valueChanged( int ) ), this, SLOT( sendValues( ) ) );
-//	connect( blueSlider, SIGNAL( valueChanged( int ) ), this, SLOT( sendValues( ) ) );
-//	connect( redSlider, SIGNAL( valueChanged( int ) ), this, SLOT( sendValues( ) ) );
         connect( minRbox, SIGNAL( valueChanged( int ) ), this, SLOT( sendValues( ) ) );
         connect( minGbox, SIGNAL( valueChanged( int ) ), this, SLOT( sendValues( ) ) );
         connect( minBbox, SIGNAL( valueChanged( int ) ), this, SLOT( sendValues( ) ) );
@@ -152,26 +144,7 @@ ControlWindow::ControlWindow ( )  {
 void ControlWindow::createGraphBox ( ) {
 	graphBox = new QGroupBox( tr( "Graph quality" ), this );
 	
-
-//	redSlider = new QSlider( graphBox );
-//	redSlider->setOrientation(Qt::Horizontal);
-//	redSlider->setMaximum( maxDepth );
-//	redSlider->setSliderPosition( initialRed );
-//	redSlider->setToolTip( "After how many iterations a red point will be drawn?" );
-
-//	greenSlider = new QSlider( graphBox );
-//	greenSlider->setOrientation(Qt::Horizontal);
-//	greenSlider->setMaximum( maxDepth );
-//	greenSlider->setSliderPosition( initialGreen );
-//	greenSlider->setToolTip( "After how many iterations a green point will be drawn?" );
-
-//	blueSlider = new QSlider( graphBox );
-//	blueSlider->setOrientation(Qt::Horizontal);
-//	blueSlider->setMaximum( maxDepth );
-//	blueSlider->setSliderPosition( initialBlue );
-//	blueSlider->setToolTip( "After how many iterations a blue point will be drawn?" );
-
-        iterationRedLabel = new QLabel( "red", graphBox );
+        iterationRedLabel = new QLabel( "Red iteration min/max :", graphBox );
         minRbox = new QSpinBox(graphBox);
         minRbox->setMinimum(0);
         minRbox->setMaximum(INT_MAX);
@@ -186,7 +159,7 @@ void ControlWindow::createGraphBox ( ) {
         maxRbox->setButtonSymbols( QAbstractSpinBox::PlusMinus );
         maxRbox->setValue(initialMaxR);
 
-        iterationGreenLabel = new QLabel( "green", graphBox );
+        iterationGreenLabel = new QLabel( "green iteration min/max :", graphBox );
         minGbox = new QSpinBox(graphBox);
         minGbox->setMinimum(0);
         minGbox->setMaximum(INT_MAX);
@@ -201,7 +174,7 @@ void ControlWindow::createGraphBox ( ) {
         maxGbox->setButtonSymbols( QAbstractSpinBox::PlusMinus );
         maxGbox->setValue(initialMaxG);
 
-        iterationBlueLabel = new QLabel( "blue", graphBox );
+        iterationBlueLabel = new QLabel( "blue iteration min/max :", graphBox );
         minBbox = new QSpinBox(graphBox);
         minBbox->setMinimum(0);
         minBbox->setMaximum(INT_MAX);
@@ -250,24 +223,26 @@ void ControlWindow::createGraphBox ( ) {
 	
 	
 	QVBoxLayout *vbox = new QVBoxLayout ( );
-	
+        QHBoxLayout *rHLayout = new QHBoxLayout( );
+        QHBoxLayout *gHLayout = new QHBoxLayout( );
+        QHBoxLayout *bHLayout = new QHBoxLayout( );
 
 	
 	
 	vbox->addWidget( iterationRedLabel );
-        //vbox->addWidget( redSlider );
-        vbox->addWidget(minRbox);
-        vbox->addWidget(maxRbox);
+        rHLayout->addWidget(minRbox);
+        rHLayout->addWidget(maxRbox);
+        vbox->addLayout(rHLayout);
 
 	vbox->addWidget( iterationGreenLabel );
-        //vbox->addWidget( greenSlider );
-        vbox->addWidget(minGbox);
-        vbox->addWidget(maxGbox);
+        gHLayout->addWidget(minGbox);
+        gHLayout->addWidget(maxGbox);
+        vbox->addLayout(gHLayout);
 
 	vbox->addWidget( iterationBlueLabel );
-        //vbox->addWidget( blueSlider );
-        vbox->addWidget(minBbox);
-        vbox->addWidget(maxBbox);
+        bHLayout->addWidget(minBbox);
+        bHLayout->addWidget(maxBbox);
+        vbox->addLayout(bHLayout);
 
 	//vbox->addStretch(1);
 	vbox->addWidget( reLabel );
@@ -561,23 +536,6 @@ void ControlWindow::setMaxBIteration(int value) {
     highb = value;
 }
 
-//void ControlWindow::setRedIterationDepth ( int value ) {
-//	highr = (int) pow( 2.0, value / 2.0 );
-//	updateRedLabel( );
-	//viewStartButton ( );
-//}
-
-//void ControlWindow::setGreenIterationDepth ( int value ) {
-//	highg = (int) pow( 2.0, value / 2.0 );
-//	updateGreenLabel( );
-	//viewStartButton ( );
-//}
-
-//void ControlWindow::setBlueIterationDepth ( int value ) {
-//	highb = (int) pow( 2.0, value / 2.0 );
-//	updateBlueLabel( );
-	//viewStartButton ( );
-//}
 
 void ControlWindow::setLightness ( int value ) {
 	lightness = value;
