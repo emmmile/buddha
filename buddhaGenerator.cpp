@@ -81,16 +81,6 @@ int BuddhaGenerator::test ( unsigned int& calculated ) {
 
 
 
-
-
-
-
-
-
-
-
-
-
 void BuddhaGenerator::initialize ( Buddha* b ) {
 	qDebug() << "BuddhaGenerator::initialize()";
 	this->b = b;
@@ -167,7 +157,7 @@ void BuddhaGenerator::drawPoint ( complex& c, bool drawr, bool drawg, bool drawb
 	x = ( c.re - b->minre ) * b->scale;
 	//if ( x >= b->w ) return; // activate in case of problems
 	
-	// the y coordinates are referred to the point (b->minre, b->maxim), and are simmetric in
+        // the y coordinates are referred to the point (b->minre, b->maxim), and are symetric in
 	// respect of the real axis (re = 0). So I draw always also the simmetric point (I try).
 	plotIm( c, drawr, drawg, drawb );
 	
