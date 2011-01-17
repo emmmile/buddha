@@ -415,10 +415,6 @@ void ControlWindow::handleStartButton ( ) {
 	emit startCalculation( );
 	renderWin->timer->start( sleepTime );
 	
-	
-//	red = redSlider->value();
-//	green = greenSlider->value();
-//	blue = blueSlider->value();
         minR = minRbox->value();
         minG = minGbox->value();
         minB = minBbox->value();
@@ -447,10 +443,7 @@ bool ControlWindow::valuesChanged ( ) {
 }
 
 
-void ControlWindow::setColorValues ( int minR, int minG, int minB, int maxR, int maxG, int maxB ) {
-//	redSlider->setSliderPosition( r );
-//	greenSlider->setSliderPosition( g );
-//      blueSlider->setSliderPosition( b );
+void ControlWindow::setColorValues ( uint minR, uint minG, uint minB, uint maxR, uint maxG, uint maxB ) {
     minRbox->setValue(minR);
     minGbox->setValue(minG);
     minBbox->setValue(minB);
@@ -460,7 +453,7 @@ void ControlWindow::setColorValues ( int minR, int minG, int minB, int maxR, int
 
 }
 
-void ControlWindow::setImageSliders ( int l, int c, int f ) {
+void ControlWindow::setImageSliders ( int l, int c, uint f ) {
 	lightSlider->setValue( l );
 	contrastSlider->setValue( c );
 	fpsSlider->setValue( f );
@@ -470,14 +463,10 @@ void ControlWindow::putValues ( double cre, double cim, double scale ) {
 	reBox->setValue( cre );
 	imBox->setValue( cim );
 	zoomBox->setValue( scale );
-	
-	//this->cre = cre;
-	//this->cim = cim;
-	//this->scale = scale;
+
 	setCre( cre );
 	setCim( cim );
-	setScale( scale );
-	//viewStartButton();
+        setScale( scale );
 }
 
 
@@ -508,7 +497,7 @@ void ControlWindow::updateFpsLabel( ) {
 	fpsLabel->setText( "Frames per second: [" + QString::number( fps / 10.0, 'f', 1 ) + "]" );
 }
 
-void ControlWindow::updateThreadLabel( int value ) {
+void ControlWindow::updateThreadLabel( quint8 value ) {
 	threadsLabel->setText( "Threads: [" + QString::number( value ) + "]" );
 }
 
@@ -538,14 +527,14 @@ void ControlWindow::setMaxBIteration(int value) {
 
 
 void ControlWindow::setLightness ( int value ) {
-	lightness = value;
+        lightness = value;
 	//b->setLightness( (double) value / ( lightSlider->maximum() - value + 1 ) );
 	//qDebug() <<"Lightness: %d %lf\n", value,(double) value / ( lightSlider->maximum() - value ) );
 	b->setLightness( value );
 }
 
 void ControlWindow::setContrast ( int value ) {
-	contrast = value;
+        contrast = value;
 	// ottengo un valore fra 0.0 e 2.0
 	//b->setContrast( (double) value / contrastSlider->maximum() * 2.0 );
 	b->setContrast( value );

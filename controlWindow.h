@@ -42,44 +42,43 @@ class ControlWindow : public QMainWindow {
 	Q_OBJECT
 
 public:
-        unsigned int lowr, lowg, lowb;
-        unsigned int highr, highg, highb;
-        int minR, minG, minB;
-        int maxR, maxG, maxB;
-	int contrast, lightness, fps;
-	int loadedContrast, loadedLightness;
-	double cre;
-	double cim;
-	double scale;
-	double step;
+        uint lowr, lowg, lowb;
+        uint highr, highg, highb;
+        uint minR, minG, minB;
+        uint maxR, maxG, maxB;
+        int contrast, lightness;
+        uint fps;
+        int loadedContrast, loadedLightness;
+        double cre, cim;
+        double scale, step;
 	Buddha* b;
 	
 //	static const int maxDepth = 40;
 
         // Min/Max iteration values (TODO: should be uint)
-        static const int initialMinR = 0;
-        static const int initialMinG = 0;
-        static const int initialMinB = 0;
-        static const int initialMaxR = 128;
-        static const int initialMaxG = 256;
-        static const int initialMaxB = 512;
+        static const uint initialMinR = 0;
+        static const uint initialMinG = 0;
+        static const uint initialMinB = 0;
+        static const uint initialMaxR = 128;
+        static const uint initialMaxG = 256;
+        static const uint initialMaxB = 512;
 
-	static const int initialLight = 100;
-	static const int initialContrast = 100;
-	static const double initialScale = 200;
-	static const double initialCre = 0.0;
-	static const double initialCim = 0.0;
-	static const int initialFps = 20;
+        static const int initialLight = 100;
+        static const int initialContrast = 100;
+        static const double initialScale = 200;
+        static const double initialCre = 0.0;
+        static const double initialCim = 0.0;
+        static const uint initialFps = 20;
 	
         static const double minScale = 100.0;   //should start at 1, not 100.
-	static const double maxScale = 1.34217728E+8 * 128.0;
-	static const double maxRe = 2.0;
-	static const double maxIm = 2.0;
-	static const double minRe = -2.0;
-	static const double minIm = -2.0;
-	static const int maxLightness = 200;
-	static const int maxContrast = 200;
-	static const int maxFps = 40;
+        static const double maxScale = 1.34217728E+8 * 128.0;
+        static const double maxRe = 2.0;
+        static const double maxIm = 2.0;
+        static const double minRe = -2.0;
+        static const double minIm = -2.0;
+        static const uint maxLightness = 200;
+        static const uint maxContrast = 200;
+        static const uint maxFps = 40;
 	
 	// XXX test values
 	//cre = -1.009338378906250; cim = -0.907791137695312; scale = 131072;
@@ -149,9 +148,10 @@ public:
 	void updateGreenLabel( );
 	void updateBlueLabel( );
 	void updateFpsLabel( );
-	void updateThreadLabel( int );
-        void setColorValues( int, int, int, int, int, int );
-	void setImageSliders( int, int, int );
+        void updateThreadLabel( quint8 );
+        void setColorValues( uint, uint, uint, uint, uint, uint );
+        void setImageSliders( int, int, uint );
+
 public:
 	//QPushButton *currentButton;
 	QPushButton *resetButton;
@@ -162,19 +162,18 @@ public:
 	ControlWindow ( );
 	
 	bool valuesChanged( );
-	void putValues( double, double, double );
+        void putValues( double, double, double );
 	static int expVal ( int x ) { return (int) pow( 2.0, x / 2.0 ); }
-	void setCenter( double, double );
+        void setCenter( double, double );
 	//void viewStartButton ( );
-	double getCre( ) { return cre; }
-	double getCim( ) { return cim; }
-	double getScale( ) { return scale; }
+        double getCre( ) { return cre; }
+        double getCim( ) { return cim; }
+        double getScale( ) { return scale; }
+
 public slots:
 	void handleStartButton( );
-	void handleResetButton( );
-	//void handleCurrentButton( );
-	void renderWinClosed( );
-	//void handleDefaultButton( );
+        void handleResetButton( );
+        void renderWinClosed( );
 	void exit( );
 
         void setMinRIteration(int value);
@@ -200,6 +199,7 @@ public slots:
 	void saveConfig( );
 	void openConfig( );
 	void sendValues( bool pause = true );
+
 signals:
 	void closed ( );
         void setValues( double cre, double cim, double scale, uint lowr, uint lowg, uint lowb, uint highr, uint highg, uint highb, QSize wsize, bool pause );
@@ -209,6 +209,7 @@ signals:
 	void clearBuffers( );
 	void changeThreadNumber( int );
 	void screenshotRequest ( QString fileName );
+
 protected:
 	void closeEvent ( QCloseEvent * event );
 };
