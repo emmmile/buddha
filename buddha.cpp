@@ -59,18 +59,30 @@ Buddha::Buddha( QObject *parent ) : QThread( parent ) {
 
 
 
+void Buddha::setLightness ( int lightness ) {
+	//mutex.lock();
+	this->lightness = lightness;
+	realLightness = (float) lightness / ( ControlWindow::maxLightness - lightness + 1 );
+	//mutex.unlock();
+}
 
+void Buddha::setContrast ( int contrast ) {
+	//mutex.lock();
+	this->contrast = contrast;
+	realContrast = (float) contrast / ControlWindow::maxContrast * 2.0;
+	//mutex.unlock();
+}
 
 
 void Buddha::preprocessImage ( ) {
-	unsigned int maxr, minr, maxb, minb, maxg, ming;
+	//unsigned int maxr, minr, maxb, minb, maxg, ming;
 	float midr, midg, midb;
 
 	// this can be optimized but I don't think it impacts very much on the total time
 	// taken to convert the data into RGB
 	getInfo( raw, size, minr, midr, maxr, ming, midg, maxg, minb, midb, maxb );
-	realContrast = (float) contrast / ControlWindow::maxContrast * 2.0;
-	realLightness = (float) lightness / ( ControlWindow::maxLightness - lightness + 1 );
+	//realContrast = (float) contrast / ControlWindow::maxContrast * 2.0;
+	//realLightness = (float) lightness / ( ControlWindow::maxLightness - lightness + 1 );
 	//float contrast = 0.25;
 		
 	rmul = maxr > 0 ? log( scale ) / (float) powf( maxr, realContrast ) * 150.0 * realLightness : 0.0;
@@ -203,19 +215,6 @@ void Buddha::changeThreadNumber ( int threads ) {
 	
 	this->threads = threads;
 }
-
-void Buddha::setLightness ( int lightness ) {
-	//mutex.lock();
-	this->lightness = lightness;
-	//mutex.unlock();
-}
-
-void Buddha::setContrast ( int contrast ) {
-	//mutex.lock();
-	this->contrast = contrast;
-	//mutex.unlock();
-}
-
 
 
 

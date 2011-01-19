@@ -77,7 +77,11 @@ public:
 		return complex( z.re + t.re, z.im + t.im );
 	}
 	
-	inline void randomGaussian2 ( struct random_data* buf ) {
+	inline double mod ( ) {
+		return re * re + im * im;
+	}
+	
+	/*inline void randomGaussian2 ( struct random_data* buf ) {
 		re = -0.3333333333333333;
 		im = 0.0;
 		mutate ( 1.0, buf );
@@ -90,11 +94,6 @@ public:
 		im = scaleToTwo( random( buf ) );
 	}
 	
-	inline double mod ( ) {
-		return re * re + im * im;
-	}
-	
-	
 	inline double randomCircle ( struct random_data* buf ) {
 		while ( TRUE ) {
 			re = scaleToOne( random( buf ) );
@@ -105,7 +104,6 @@ public:
 		}
 	}
 	
-	
 	void mutate ( double radius, struct random_data* buf ) {
 		// XXX can be optimized I think
 		// the Marsaglia polar method
@@ -114,7 +112,7 @@ public:
 		double factor = sqrt( -2.0 * log( s ) / s ) * radius;
 		re += cc.re * factor;
 		im += cc.im * factor;
-	}
+	}*/
 };
 
 

@@ -48,15 +48,12 @@
 
 
 // x MUST be an int32_t
-#define scaleToOne(x)		( ( (x) << 1 ) / (double) RAND_MAX )
+/*#define scaleToOne(x)		( ( (x) << 1 ) / (double) RAND_MAX )
 #define scaleToTwo(x)		( scaleToOne(x) * 2.0 )
-#define scaleToOnePositive(x)	( (x) / (double) RAND_MAX )
+#define scaleToOnePositive(x)	( (x) / (double) RAND_MAX )*/
 
 
 double ttime ( void );
-
-
-int32_t random ( struct random_data* buf );
 
 
 
