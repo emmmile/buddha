@@ -579,7 +579,7 @@ void ControlWindow::about ( ) {
 
 void ControlWindow::saveScreenshot ( ) {
 	// simply opens a dialog and send a save request to the buddha thread
-	QString name = "[" + QString::number( this->cre ) + ", " + QString::number(cim ) + "].png";
+	QString name = "[" + QString::number( cre ) + ", " + QString::number( cim ) + ", " + QString::number( scale ) + "].png";
 	QString fileName = QFileDialog::getSaveFileName( this, tr("Save Screenshot"), 
 			   "./" + name, tr("Image Files (*.png)"));
 			   
