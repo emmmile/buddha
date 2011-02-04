@@ -42,7 +42,7 @@
 
 
 Buddha::Buddha( QObject *parent ) : QThread( parent ) {
-        size = w = h = lowr = lowg = lowb = highr = highg = highb = 0;
+	size = w = h = lowr = lowg = lowb = highr = highg = highb = 0;
 	cre = cim = scale = 0.0;
 	raw = NULL;
 	RGBImage = NULL;
@@ -229,9 +229,11 @@ void Buddha::setContrast ( int contrast ) {
 
 
 void Buddha::resizeSequences( ) {
-	for ( int i = 0; i < threads; ++i ) 
-		if ( generators[i]->seq.size() != high )
-		     generators[i]->seq.resize( high );
+	for ( int i = 0; i < threads; ++i ) {
+		int size = (int) high - (int) low;
+		if ( size >= 0 && (int) generators[i]->seq.size() != size )
+		     generators[i]->seq.resize( size );
+	}
 }
 
 void Buddha::resizeBuffers( ) {

@@ -34,5 +34,5 @@ SOURCES += buddha.cpp \
 ###############
 # debugs flag #
 ###############
-QMAKE_CFLAGS += -g
-QMAKE_CXXFLAGS += -g
+#QMAKE_CFLAGS += -g
+#QMAKE_CXXFLAGS += -g

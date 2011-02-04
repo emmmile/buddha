@@ -56,18 +56,18 @@ public:
 //	static const int maxDepth = 40;
 
         // Min/Max iteration values (TODO: should be uint)
-        static const uint initialMinR = 0;
-        static const uint initialMinG = 0;
-        static const uint initialMinB = 0;
-        static const uint initialMaxR = 128;
-        static const uint initialMaxG = 256;
-        static const uint initialMaxB = 512;
+	static const uint initialMinR = 1024;
+	static const uint initialMinG = 4096;
+	static const uint initialMinB = 16384;
+	static const uint initialMaxR = 1048576;
+	static const uint initialMaxG = 1048576;
+	static const uint initialMaxB = 1048576;
 
         static const int initialLight = 100;
         static const int initialContrast = 100;
-        static const double initialScale = 200;
-        static const double initialCre = 0.0;
-        static const double initialCim = 0.0;
+	static const double initialScale = 200;
+	static const double initialCre = 0.0;
+	static const double initialCim = 0.0;
         static const uint initialFps = 20;
 	
         static const double minScale = 100.0;   //should start at 1, not 100.
