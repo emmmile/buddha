@@ -67,10 +67,10 @@ public:
 	
 	void drawPoint ( complex& c, bool r, bool g, bool b );
 	int inside ( complex& c );
-	int evaluate ( unsigned int& calculated );
-	int findPoint ( unsigned int& calculated );
-	double distance ( unsigned int slen );
-	unsigned int contribute(int);
+	int evaluate ( complex& begin, double& distance, unsigned int& contribute, unsigned int& calculated );
+
+	int findPoint ( complex& begin, double& centerDistance, unsigned int& contribute, unsigned int& calculated );
+
 	//int normal();
 	int metropolis();
 	
