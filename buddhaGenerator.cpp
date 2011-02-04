@@ -225,7 +225,7 @@ int BuddhaGenerator::evaluate ( complex& begin, double& centerDistance,
 			// if I found that two calculated points are very very close I conclude that
 			// they are the same point, so the sequence is periodic so we are computing a point
 			// in the mandelbrot, so I stop the calculation
-			if ( tmp < FLT_EPSILON * FLT_EPSILON ) {
+			if ( tmp < FLT_EPSILON * FLT_EPSILON ) { // maybe also DBL_EPSILON is sufficient
 				calculated = i;
 				return -1;
 			}
