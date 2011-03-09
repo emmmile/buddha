@@ -42,6 +42,7 @@
 #include <cstdio>
 #include <iostream>
 #include "buddha.h"
+#include "random.h"
 using namespace std;
 
 
@@ -79,10 +80,13 @@ public:
 	
 	
 	// things for the random stuff
-	struct random_data buf;
-	char statebuf [256];
+	//struct random_data buf;
+	//char statebuf [256];
 	unsigned long int seed;
+	Random generator;
 	
+	void gaussianMutation ( complex& z, double radius );
+	void exponentialMutation ( complex& z, double radius );
 	
 	
 	
