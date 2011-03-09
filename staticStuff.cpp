@@ -76,11 +76,11 @@ void getInfo ( unsigned int* raw, unsigned int size, unsigned int& minr, float& 
 
 
 
-
+/*
 int32_t random ( struct random_data* buf ) {
 	int32_t out;
 	
 	random_r( buf, &out );
 	return out;
-}
+}*/
 

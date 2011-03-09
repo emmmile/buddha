@@ -60,20 +60,24 @@ using namespace std;
 	return b->high - 1;
 }
 
-int BuddhaGenerator::test ( unsigned int& calculated ) {
-	unsigned int i;
-	static const double a = -1.5809424;
-	static const double bb = -0.74525865;
-	static const double c = -1.302572;
-	static const double d = -0.605825;
-	
-	for ( i = 0; i < b->high - 1; i++ ) {
-		seq[i+1].re = sin( a * seq[i].im ) - cos( bb * seq[i].re );
-		seq[i+1].im = sin( c * seq[i].re ) - cos( d * seq[i].im );
+int BuddhaGenerator::randomTest ( unsigned int& calculated ) {
+
+	static Random gen( seed );
+
+	for ( int i = 0; i < 1000000; i++ ) {
+		seq[0].re = seq[0].im = 0.0;
+		gen.exponential( seq[0].re, seq[0].im,0.0001 );
+
+		mutex.lock();
+		drawPoint( seq[0], 1, 1,1 );
+		if ( !flow( ) ) {
+			mutex.unlock();
+			return -1;
+		}
+		mutex.unlock();
 	}
-	
-	calculated = b->high;
-	return b->high;
+
+	return 0;
 }
 */
 
@@ -85,11 +89,11 @@ void BuddhaGenerator::initialize ( Buddha* b ) {
 	qDebug() << "BuddhaGenerator::initialize()";
 	this->b = b;
 	
-	//seed = powf ( (unsigned long int) this & 0xFF, M_PI ) + ( ( (unsigned long int) this >> 16 ) & 0xFFFF );
-	seed = 0;
-
-	buf.state = (int32_t*) statebuf; // this fixes the segfault
-	initstate_r( seed, statebuf, sizeof( statebuf ), &buf );
+	seed = powf ( (unsigned long int) this & 0xFF, M_PI ) + ( ( (unsigned long int) this >> 16 ) & 0xFFFF );
+	
+	//buf.state = (int32_t*) statebuf; // this fixes the segfault
+	//initstate_r( seed, statebuf, sizeof( statebuf ), &buf );
+	generator.seed( seed );
 	
 	raw = (unsigned int*) realloc( raw, 3 * b->size * sizeof( unsigned int ) );
 	memset( raw, 0, 3 * b->size * sizeof( unsigned int ) );
@@ -248,6 +252,23 @@ int BuddhaGenerator::evaluate ( complex& begin, double& centerDistance,
 	return -1;
 }
 
+
+
+inline void BuddhaGenerator::gaussianMutation ( complex& z, double radius ) {
+	double redev, imdev;
+	generator.gaussian( redev, imdev, radius );
+	z.re += redev;
+	z.im += imdev;
+}
+
+inline void BuddhaGenerator::exponentialMutation ( complex& z, double radius ) {
+	double redev, imdev;
+	generator.exponential( redev, imdev, radius );
+	z.re += redev;
+	z.im += imdev;
+}
+
+
 // search for a point that falls in the screen, simply moves randomly making moves
 // proportional in size to the distance from the center of the screen.
 // I think can be optimized a lot
@@ -263,8 +284,10 @@ int BuddhaGenerator::findPoint ( complex& begin, double& centerDistance, unsigne
 	
 	calculated = 0;
 	do {
-		tmp.mutate( 0.25 * sqrt( bestDistance ), &buf );
-
+		//seq[0].mutate( 0.25 * sqrt(dist), &buf );
+		gaussianMutation( tmp, 0.25 * sqrt( bestDistance ) );
+		
+		
 		max = evaluate( tmp, centerDistance, contribute, calculatedInThisIteration );
 		calculated += calculatedInThisIteration;
 
@@ -274,6 +297,7 @@ int BuddhaGenerator::findPoint ( complex& begin, double& centerDistance, unsigne
 		} else  tmp = begin;
 	} while ( bestDistance != 0.0 && ++iterations < FINDPOINTMAX );
 	
+	
 	return max;
 }
 
@@ -281,15 +305,25 @@ int BuddhaGenerator::findPoint ( complex& begin, double& centerDistance, unsigne
 // the metropolis algorithm. I don't know very much about the teory under this optimization but I think is
 // implemented quite well.. Maybe a better method for the transition probability can be found but I don't know.
 int BuddhaGenerator::metropolis ( ) {
+/*<<<<<<< HEAD
 	complex begin( 0.0, 0.0 );
 	unsigned int calculated, total = 0, selectedOrbitCount = 0, proposedOrbitCount = 0;
 	int selectedOrbitMax = 0, proposedOrbitMax = 0, j;
 	double radius = 4.656612875245796924105E-10 / b->scale * 40.0; // 100.0;
+=======*/
+
+	complex begin( 0.0, 0.0 );
+	unsigned int calculated, total = 0, selectedOrbitCount = 0, proposedOrbitCount = 0;
+	int selectedOrbitMax = 0, proposedOrbitMax = 0, j;
+	double radius = 40.0 / b->scale; // 100.0;
+
 	//double add = 0.0; // 5.0 / b->scale;
 	double distance;
 
 	// search a point that has some contribute in the interested area
 	selectedOrbitMax = findPoint( begin, distance, selectedOrbitCount, calculated );
+
+	cout << selectedOrbitMax << endl;
 
 	// if the search failed I exit
 	if ( selectedOrbitCount == 0 ) return calculated;
@@ -312,7 +346,9 @@ int BuddhaGenerator::metropolis ( ) {
 		// I think that choose a random radius is the best way otherwise I noticed some geometric artifacts
 		// around the point (-1.8, 0) for example. This artifacts however depend also on the number of iterations
 		// explained above.
-		begin.mutate( random( &buf ) * radius, &buf );
+
+		//seq[0].mutate( random( &buf ) * radius /* + add */, &buf );
+		exponentialMutation( begin, generator.real() * radius );
 		
 		// calculate the new sequence
 		proposedOrbitMax = evaluate( begin, distance, proposedOrbitCount, calculated );
@@ -329,7 +365,8 @@ int BuddhaGenerator::metropolis ( ) {
 		double alpha =  proposedOrbitMax * proposedOrbitMax * proposedOrbitCount /
 				double( selectedOrbitMax * selectedOrbitMax * selectedOrbitCount );
 
-		if ( alpha > scaleToOnePositive( random( &buf ) ) ) {
+		
+		if ( alpha > generator.real() ) {
 			ok = begin;
 			selectedOrbitCount = proposedOrbitCount;
 			selectedOrbitMax = proposedOrbitMax;

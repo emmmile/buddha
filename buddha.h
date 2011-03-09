@@ -104,6 +104,7 @@ public:
 	unsigned int* RGBImage;		// here will be built the QImage
 	float rmul, gmul, bmul, realContrast, realLightness;
 	int contrast, lightness;
+	unsigned int maxr, minr, maxb, minb, maxg, ming;
 	
 
 
@@ -115,8 +116,6 @@ public:
 	Buddha ( QObject *parent = 0 );
 	~Buddha ( );
 
-	void setContrast( int value );
-	void setLightness( int value );
 	
 	
 	void run( );
@@ -138,6 +137,8 @@ public slots:
 	void resizeSequences ( );
 	void changeThreadNumber( int threads );
 	void saveScreenshot ( QString fileName );
+	void setContrast( int value );
+	void setLightness( int value );
 };
 
 

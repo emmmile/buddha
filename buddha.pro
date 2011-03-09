@@ -13,7 +13,8 @@ HEADERS += buddha.h \
 	   complex.h \
 	   controlWindow.h \
 	   renderWindow.h \
-	   staticStuff.h
+	   staticStuff.h \
+	   random.h
 SOURCES += buddha.cpp \
 	   buddhaGenerator.cpp \
 	   controlWindow.cpp \
@@ -31,8 +32,9 @@ SOURCES += buddha.cpp \
 #QMAKE_CXXFLAGS += -pg
 #QMAKE_LFLAGS += -pg
 
-###############
-# debugs flag #
-###############
-#QMAKE_CFLAGS += -g
-#QMAKE_CXXFLAGS += -g
+
+# to enable additional optimizations
+#QMAKE_CXXFLAGS += -finline-functions -funswitch-loops -fgcse-after-reload -ffast-math \
+#		  -fexpensive-optimizations -funroll-loops -frerun-loop-opt -mfpmath=sse -malign-double
+
+
