@@ -186,7 +186,7 @@ int BuddhaGenerator::inside ( complex& c ) {
 int BuddhaGenerator::evaluate ( complex& begin, double& centerDistance,
 				unsigned int& contribute, unsigned int& calculated ) {
 	complex last = begin;	// holds the last calculated point
-	complex critical;	// for periodicity check
+	complex critical = last;// for periodicity check
 	unsigned int j = 0, criticalStep = STEP;
 	double tmp = 64.0;
 	bool isInside;
@@ -305,13 +305,6 @@ int BuddhaGenerator::findPoint ( complex& begin, double& centerDistance, unsigne
 // the metropolis algorithm. I don't know very much about the teory under this optimization but I think is
 // implemented quite well.. Maybe a better method for the transition probability can be found but I don't know.
 int BuddhaGenerator::metropolis ( ) {
-/*<<<<<<< HEAD
-	complex begin( 0.0, 0.0 );
-	unsigned int calculated, total = 0, selectedOrbitCount = 0, proposedOrbitCount = 0;
-	int selectedOrbitMax = 0, proposedOrbitMax = 0, j;
-	double radius = 4.656612875245796924105E-10 / b->scale * 40.0; // 100.0;
-=======*/
-
 	complex begin( 0.0, 0.0 );
 	unsigned int calculated, total = 0, selectedOrbitCount = 0, proposedOrbitCount = 0;
 	int selectedOrbitMax = 0, proposedOrbitMax = 0, j;
