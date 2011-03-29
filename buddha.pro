@@ -34,7 +34,5 @@ SOURCES += buddha.cpp \
 
 
 # to enable additional optimizations
-#QMAKE_CXXFLAGS += -finline-functions -funswitch-loops -fgcse-after-reload -ffast-math \
-#		  -fexpensive-optimizations -funroll-loops -frerun-loop-opt -mfpmath=sse -malign-double
-
-
+#QMAKE_CXXFLAGS += -O3 -finline-functions -funswitch-loops -fgcse-after-reload -ffast-math \
+#                  -fexpensive-optimizations -funroll-loops -frerun-loop-opt -mfpmath=sse -malign-double
