@@ -280,7 +280,7 @@ int BuddhaGenerator::findPoint ( complex& begin, double& centerDistance, unsigne
 
 
 	// 64 - 512
-	#define FINDPOINTMAX 	256
+        #define FINDPOINTMAX 	256
 	
 	calculated = 0;
 	do {
@@ -316,7 +316,7 @@ int BuddhaGenerator::metropolis ( ) {
 	// search a point that has some contribute in the interested area
 	selectedOrbitMax = findPoint( begin, distance, selectedOrbitCount, calculated );
 
-	cout << selectedOrbitMax << endl;
+        //cout << selectedOrbitMax << endl;
 
 	// if the search failed I exit
 	if ( selectedOrbitCount == 0 ) return calculated;
