@@ -27,13 +27,14 @@
 
 
 //#include <unistd.h>
-#include <sys/time.h>
+//#include <sys/time.h>
 #include <limits.h>
 #include "staticStuff.h"
 #include <cmath>
 
 // measure the time between two calls. Not thread safe!!!
 // Use a parameter instead static variables to make it safe.
+/*
 double ttime ( void ) {
 	static struct timeval t;
 	static double old = 0.0, newval = 0.0;
@@ -44,7 +45,7 @@ double ttime ( void ) {
 	newval = t.tv_sec + t.tv_usec * 0.000001;
 	return newval - old;
 }
-
+*/
 
 
 void getInfo ( unsigned int* raw, unsigned int size, unsigned int& minr, float& midr, unsigned int& maxr, 
