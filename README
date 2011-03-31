@@ -1,5 +1,5 @@
-Currently to build I use:
-
-qmake
-make
-
+This is a Qt-based multi-threaded buddhabrot navigator.
+The program as a number of features:
+- it's possible to set various parameters to change the characteristics of the rendered image, like the iteration depth on 3 color channels, brightness and contrast.
+- it's possible to save the image and (hopefully soon) to save and reload the whole calculation.
+- it's possible to change the number of threads calculating the fractal and the number of frames drawn every second.
