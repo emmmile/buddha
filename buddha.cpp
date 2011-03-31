@@ -62,14 +62,14 @@ Buddha::Buddha( QObject *parent ) : QThread( parent ) {
 void Buddha::setLightness ( int lightness ) {
 	//mutex.lock();
 	this->lightness = lightness;
-	realLightness = (float) lightness / ( ControlWindow::maxLightness - lightness + 1 );
+        realLightness = (float) lightness / ( maxLightness - lightness + 1 );
 	//mutex.unlock();
 }
 
 void Buddha::setContrast ( int contrast ) {
 	//mutex.lock();
 	this->contrast = contrast;
-	realContrast = (float) contrast / ControlWindow::maxContrast * 2.0;
+        realContrast = (float) contrast / maxContrast * 2.0;
 	//mutex.unlock();
 }
 

@@ -46,6 +46,10 @@ class ControlWindow;
 
 
 
+static const int scrollStep = 100;
+static const int defaultWidth = 800;
+static const int defaultHeight = 600;
+static const double zoomFactor = 2.0;
 
 
 class RenderWindow : public QWidget {
@@ -65,11 +69,7 @@ private:
 	double mousey;
 	QPoint begMouse;
 	QPoint endMouse;
-	QPoint imageOffset;
-	static const int scrollStep = 100;
-	static const int defaultWidth = 800;
-	static const int defaultHeight = 600;
-	static const double zoomFactor = 2.0;
+        QPoint imageOffset;
 	
 	
 	void scroll ( int dx, int dy );

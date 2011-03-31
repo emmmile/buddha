@@ -173,9 +173,10 @@ void BuddhaGenerator::drawPoint ( complex& c, bool drawr, bool drawg, bool drawb
 
 // test if a point is inside the interested area
 int BuddhaGenerator::inside ( complex& c ) {
-	return  c.re <= b->maxre && c.re >= b->minre && 
-		( ( c.im <= b->maxim && c.im >= b->minim ) || 
-		( -c.im <= b->maxim && -c.im >= b->minim ) );
+        return  c.re <= b->maxre &&
+                c.re >= b->minre &&
+                ( ( c.im <= b->maxim && c.im >= b->minim ) ||
+                ( -c.im <= b->maxim && -c.im >= b->minim ) );
 		
 	//return  c.re <= b->maxre && c.re >= b->minre && c.im <= b->maxim && c.im >= b->minim ;
 }
@@ -278,7 +279,6 @@ int BuddhaGenerator::findPoint ( complex& begin, double& centerDistance, unsigne
 	double bestDistance = 64.0;
 	complex tmp = begin;
 
-
 	// 64 - 512
         #define FINDPOINTMAX 	256
 	
@@ -287,15 +287,16 @@ int BuddhaGenerator::findPoint ( complex& begin, double& centerDistance, unsigne
 		//seq[0].mutate( 0.25 * sqrt(dist), &buf );
 		gaussianMutation( tmp, 0.25 * sqrt( bestDistance ) );
 		
-		
 		max = evaluate( tmp, centerDistance, contribute, calculatedInThisIteration );
 		calculated += calculatedInThisIteration;
 
 		if ( max != -1 && centerDistance < bestDistance ) {
 			bestDistance = centerDistance;
 			begin = tmp;
-		} else  tmp = begin;
-	} while ( bestDistance != 0.0 && ++iterations < FINDPOINTMAX );
+                    } else {
+                        tmp = begin;
+                    }
+        } while ( bestDistance != 0.0 && ++iterations < FINDPOINTMAX );
 	
 	
 	return max;

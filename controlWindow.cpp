@@ -282,10 +282,10 @@ void ControlWindow::createRenderBox ( ) {
 	threadsLabel = new QLabel( "Threads:", renderBox );
 	threadsSlider = new QSlider( renderBox );
 	threadsSlider->setMinimum( 1 );
-	threadsSlider->setMaximum( QThread::idealThreadCount() );
+        threadsSlider->setMaximum( QThread::idealThreadCount() );
 	threadsSlider->setOrientation(Qt::Horizontal);
-	updateThreadLabel( QThread::idealThreadCount() );
-	threadsSlider->setValue( QThread::idealThreadCount() );
+        updateThreadLabel( QThread::idealThreadCount() );
+        threadsSlider->setValue( QThread::idealThreadCount() );
 	
 	QVBoxLayout *vbox = new QVBoxLayout ( );
 	vbox->addWidget( contrastLabel );

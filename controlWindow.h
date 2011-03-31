@@ -37,6 +37,30 @@
 #define PRECISION	15
 
 
+// Min/Max iteration values (TODO: should be uint)
+static const uint initialMinR = 100;
+static const uint initialMinG = 300;
+static const uint initialMinB = 500;
+static const uint initialMaxR = 200;
+static const uint initialMaxG = 400;
+static const uint initialMaxB = 600;
+
+static const int initialLight = 60;
+static const int initialContrast = 75;
+static const double initialScale = 200;
+static const double initialCre = 0.0;
+static const double initialCim = 0.0;
+static const uint initialFps = 20;
+
+static const double minScale = 100.0;   //should start at 1, not 100.
+static const double maxScale = 1.34217728E+8 * 128.0;
+static const double maxRe = 2.0;
+static const double maxIm = 2.0;
+static const double minRe = -2.0;
+static const double minIm = -2.0;
+static const uint maxLightness = 200;
+static const uint maxContrast = 200;
+static const uint maxFps = 40;
 
 class ControlWindow : public QMainWindow {
 	Q_OBJECT
@@ -55,30 +79,6 @@ public:
 	
 //	static const int maxDepth = 40;
 
-        // Min/Max iteration values (TODO: should be uint)
-	static const uint initialMinR = 1024;
-	static const uint initialMinG = 4096;
-	static const uint initialMinB = 16384;
-	static const uint initialMaxR = 1048576;
-	static const uint initialMaxG = 1048576;
-	static const uint initialMaxB = 1048576;
-
-        static const int initialLight = 100;
-        static const int initialContrast = 100;
-	static const double initialScale = 200;
-	static const double initialCre = 0.0;
-	static const double initialCim = 0.0;
-        static const uint initialFps = 20;
-	
-        static const double minScale = 100.0;   //should start at 1, not 100.
-        static const double maxScale = 1.34217728E+8 * 128.0;
-        static const double maxRe = 2.0;
-        static const double maxIm = 2.0;
-        static const double minRe = -2.0;
-        static const double minIm = -2.0;
-        static const uint maxLightness = 200;
-        static const uint maxContrast = 200;
-        static const uint maxFps = 40;
 	
 	// XXX test values
 	//cre = -1.009338378906250; cim = -0.907791137695312; scale = 131072;
