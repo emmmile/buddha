@@ -1,16 +1,19 @@
 #ifndef RANDOM_H
 #define RANDOM_H
 
-
 #include <stdint.h>
-#include <boost/random.hpp>
 
 #define USE_BOOST		1
 
+#if USE_BOOST
+#include <boost/random.hpp>
+#endif
 
-
-
-
+// RAND_MAX on windows is 0x7FFF
+#ifdef _WIN32
+#undef RAND_MAX
+#define RAND_MAX 0x7FFFFFFF
+#endif
 
 class Random {
 private:
