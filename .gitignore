@@ -1,5 +1,5 @@
 *.pro.user
 *.o
 /moc_*.cpp
-/buddha
+/buddha.run
 /Makefile

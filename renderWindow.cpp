@@ -276,9 +276,9 @@ void RenderWindow::zoom ( double factor, int cutdx, int cutdy ) {
 	parent->putValues( b->cre + newCentre.x() / b->scale, b->cim - newCentre.y() / b->scale, b->scale * factor );
 }
 
-bool RenderWindow::valuesChanged ( ) {
+/*bool RenderWindow::valuesChanged ( ) {
 	return width() != (int) b->w || height() != (int) b->h;
-}
+}*/
 
 void RenderWindow::setMouseMode( bool mode ) {
 	this->zoomMode = mode;

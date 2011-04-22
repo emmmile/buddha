@@ -46,6 +46,16 @@
 #include "complex.h"
 #include "staticStuff.h"
 
+#ifdef _WIN32
+#define QTOPENCL	0
+#else
+#define QTOPENCL	1
+#endif
+
+
+#if QTOPENCL
+#include "qclcontext.h"
+#endif
 
 using namespace std;
 
@@ -63,11 +73,19 @@ class Buddha : public QThread {
 	Q_OBJECT
 	
 	
+#if QTOPENCL
+	QCLContext context;
+	QCLProgram program;
+	QCLKernel convert;
+	QCLImage2D srcImageBuffer;
+	QCLImage2D dstImageBuffer;
+#endif
+	
 	int threads;
 	vector<BuddhaGenerator*> generators;
 	CurrentStatus generatorsStatus;
 	
-	void preprocessImage ( );
+	//void preprocessImage ( );
 	void createImage ( );
 public:	
 	// for the communication with the GUI XXX maibe it can be removed
@@ -116,8 +134,8 @@ public:
 	Buddha ( QObject *parent = 0 );
 	~Buddha ( );
 
-	
-	
+	void reduceStep ( int i, bool check );
+	void reduce ( );
 	void run( );
 signals:
 	void imageCreated( );

@@ -47,8 +47,8 @@ class ControlWindow;
 
 
 static const int scrollStep = 100;
-static const int defaultWidth = 800;
-static const int defaultHeight = 600;
+static const int defaultWidth = 1248;
+static const int defaultHeight = 768;
 static const double zoomFactor = 2.0;
 
 
@@ -86,7 +86,7 @@ public:
 	QTimer* timer;
 	RenderWindow( ControlWindow* parent, Buddha* b );
 	
-	bool valuesChanged( );
+	//bool valuesChanged( );
 protected:
 	void paintEvent(QPaintEvent *event);
 	void resizeEvent(QResizeEvent *event);
