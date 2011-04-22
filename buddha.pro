@@ -3,7 +3,7 @@
 ######################################################################
 
 TEMPLATE = app
-TARGET =
+TARGET = buddha.run
 DEPENDPATH += .
 INCLUDEPATH += .
 
@@ -21,6 +21,8 @@ SOURCES += buddha.cpp \
 	   main.cpp \
 	   renderWindow.cpp \
 	   staticStuff.cpp
+LIBS += -L./opencl/lib
+include(./opencl/src/opencl/opencl_dep.pri)
 
 ###############################################
 # to enable profiling                         #
@@ -36,3 +38,6 @@ SOURCES += buddha.cpp \
 # to enable additional optimizations
 #QMAKE_CXXFLAGS += -O3 -finline-functions -funswitch-loops -fgcse-after-reload -ffast-math \
 #                  -fexpensive-optimizations -funroll-loops -frerun-loop-opt -mfpmath=sse -malign-double
+
+OTHER_FILES += \
+    convertImage.cl

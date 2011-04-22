@@ -53,12 +53,10 @@
 #define scaleToOnePositive(x)	( (x) / (double) RAND_MAX )*/
 
 
-double ttime ( void );
 
 
-
-void getInfo ( unsigned int* raw, unsigned int size, unsigned int& minr, float& midr, unsigned int& maxr, 
-		      unsigned int& ming, float& midg, unsigned int& maxg, unsigned int& minb, float& midb, unsigned int& maxb );
+//void getInfo ( unsigned int* raw, unsigned int size, unsigned int& minr, float& midr, unsigned int& maxr,
+//		      unsigned int& ming, float& midg, unsigned int& maxg, unsigned int& minb, float& midb, unsigned int& maxb );
 
 
 #endif

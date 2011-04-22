@@ -398,10 +398,11 @@ void ControlWindow::createControlBox ( ) {
 
 
 void ControlWindow::sendValues ( bool pause ) {
-	if ( this->valuesChanged() )
-                emit setValues( cre, cim, scale, lowr, lowg, lowb, highr, highg, highb, renderWin->size(), pause );
-}
+	if ( this->valuesChanged() ) {
 
+		emit setValues( cre, cim, scale, lowr, lowg, lowb, highr, highg, highb, renderWin->size(), pause );
+	}
+}
 
 
 
@@ -435,11 +436,10 @@ void ControlWindow::handleResetButton ( ) {
 }
 
 bool ControlWindow::valuesChanged ( ) {
-	
 	return  cre != b->cre || cim != b->cim || scale != b->scale ||
                 highr != b->highr || highg != b->highg || highb != b->highb ||
                 lowr != b->lowr || lowg != b->lowg || lowb != b->lowb ||
-		renderWin->valuesChanged();
+		renderWin->width() != (int) b->w || renderWin->height() != (int) b->h;
 }
 
 

@@ -41,6 +41,7 @@
 
 
 
+
 Buddha::Buddha( QObject *parent ) : QThread( parent ) {
 	size = w = h = lowr = lowg = lowb = highr = highg = highb = 0;
 	cre = cim = scale = 0.0;
@@ -48,6 +49,15 @@ Buddha::Buddha( QObject *parent ) : QThread( parent ) {
 	RGBImage = NULL;
 	threads = 0;
 	generatorsStatus = STOP;
+
+
+#if QTOPENCL
+	if ( !context.create( QCLDevice::GPU ) )
+		qFatal("Could not create OpenCL context");
+
+	program = context.buildProgramFromSourceFile( "./convertImage.cl" );
+	convert = program.createKernel("convertImage");
+#endif
 
 	start();
 	// this is foundamental for a correct handling of the signals.
@@ -74,7 +84,7 @@ void Buddha::setContrast ( int contrast ) {
 }
 
 
-void Buddha::preprocessImage ( ) {
+/*void Buddha::preprocessImage ( ) {
 	//unsigned int maxr, minr, maxb, minb, maxg, ming;
 	float midr, midg, midb;
 
@@ -88,7 +98,7 @@ void Buddha::preprocessImage ( ) {
 	rmul = maxr > 0 ? log( scale ) / (float) powf( maxr, realContrast ) * 150.0 * realLightness : 0.0;
 	gmul = maxg > 0 ? log( scale ) / (float) powf( maxg, realContrast ) * 150.0 * realLightness : 0.0;
 	bmul = maxb > 0 ? log( scale ) / (float) powf( maxb, realContrast ) * 150.0 * realLightness : 0.0;
-}
+}*/
 
 
 
@@ -106,25 +116,98 @@ void Buddha::createImage ( ) {
 }
 
 
-void Buddha::updateRGBImage( ) {
-	//qDebug() << "Buddha::updateRGBImage(), thread " << QThread::currentThreadId();
-	memset( raw, 0, 3 * size * sizeof( int ) );
-	
-	for ( int i = 0; i < threads; ++i ) {
-		QMutexLocker( &generators[i]->mutex );
-		
-		// I take the results calculated from BuddhaGenerator i, summing to the local array
-		for ( unsigned int j = 0; j < 3 * size; ++j )
-			raw[j] += generators[i]->raw[j];
+// this function takes the raw data from generator i and sums it
+// to the local raw array. The main difference is that if QTOPENCL is activated
+// I have to use an ARGB array of ints instead the simple RGB array kept by
+// every generator. This is because i get a lot of strange errors from the
+// execution of the opencl kernel. I don't know if this is a bug but for the
+// moment i keep this (useless) difference between using ARGB and RGB.
+void Buddha::reduceStep ( int i, bool checkValues ) {
+	unsigned int j;
+	if ( checkValues ) maxr = maxg = maxb = 0;
+
+	QMutexLocker( &generators[i]->mutex );
+#if QTOPENCL
+	unsigned int k = 0;
+	for ( j = 0; j < 3 * size; j += 3, k += 4 ) {
+		raw[k+1] += generators[i]->raw[j+0];
+		raw[k+2] += generators[i]->raw[j+1];
+		raw[k+3] += generators[i]->raw[j+2];
+
+		if ( checkValues ) {
+			if ( raw[k+1] > maxr ) maxr = raw[k+1];
+			if ( raw[k+2] > maxg ) maxg = raw[k+2];
+			if ( raw[k+3] > maxb ) maxb = raw[k+3];
+		}
 	}
-	
-	// I execute a preprocessing of the image to shorten the part in mutual exclusion
-	preprocessImage();	
-	
+
+#else
+	for ( j = 0; j < 3 * size; j += 3 ) {
+		raw[j+0] += generators[i]->raw[j+0];
+		raw[j+1] += generators[i]->raw[j+1];
+		raw[j+2] += generators[i]->raw[j+2];
+
+		if ( checkValues ) {
+			if ( raw[j+0] > maxr ) maxr = raw[j+0];
+			if ( raw[j+1] > maxg ) maxg = raw[j+1];
+			if ( raw[j+2] > maxb ) maxb = raw[j+2];
+		}
+	}
+#endif	
+
+	if ( checkValues ) {
+		rmul = maxr > 0 ? log( scale ) / (float) powf( maxr, realContrast ) * 150.0 * realLightness : 0.0;
+		gmul = maxg > 0 ? log( scale ) / (float) powf( maxg, realContrast ) * 150.0 * realLightness : 0.0;
+		bmul = maxb > 0 ? log( scale ) / (float) powf( maxb, realContrast ) * 150.0 * realLightness : 0.0;
+	}
+}
+
+
+// Performs the whole reduce part. In the last step I also compute the
+// max calculation on the raw array.
+// TODO. This could be done in logarithmic time using cooperation between
+// generators, for the moment I keep this version for simplicity.
+void Buddha::reduce ( ) {
+#if QTOPENCL
+	memset( raw, 0, 4 * size * sizeof( int ) );
+#else
+	memset( raw, 0, 3 * size * sizeof( int ) );
+#endif
+	for ( int i = 0; i < threads; ++i )
+		reduceStep( i, i == (threads - 1) );
+}
+
+
+void Buddha::updateRGBImage( ) {
+	QTime time;
+	time.start();
+
+	reduce();
+	printf( "Time taken by the reduce steps: %d ms. ", time.elapsed() );
+	time.start();
+#if QTOPENCL
+	srcImageBuffer = context.createImage2DHost(
+		QCLImageFormat( QCLImageFormat::Order_ARGB, QCLImageFormat::Type_Unnormalized_UInt32 ),
+		raw, QSize( w, h ), QCLMemoryObject::ReadOnly );
+
+	/*qDebug() << "bestLocalWorkSize()" << convert.bestLocalWorkSizeImage2D() << "\n"
+		 << "globalWorkSize()" << convert.globalWorkSize() << "\n"
+		 << "localWorkSize()" << convert.localWorkSize() << "\n"
+		 << "preferredWorkSizeMultiple()" << convert.preferredWorkSizeMultiple();*/
+
+	convert( srcImageBuffer, dstImageBuffer, realContrast, rmul, gmul, bmul );
+
+	mutex.lock();
+	dstImageBuffer.read(RGBImage, QRect(0, 0, w, h) );
+	emit imageCreated( );
+	mutex.unlock();
+#else
 	mutex.lock();
 	createImage( );
 	emit imageCreated( );
 	mutex.unlock();
+#endif
+	printf( "Image build: %d ms.\n", time.elapsed() );
 }
 
 void Buddha::saveScreenshot ( QString fileName ) {
@@ -238,9 +321,20 @@ void Buddha::resizeSequences( ) {
 void Buddha::resizeBuffers( ) {
 	qDebug() << "Buddha::resizeBuffers()";
 	mutex.lock();
+#if QTOPENCL
+	raw = (unsigned int*) realloc( raw, size * 4 * sizeof( unsigned int ) );
+#else
 	raw = (unsigned int*) realloc( raw, size * 3 * sizeof( unsigned int ) );
+#endif
 	RGBImage = (unsigned int*) realloc( RGBImage, size * sizeof( unsigned int ) );
 	mutex.unlock();
+
+#if QTOPENCL
+	convert.setRoundedGlobalWorkSize( QSize( w, h ) );
+	//convert.setGlobalWorkSize( QSize( w, h ) );
+	convert.setLocalWorkSize( convert.bestLocalWorkSizeImage2D() );
+	dstImageBuffer = context.createImage2DDevice( QImage::Format_RGB32, QSize( w, h ), QCLMemoryObject::WriteOnly );
+#endif
 	
 	
 	for ( int i = 0; i < threads; ++i ) {

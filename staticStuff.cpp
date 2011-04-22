@@ -31,23 +31,7 @@
 #include <limits.h>
 #include "staticStuff.h"
 #include <cmath>
-
-// measure the time between two calls. Not thread safe!!!
-// Use a parameter instead static variables to make it safe.
 /*
-double ttime ( void ) {
-	static struct timeval t;
-	static double old = 0.0, newval = 0.0;
-	
-	gettimeofday ( &t, NULL );
-	
-	old = newval;
-	newval = t.tv_sec + t.tv_usec * 0.000001;
-	return newval - old;
-}
-*/
-
-
 void getInfo ( unsigned int* raw, unsigned int size, unsigned int& minr, float& midr, unsigned int& maxr, 
 		      unsigned int& ming, float& midg, unsigned int& maxg, unsigned int& minb, float& midb, unsigned int& maxb ) {
 	float sumr = 0.0, sumg = 0.0, sumb = 0.0;
@@ -74,7 +58,7 @@ void getInfo ( unsigned int* raw, unsigned int size, unsigned int& minr, float& 
 	//qDebug() <<"g = %d %f %d\n", ming, midg, maxg );
 	//qDebug() <<"b = %d %f %d\n", minb, midb, maxb );
 }
-
+*/
 
 
 /*
