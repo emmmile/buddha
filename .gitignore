@@ -3,3 +3,4 @@
 /moc_*.cpp
 /buddha.run
 /Makefile
+opencl/

@@ -1,3 +1,5 @@
 #!/bin/bash
+
+# This file is necessary because in the buddha.pro I'm not able to set the LD_LIBRARY_PATH variable
 export  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./opencl/lib
 ./buddha.run
