@@ -1,0 +1,3 @@
+[submodule "opencl"]
+	path = opencl
+	url = git://gitorious.org/qt-labs/opencl.git

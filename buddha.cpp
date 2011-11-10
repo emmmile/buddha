@@ -27,7 +27,6 @@
 
 
 
-
 #include "buddhaGenerator.h"
 #include "staticStuff.h"
 #include "controlWindow.h"
@@ -213,6 +212,9 @@ void Buddha::updateRGBImage( ) {
 void Buddha::saveScreenshot ( QString fileName ) {
 	QImage out( (uchar*) RGBImage, w, h, QImage::Format_RGB32 );
 	out.save( fileName, "PNG" );
+
+	QByteArray compress = qCompress( (const uchar*) RGBImage, w * h * sizeof(int), 9 );
+	cout << "Compressed size vs Full: " << compress.size() << " " << w * h * sizeof(int) << endl;
 }
 
 void Buddha::set( double re, double im, double s, uint lr, uint lg, uint lb, uint hr, uint hg, uint hb, QSize wsize, bool pause ) {
