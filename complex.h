@@ -33,7 +33,7 @@
 #include <iostream>
 #include "staticStuff.h"
 
-
+namespace buddha {
 
 /// semplified structure to store complex numbers and generate random complex numbers
 class complex {
@@ -115,5 +115,7 @@ public:
 	}*/
 };
 
+
+}
 
 #endif

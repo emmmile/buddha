@@ -45,7 +45,7 @@ using namespace std;
 // somewhere to choose from the interface if render the buddhabrot or
 // the antibuddhabrot.
 /*int BuddhaGenerator::anti ( unsigned int& calculated ) {
-	complex z;
+	buddha::complex z;
 	unsigned int i;
 	
 	for ( i = 0; i < b->high - 1; ) {
@@ -150,7 +150,7 @@ void BuddhaGenerator::stop ( ) {
 
 
 
-void BuddhaGenerator::drawPoint ( complex& c, bool drawr, bool drawg, bool drawb ) {
+void BuddhaGenerator::drawPoint ( buddha::complex& c, bool drawr, bool drawg, bool drawb ) {
 	register unsigned int x, y;
 	
 	#define plotIm( c, drawr, drawg, drawb ) \
@@ -177,7 +177,7 @@ void BuddhaGenerator::drawPoint ( complex& c, bool drawr, bool drawg, bool drawb
 
 
 // test if a point is inside the interested area
-int BuddhaGenerator::inside ( complex& c ) {
+int BuddhaGenerator::inside ( buddha::complex& c ) {
         return  c.re <= b->maxre &&
                 c.re >= b->minre &&
                 ( ( c.im <= b->maxim && c.im >= b->minim ) ||
@@ -189,10 +189,10 @@ int BuddhaGenerator::inside ( complex& c ) {
 
 
 // this is the main function. Here little modifications impacts a lot on the speed of the program!
-int BuddhaGenerator::evaluate ( complex& begin, double& centerDistance,
+int BuddhaGenerator::evaluate ( buddha::complex& begin, double& centerDistance,
 				unsigned int& contribute, unsigned int& calculated ) {
-	complex last = begin;	// holds the last calculated point
-	complex critical = last;// for periodicity check
+	buddha::complex last = begin;	// holds the last calculated point
+	buddha::complex critical = last;// for periodicity check
 	unsigned int j = 0, criticalStep = STEP;
 	double tmp = 64.0;
 	bool isInside;
@@ -260,14 +260,14 @@ int BuddhaGenerator::evaluate ( complex& begin, double& centerDistance,
 
 
 
-inline void BuddhaGenerator::gaussianMutation ( complex& z, double radius ) {
+inline void BuddhaGenerator::gaussianMutation ( buddha::complex& z, double radius ) {
 	double redev, imdev;
 	generator.gaussian( redev, imdev, radius );
 	z.re += redev;
 	z.im += imdev;
 }
 
-inline void BuddhaGenerator::exponentialMutation ( complex& z, double radius ) {
+inline void BuddhaGenerator::exponentialMutation ( buddha::complex& z, double radius ) {
 	double redev, imdev;
 	generator.exponential( redev, imdev, radius );
 	z.re += redev;
@@ -278,11 +278,11 @@ inline void BuddhaGenerator::exponentialMutation ( complex& z, double radius ) {
 // search for a point that falls in the screen, simply moves randomly making moves
 // proportional in size to the distance from the center of the screen.
 // I think can be optimized a lot
-int BuddhaGenerator::findPoint ( complex& begin, double& centerDistance, unsigned int& contribute, unsigned int& calculated ) {
+int BuddhaGenerator::findPoint ( buddha::complex& begin, double& centerDistance, unsigned int& contribute, unsigned int& calculated ) {
 	int max, iterations = 0;
 	unsigned int calculatedInThisIteration;
 	double bestDistance = 64.0;
-	complex tmp = begin;
+	buddha::complex tmp = begin;
 
 	// 64 - 512
         #define FINDPOINTMAX 	256
@@ -311,7 +311,7 @@ int BuddhaGenerator::findPoint ( complex& begin, double& centerDistance, unsigne
 // the metropolis algorithm. I don't know very much about the teory under this optimization but I think is
 // implemented quite well.. Maybe a better method for the transition probability can be found but I don't know.
 int BuddhaGenerator::metropolis ( ) {
-	complex begin( 0.0, 0.0 );
+	buddha::complex begin( 0.0, 0.0 );
 	unsigned int calculated, total = 0, selectedOrbitCount = 0, proposedOrbitCount = 0;
 	int selectedOrbitMax = 0, proposedOrbitMax = 0, j;
 	double radius = 40.0 / b->scale; // 100.0;
@@ -327,7 +327,7 @@ int BuddhaGenerator::metropolis ( ) {
 	// if the search failed I exit
 	if ( selectedOrbitCount == 0 ) return calculated;
 	
-	complex ok = begin;
+	buddha::complex ok = begin;
 	// also "how much" cicles are executed on each point is crucial. In order to have more points on the
 	// screen an high iteration count could be better but, not too high because otherwise the space
 	// is not sampled well. I tried values between 512 and 8192 and they works well. Over 80000 it becames strange.

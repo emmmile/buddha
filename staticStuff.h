@@ -34,8 +34,8 @@
 
 #define sqr( x )		({ typeof(x) __x = (x); __x * __x; })
 
-#define xstr(s) str(s)
-#define str(s) #s
+#define XSTR(s) STR(s)
+#define STR(s) #s
 
 
 #if TEST > 0

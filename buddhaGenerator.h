@@ -65,14 +65,14 @@ public:
 
 
 	// for the raw image and the sequence of points
-	vector<complex> seq;
+	vector<buddha::complex> seq;
 	unsigned int* raw;
 	
-	void drawPoint ( complex& c, bool r, bool g, bool b );
-	int inside ( complex& c );
-	int evaluate ( complex& begin, double& distance, unsigned int& contribute, unsigned int& calculated );
+	void drawPoint ( buddha::complex& c, bool r, bool g, bool b );
+	int inside ( buddha::complex& c );
+	int evaluate ( buddha::complex& begin, double& distance, unsigned int& contribute, unsigned int& calculated );
 
-	int findPoint ( complex& begin, double& centerDistance, unsigned int& contribute, unsigned int& calculated );
+	int findPoint ( buddha::complex& begin, double& centerDistance, unsigned int& contribute, unsigned int& calculated );
 
 	//int normal();
 	int metropolis();
@@ -87,8 +87,8 @@ public:
 	unsigned long int seed;
 	Random generator;
 	
-	void gaussianMutation ( complex& z, double radius );
-	void exponentialMutation ( complex& z, double radius );
+	void gaussianMutation ( buddha::complex& z, double radius );
+	void exponentialMutation ( buddha::complex& z, double radius );
 	
 	
 	

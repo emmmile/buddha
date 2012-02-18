@@ -635,7 +635,7 @@ void ControlWindow::about ( ) {
 		    "<a href=\"http://www.mrob.com/pub/muency.html\">Mu-Ency -- The Encyclopedia of "
 		    "the Mandelbrot Set</a>.</p>"
 		    "<p><b>Buddha++</b> has been written by Emilio Del Tessandoro and compiled "
-		    "with flags \"<b>" xstr(FLAGS) "\"</b>.</p>" ) );
+		    "with flags \"<b>" XSTR(FLAGS) "\"</b>.</p>" ) );
 }
 
 
