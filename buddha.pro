@@ -21,7 +21,7 @@ SOURCES += buddha.cpp \
 	   main.cpp \
 	   renderWindow.cpp \
 	   staticStuff.cpp
-LIBS += -L./opencl/lib
+LIBS += -L./opencl/lib -lOpenCL
 include(./opencl/src/opencl/opencl_dep.pri)
 
 ###############################################
