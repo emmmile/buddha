@@ -31,13 +31,17 @@ include(./opencl/src/opencl/opencl_dep.pri)
 # run : gprof ./buddha                        #
 ###############################################
 #QMAKE_CFLAGS += -pg
-#QMAKE_CXXFLAGS += -pg
 #QMAKE_LFLAGS += -pg
+#DEFINES += FLAGS=CXXFLAGS
+
+#print in macro FLAGS the CFLAGS variable of the Makefile, cleaning it from the defines -D.
+#I would say that this is a nice hack.
+QMAKE_CXXFLAGS += -DFLAGS=\"`echo "$(CFLAGS)" | sed \'s/-D[^ ]*//g\' | sed \'s/[ ][ ]*/ /g\'`\"
 
 
 # to enable additional optimizations
 #QMAKE_CXXFLAGS += -O3 -finline-functions -funswitch-loops -fgcse-after-reload -ffast-math \
-#                  -fexpensive-optimizations -funroll-loops -frerun-loop-opt -mfpmath=sse -malign-double
+                  -fexpensive-optimizations -funroll-loops -frerun-loop-opt -mfpmath=sse -malign-double
 
 OTHER_FILES += \
     convertImage.cl
