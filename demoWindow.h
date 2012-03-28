@@ -26,22 +26,46 @@
 */
 
 
-#include <Qt>
-#include <QtGui>
-#include <iostream>
-#include "controlWindow.h"
-#include "options.h"
+#ifndef DEMOWINDOW_H
+#define DEMOWINDOW_H
 
 
-int main ( int argc, char** argv ) {
-	qDebug() << "main(), thread " << QThread::currentThreadId();
-	QApplication app(argc, argv);
-	ControlWindow control;
-	Options options( &control, argc, argv );
-	control.show( );
-     	
-	return app.exec( );
-}
+#include <QMainWindow>
+#include <QWidget>
+#include <QStatusBar>
+#include "buddha.h"
 
+
+
+class QAction;
+class QLabel;
+class QMenu;
+class QScrollArea;
+class QScrollBar;
+class ControlWindow;
+
+
+
+
+class DemoWindow : public QWidget {
+	Q_OBJECT
+private:
+	Buddha* b;
+	ControlWindow* parent;
+public:
+	
+	DemoWindow( ControlWindow* parent, Buddha* b );
+protected:
+	//void paintEvent(QPaintEvent *event);
+	//void resizeEvent(QResizeEvent *event);
+	//void keyPressEvent(QKeyEvent *event);
+	//void wheelEvent(QWheelEvent *event);
+	//void mousePressEvent(QMouseEvent *event);
+	//void mouseMoveEvent(QMouseEvent *event);
+	//void mouseReleaseEvent(QMouseEvent *event);
+	//void closeEvent(QCloseEvent* event );
+};
+
+#endif
 
 

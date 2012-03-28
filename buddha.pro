@@ -14,15 +14,20 @@ HEADERS += buddha.h \
 	   controlWindow.h \
 	   renderWindow.h \
 	   staticStuff.h \
-	   random.h
+	   random.h \
+	   demoWindow.h \
+    options.h
 SOURCES += buddha.cpp \
 	   buddhaGenerator.cpp \
 	   controlWindow.cpp \
 	   main.cpp \
 	   renderWindow.cpp \
-	   staticStuff.cpp
-LIBS += -L./opencl/lib -lOpenCL
-include(./opencl/src/opencl/opencl_dep.pri)
+	   staticStuff.cpp \
+    demoWindow.cpp \
+    options.cpp
+LIBS += -lboost_program_options
+#LIBS += -L./opencl/lib -lOpenCL
+#include(./opencl/src/opencl/opencl_dep.pri)
 
 ###############################################
 # to enable profiling                         #
@@ -41,7 +46,7 @@ QMAKE_CXXFLAGS += -DFLAGS=\"`echo "$(CFLAGS)" | sed \'s/-D[^ ]*//g\' | sed \'s/[
 
 # to enable additional optimizations
 #QMAKE_CXXFLAGS += -O3 -finline-functions -funswitch-loops -fgcse-after-reload -ffast-math \
-                  -fexpensive-optimizations -funroll-loops -frerun-loop-opt -mfpmath=sse -malign-double
+#                  -fexpensive-optimizations -funroll-loops -frerun-loop-opt -mfpmath=sse -malign-double
 
 OTHER_FILES += \
     convertImage.cl

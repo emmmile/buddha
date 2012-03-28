@@ -47,8 +47,8 @@ class ControlWindow;
 
 
 static const int scrollStep = 100;
-static const int defaultWidth = 1248;
-static const int defaultHeight = 768;
+static const int defaultWidth = 800;
+static const int defaultHeight = 600;
 static const double zoomFactor = 2.0;
 
 

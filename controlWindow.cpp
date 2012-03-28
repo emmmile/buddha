@@ -34,19 +34,19 @@
 
 
 ControlWindow::ControlWindow ( )  {
-	cre = initialCre;
+	/*cre = initialCre;
 	cim = initialCim;
 	scale = initialScale;
-        minR = initialMinR;
-        minG = initialMinG;
+	lowr = initialMinR;
+	lowg = initialMinG;
         minB = initialMinB;
         maxR = initialMaxR;
         maxG = initialMaxG;
         maxB = initialMaxB;
 	contrast = loadedContrast = initialContrast;
 	lightness = loadedLightness = initialLight;
-	fps = initialFps;
-	step = 10 / scale;
+	fps = initialFps;*/
+	//step = 10 / scale;
 	
 	//timer = new QTimer( this );
 	b = new Buddha( );
@@ -74,21 +74,21 @@ ControlWindow::ControlWindow ( )  {
 	//step = scale / 1000;
 	
 	//setLightness( lightSlider->value() );
-        setColorValues( minR,minG,minB,maxR,maxG,maxB );
-	setImageSliders( lightness, contrast, fps );
+	//setColorValues( lowr,lowg,lowb,highr,highg,highb );
+	//setImageSliders( lightness, contrast, fps );
 	
-        setMinRIteration(minR);
+       /* setMinRIteration(minR);
         setMinGIteration(minG);
         setMinBIteration(minB);
 
         setMaxRIteration(maxR);
         setMaxGIteration(maxG);
-        setMaxBIteration(maxB);
+	setMaxBIteration(maxB);
 	
 	setLightness( initialLight );
 	setContrast( initialContrast );
 	putValues ( cre, cim, scale );
-	setFps( initialFps );
+	setFps( initialFps );*/
 
         connect(minRbox, SIGNAL(valueChanged(int)), this, SLOT(setMinRIteration(int)));
         connect(minGbox, SIGNAL(valueChanged(int)), this, SLOT(setMinGIteration(int)));
@@ -144,50 +144,50 @@ ControlWindow::ControlWindow ( )  {
 void ControlWindow::createGraphBox ( ) {
 	graphBox = new QGroupBox( tr( "Graph quality" ), this );
 	
-        iterationRedLabel = new QLabel( "Red iteration min/max :", graphBox );
+	iterationRedLabel = new QLabel( "Red iteration min/max:", graphBox );
         minRbox = new QSpinBox(graphBox);
         minRbox->setMinimum(0);
         minRbox->setMaximum(INT_MAX);
         minRbox->setAlignment(Qt::AlignCenter);
         minRbox->setButtonSymbols( QAbstractSpinBox::PlusMinus );
-        minRbox->setValue(initialMinR);
+	minRbox->setValue(lowr);
 
         maxRbox = new QSpinBox(graphBox);
         maxRbox->setMinimum(0);
         maxRbox->setMaximum(INT_MAX);
         maxRbox->setAlignment(Qt::AlignCenter);
         maxRbox->setButtonSymbols( QAbstractSpinBox::PlusMinus );
-        maxRbox->setValue(initialMaxR);
+	maxRbox->setValue(highr);
 
-        iterationGreenLabel = new QLabel( "green iteration min/max :", graphBox );
+	iterationGreenLabel = new QLabel( "Green iteration min/max:", graphBox );
         minGbox = new QSpinBox(graphBox);
         minGbox->setMinimum(0);
         minGbox->setMaximum(INT_MAX);
         minGbox->setAlignment(Qt::AlignCenter);
         minGbox->setButtonSymbols( QAbstractSpinBox::PlusMinus );
-        minGbox->setValue(initialMinG);
+	minGbox->setValue(lowg);
 
         maxGbox = new QSpinBox(graphBox);
         maxGbox->setMinimum(0);
         maxGbox->setMaximum(INT_MAX);
         maxGbox->setAlignment(Qt::AlignCenter);
         maxGbox->setButtonSymbols( QAbstractSpinBox::PlusMinus );
-        maxGbox->setValue(initialMaxG);
+	maxGbox->setValue(highg);
 
-        iterationBlueLabel = new QLabel( "blue iteration min/max :", graphBox );
+	iterationBlueLabel = new QLabel( "Blue iteration min/max:", graphBox );
         minBbox = new QSpinBox(graphBox);
         minBbox->setMinimum(0);
         minBbox->setMaximum(INT_MAX);
         minBbox->setAlignment(Qt::AlignCenter);
         minBbox->setButtonSymbols( QAbstractSpinBox::PlusMinus );
-        minBbox->setValue(initialMinB);
+	minBbox->setValue(lowb);
 
         maxBbox = new QSpinBox(graphBox);
         maxBbox->setMinimum(0);
         maxBbox->setMaximum(INT_MAX);
         maxBbox->setAlignment(Qt::AlignCenter);
         maxBbox->setButtonSymbols( QAbstractSpinBox::PlusMinus );
-        maxBbox->setValue(initialMaxB);
+	maxBbox->setValue(highb);
 
 
 	reLabel = new QLabel( "Real Center (-2.0 ~ 2.0):", graphBox );
@@ -209,8 +209,7 @@ void ControlWindow::createGraphBox ( ) {
 	imBox->setDecimals( PRECISION );
 	imBox->setToolTip( "Specify the imaginary centre of the image" );
 	
-	
-	
+
 	zoomLabel = new QLabel( "Magnification (100 ~ " + QString::number( maxScale, 'g', 0 ) + "):", graphBox );
 	zoomBox = new QDoubleSpinBox( graphBox );
 	zoomBox->setAlignment(Qt::AlignCenter);
@@ -416,12 +415,12 @@ void ControlWindow::handleStartButton ( ) {
 	emit startCalculation( );
 	renderWin->timer->start( sleepTime );
 	
-        minR = minRbox->value();
+	/*minR = minRbox->value();
         minG = minGbox->value();
         minB = minBbox->value();
         maxR = maxRbox->value();
         maxG = maxGbox->value();
-        maxB = maxBbox->value();
+	maxB = maxBbox->value();*/
         screenShotAct->setEnabled( true );
 	
 	if ( renderWin->isHidden() ) 
@@ -443,30 +442,29 @@ bool ControlWindow::valuesChanged ( ) {
 }
 
 
-void ControlWindow::setColorValues ( uint minR, uint minG, uint minB, uint maxR, uint maxG, uint maxB ) {
-    minRbox->setValue(minR);
-    minGbox->setValue(minG);
-    minBbox->setValue(minB);
-    maxRbox->setValue(maxR);
-    maxGbox->setValue(maxG);
-    maxBbox->setValue(maxB);
+void ControlWindow::modelToGUI ( ) {
+	minRbox->setValue( lowr );
+	minGbox->setValue( lowg );
+	minBbox->setValue( lowb );
+	maxRbox->setValue( highr );
+	maxGbox->setValue( highg );
+	maxBbox->setValue( highb );
 
-}
+	lightSlider->setValue( lightness );
+	contrastSlider->setValue( contrast );
+	fpsSlider->setValue( fps * 10.0 );
+	//setFps( fps );
+	//setLightness( lightness );
+	//setContrast( contrast );
 
-void ControlWindow::setImageSliders ( int l, int c, uint f ) {
-	lightSlider->setValue( l );
-	contrastSlider->setValue( c );
-	fpsSlider->setValue( f );
-}
-
-void ControlWindow::putValues ( double cre, double cim, double scale ) {
 	reBox->setValue( cre );
 	imBox->setValue( cim );
 	zoomBox->setValue( scale );
 
+	// why?
 	setCre( cre );
 	setCim( cim );
-        setScale( scale );
+	setScale( scale );
 }
 
 
@@ -481,20 +479,8 @@ void ControlWindow::putValues ( double cre, double cim, double scale ) {
 
 // FUNCTIONS FOR THE INPUT WIDGETS
 
-void ControlWindow::updateRedLabel( ) {
-        iterationRedLabel->setText( "Red min/max iterations : " );
-}
-
-void ControlWindow::updateGreenLabel( ) {
-        iterationGreenLabel->setText( "Green min/max iterations : " );
-}
-
-void ControlWindow::updateBlueLabel( ) {
-        iterationBlueLabel->setText( "Blue min/max iterations : " );
-}
-
 void ControlWindow::updateFpsLabel( ) {
-	fpsLabel->setText( "Frames per second: [" + QString::number( fps / 10.0, 'f', 1 ) + "]" );
+	fpsLabel->setText( "Frames per second: [" + QString::number( fps, 'f', 1 ) + "]" );
 }
 
 void ControlWindow::updateThreadLabel( quint8 value ) {
@@ -544,12 +530,14 @@ void ControlWindow::setContrast ( int value ) {
 
 
 void ControlWindow::setFps ( int value ) {
-	fps = value;
-	float toSet = ( ( fps == 0 ) ? 0.0 : fps / 10.0 );
-	sleepTime = (toSet == 0.0) ? 0x0FFFFFFF : 1000.0f / toSet;
+	fps = ( ( value == 0 ) ? 0.0 : value / 10.0 );
+	sleepTime = (fps == 0.0) ? 0x0FFFFFFF : 1000.0f / fps;
 	updateFpsLabel( );
 	
-	if ( renderWin->timer->isActive() ) { renderWin->timer->stop(); renderWin->timer->start( sleepTime ); }
+	if ( renderWin->timer->isActive() ) {
+		renderWin->timer->stop();
+		renderWin->timer->start( sleepTime );
+	}
 }
 
 void ControlWindow::setCre ( double d ) {
@@ -571,9 +559,9 @@ void ControlWindow::setScale ( double d ) {
 	
 	if ( scale < minScale ) scale = minScale;
 	if ( scale > maxScale ) scale = maxScale;
-	step = 10 / scale;
-	imBox->setSingleStep( step );
-	reBox->setSingleStep( step );
+	//step = 10 / scale;
+	//imBox->setSingleStep( step );
+	//reBox->setSingleStep( step );
 	//viewStartButton ( );
 }
 
@@ -584,7 +572,9 @@ void ControlWindow::setThreadNum ( int value ) {
 
 
 
-
+void ControlWindow::showEvent( QShowEvent* event ) {
+	modelToGUI( );
+}
 
 
 
@@ -659,13 +649,8 @@ void ControlWindow::saveConfig ( ) {
 	QString name = "[" + QString::number( this->cre ) + ", " + QString::number(cim ) + "].Buddha++";
 	QString fileName = QFileDialog::getSaveFileName( this, tr("Save Current Config"), "./" + name,
 			   tr("Buddha++ Files (*.Buddha++)") );
-	/*if ( fileName.isNull() ) return;
-	QFile file( fileName );
-	file.open(QIODevice::WriteOnly);
-	QDataStream out( &file );
 
-	out << red << green << blue << cre << cim << scale << lightness << contrast << renderWin->size();
-	file.close();*/
+
 }
 
 
@@ -673,25 +658,5 @@ void ControlWindow::openConfig ( ) {
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Open"),
 			   "./", tr("Buddha++ Files (*.Buddha++)") );
 
-	/*if ( fileName.isNull() ) return;
-	QFile file( fileName );
-	file.open(QIODevice::ReadOnly);
-	QDataStream in( &file );
 
-	double r, i, s;
-	int rr, gg, bb;
-	int ll, cc;
-	QSize ws;
-
-	//in >> rr >> gg >> bb >> r >> i >> s >> pp >> ws;
-	in >> rr >> gg >> bb >> r >> i >> s >> ll >> cc >> ws;
-	if ( in.status() != QDataStream::Ok ) {
-		QMessageBox::information( this, "Error", "Error Reading the file. Nothing has been loaded." );
-		return;
-	}
-
-	this->setColorSliders(rr, gg, bb);
-	loadedContrast = cc;
-	loadedLightness = ll;
-	this->setImageSliders( ll, cc, initialFps );*/
 }

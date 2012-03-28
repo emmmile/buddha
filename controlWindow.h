@@ -37,27 +37,6 @@
 #define PRECISION	15
 
 
-// Min/Max iteration values (TODO: should be uint)
-static const uint initialMinR = 100;
-static const uint initialMinG = 300;
-static const uint initialMinB = 500;
-static const uint initialMaxR = 200;
-static const uint initialMaxG = 400;
-static const uint initialMaxB = 600;
-
-static const int initialLight = 60;
-static const int initialContrast = 75;
-static const double initialScale = 200;
-static const double initialCre = 0.0;
-static const double initialCim = 0.0;
-static const uint initialFps = 20;
-
-static const double minScale = 100.0;   //should start at 1, not 100.
-static const double maxScale = 1.34217728E+8 * 128.0;
-static const double maxRe = 2.0;
-static const double maxIm = 2.0;
-static const double minRe = -2.0;
-static const double minIm = -2.0;
 static const uint maxLightness = 200;
 static const uint maxContrast = 200;
 static const uint maxFps = 40;
@@ -66,15 +45,22 @@ class ControlWindow : public QMainWindow {
 	Q_OBJECT
 
 public:
-        uint lowr, lowg, lowb;
+	static const double minRe = -2.0;
+	static const double maxRe = 2.0;
+	static const double minIm = -2.0;
+	static const double maxIm = 2.0;
+	static const double minScale = 100; //should start at 1, not 100 as the contrast/lightness
+	static const double maxScale = 1.34217728E+8 * 128.0;
+	static const double step = 0.001;
+
+	uint lowr, lowg, lowb;
         uint highr, highg, highb;
-        uint minR, minG, minB;
-        uint maxR, maxG, maxB;
+	//uint minR, minG, minB;
+	//uint maxR, maxG, maxB;
         int contrast, lightness;
-        uint fps;
-        int loadedContrast, loadedLightness;
+	double fps;
         double cre, cim;
-        double scale, step;
+	double scale;//, step;
 	Buddha* b;
 	
 //	static const int maxDepth = 40;
@@ -144,13 +130,10 @@ public:
 	void createControlBox ( );
 	void createMenus( );
 	void createActions( );
-	void updateRedLabel( );
-	void updateGreenLabel( );
-	void updateBlueLabel( );
 	void updateFpsLabel( );
         void updateThreadLabel( quint8 );
-        void setColorValues( uint, uint, uint, uint, uint, uint );
-        void setImageSliders( int, int, uint );
+	//void setColorValues(  );
+       // void setImageSliders( int, int, uint );
 
 public:
 	//QPushButton *currentButton;
@@ -162,13 +145,14 @@ public:
 	ControlWindow ( );
 	
 	bool valuesChanged( );
-        void putValues( double, double, double );
+       // void putValues( double, double, double );
 	static int expVal ( int x ) { return (int) pow( 2.0, x / 2.0 ); }
-        void setCenter( double, double );
+	//void setCenter( double, double );
 	//void viewStartButton ( );
         double getCre( ) { return cre; }
         double getCim( ) { return cim; }
         double getScale( ) { return scale; }
+	void modelToGUI ( );
 
 public slots:
 	void handleStartButton( );
@@ -212,6 +196,7 @@ signals:
 
 protected:
 	void closeEvent ( QCloseEvent * event );
+	void showEvent ( QShowEvent * event );
 };
 
 #endif

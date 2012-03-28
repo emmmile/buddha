@@ -175,7 +175,10 @@ void RenderWindow::mouseReleaseEvent(QMouseEvent *event) {
 		scroll( dx, dy );
 		zoom( scale );
 		// TODO ugly, this has been just set in the previous call
-		parent->putValues( b->cre + dx / b->scale, b->cim - dy / b->scale, parent->getScale() );
+		//parent->putValues( b->cre + dx / b->scale, b->cim - dy / b->scale, parent->getScale() );
+		parent->setCre( b->cre + dx / b->scale );
+		parent->setCim( b->cim + dy / b->scale );
+		parent->modelToGUI();
 		parent->sendValues( true );
 		disabledDrawing = true;
 	}
@@ -261,7 +264,10 @@ void RenderWindow::scroll ( int dx, int dy ) {
 	if ( dx == 0 && dy == 0 ) return;
 
 	imageOffset = QPoint( 0, 0 );
-	parent->putValues( b->cre + dx / b->scale, b->cim - dy / b->scale, parent->getScale() );
+	//parent->putValues( b->cre + dx / b->scale, b->cim - dy / b->scale, parent->getScale() );
+	parent->setCre( b->cre + dx / b->scale );
+	parent->setCim( b->cim - dy / b->scale );
+	parent->modelToGUI();
 }
 
 
@@ -273,7 +279,11 @@ void RenderWindow::zoom ( double factor, int cutdx, int cutdy ) {
 	QPoint topLeft( multiplier * ( width() + 2.0 * cutdx ), multiplier * ( height() + 2.0 * cutdy ) );
 	QPoint newCentre( multiplier * 2.0 * cutdx, multiplier * 2.0 * cutdy );
 	
-	parent->putValues( b->cre + newCentre.x() / b->scale, b->cim - newCentre.y() / b->scale, b->scale * factor );
+	//parent->putValues( b->cre + newCentre.x() / b->scale, b->cim - newCentre.y() / b->scale, b->scale * factor );
+	parent->setCre( b->cre + newCentre.x() / b->scale );
+	parent->setCim( b->cim - newCentre.y() / b->scale );
+	parent->setScale( b->scale * factor );
+	parent->modelToGUI();
 }
 
 /*bool RenderWindow::valuesChanged ( ) {
