@@ -1,17 +1,15 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
-#include "controlWindow.h"
-#include <boost/program_options.hpp>
+//#include "controlWindow.h"
+#include "option.h"
 #include <vector>
 using namespace std;
 
-class Option;
-
+class ControlWindow;
 
 class Options {
 	ControlWindow* parent;
-
 	vector<Option> options;
 public:
 	Options( ControlWindow* control, int argc, char **argv );
@@ -19,5 +17,6 @@ public:
 	void load ( const string& filename );
 	void save ( const string& filename );
 };
+
 
 #endif // OPTIONS_H

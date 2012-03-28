@@ -33,6 +33,7 @@
 #include <QtGui/QtGui>
 #include "renderWindow.h"
 #include "buddha.h"
+#include "options.h"
 
 #define PRECISION	15
 
@@ -54,16 +55,14 @@ public:
 	static const double step = 0.001;
 
 	uint lowr, lowg, lowb;
-        uint highr, highg, highb;
-	//uint minR, minG, minB;
-	//uint maxR, maxG, maxB;
+	uint highr, highg, highb;
         int contrast, lightness;
 	double fps;
         double cre, cim;
-	double scale;//, step;
+	double scale;
 	Buddha* b;
-	
-//	static const int maxDepth = 40;
+	Options* options;
+
 
 	
 	// XXX test values
@@ -100,10 +99,8 @@ public:
 
         QSpinBox *minRbox;
         QSpinBox *maxRbox;
-
         QSpinBox *minGbox;
         QSpinBox *maxGbox;
-
         QSpinBox *minBbox;
         QSpinBox *maxBbox;
 
@@ -131,24 +128,17 @@ public:
 	void createMenus( );
 	void createActions( );
 	void updateFpsLabel( );
-        void updateThreadLabel( quint8 );
-	//void setColorValues(  );
-       // void setImageSliders( int, int, uint );
+	void updateThreadLabel( quint8 );
 
 public:
-	//QPushButton *currentButton;
 	QPushButton *resetButton;
 	QPushButton *startButton;
-	//QPushButton *defaultButton;
 	QAction* exitAct, *aboutQtAct, *aboutAct, *screenShotAct, *saveAct, *openAct;
 
 	ControlWindow ( );
 	
 	bool valuesChanged( );
-       // void putValues( double, double, double );
 	static int expVal ( int x ) { return (int) pow( 2.0, x / 2.0 ); }
-	//void setCenter( double, double );
-	//void viewStartButton ( );
         double getCre( ) { return cre; }
         double getCim( ) { return cim; }
         double getScale( ) { return scale; }
@@ -195,8 +185,8 @@ signals:
 	void screenshotRequest ( QString fileName );
 
 protected:
-	void closeEvent ( QCloseEvent * event );
-	void showEvent ( QShowEvent * event );
+	void closeEvent ( QCloseEvent* event );
+	void showEvent ( QShowEvent* event );
 };
 
 #endif
