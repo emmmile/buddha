@@ -33,21 +33,7 @@
 
 
 
-ControlWindow::ControlWindow ( )  {
-	/*cre = initialCre;
-	cim = initialCim;
-	scale = initialScale;
-	lowr = initialMinR;
-	lowg = initialMinG;
-        minB = initialMinB;
-        maxR = initialMaxR;
-        maxG = initialMaxG;
-        maxB = initialMaxB;
-	contrast = loadedContrast = initialContrast;
-	lightness = loadedLightness = initialLight;
-	fps = initialFps;*/
-	//step = 10 / scale;
-	
+ControlWindow::ControlWindow ( ) {
 	//timer = new QTimer( this );
 	b = new Buddha( );
 	icon = new QIcon( "resources/icon.png" );
@@ -71,24 +57,6 @@ ControlWindow::ControlWindow ( )  {
 	setMenuBar( menuBar );
 
 	resize( 600, 400 );
-	//step = scale / 1000;
-	
-	//setLightness( lightSlider->value() );
-	//setColorValues( lowr,lowg,lowb,highr,highg,highb );
-	//setImageSliders( lightness, contrast, fps );
-	
-       /* setMinRIteration(minR);
-        setMinGIteration(minG);
-        setMinBIteration(minB);
-
-        setMaxRIteration(maxR);
-        setMaxGIteration(maxG);
-	setMaxBIteration(maxB);
-	
-	setLightness( initialLight );
-	setContrast( initialContrast );
-	putValues ( cre, cim, scale );
-	setFps( initialFps );*/
 
         connect(minRbox, SIGNAL(valueChanged(int)), this, SLOT(setMinRIteration(int)));
         connect(minGbox, SIGNAL(valueChanged(int)), this, SLOT(setMinGIteration(int)));
@@ -414,13 +382,7 @@ void ControlWindow::handleStartButton ( ) {
 	emit sendValues( false );
 	emit startCalculation( );
 	renderWin->timer->start( sleepTime );
-	
-	/*minR = minRbox->value();
-        minG = minGbox->value();
-        minB = minBbox->value();
-        maxR = maxRbox->value();
-        maxG = maxGbox->value();
-	maxB = maxBbox->value();*/
+
         screenShotAct->setEnabled( true );
 	
 	if ( renderWin->isHidden() ) 
@@ -572,7 +534,7 @@ void ControlWindow::setThreadNum ( int value ) {
 
 
 
-void ControlWindow::showEvent( QShowEvent* event ) {
+void ControlWindow::showEvent( QShowEvent* ) {
 	modelToGUI( );
 }
 
@@ -632,7 +594,7 @@ void ControlWindow::about ( ) {
 
 void ControlWindow::saveScreenshot ( ) {
 	// simply opens a dialog and send a save request to the buddha thread
-	QString name = "[" + QString::number( cre ) + ", " + QString::number( cim ) + ", " + QString::number( scale ) + "].png";
+	QString name = "[" + QString::number( cre ) + ", " + QString::number( cim ) + "].png";
 	QString fileName = QFileDialog::getSaveFileName( this, tr("Save Screenshot"), 
 			   "./" + name, tr("Image Files (*.png)"));
 			   
@@ -646,17 +608,17 @@ void ControlWindow::saveScreenshot ( ) {
 
 // TODO these functions are completely to review
 void ControlWindow::saveConfig ( ) {
-	QString name = "[" + QString::number( this->cre ) + ", " + QString::number(cim ) + "].Buddha++";
+	QString name = "[" + QString::number( this->cre ) + ", " + QString::number(cim ) + "].xml";
 	QString fileName = QFileDialog::getSaveFileName( this, tr("Save Current Config"), "./" + name,
-			   tr("Buddha++ Files (*.Buddha++)") );
+			   tr("Buddha++ Files (*.xml)") );
 
-
+	this->options->save( fileName.toStdString() );
 }
 
 
 void ControlWindow::openConfig ( ) {
 	QString fileName = QFileDialog::getOpenFileName( this, tr("Open"),
-			   "./", tr("Buddha++ Files (*.Buddha++)") );
+			   "./", tr("Buddha++ Files (*.xml)") );
 
 
 }

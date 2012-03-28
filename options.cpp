@@ -1,4 +1,5 @@
 #include "options.h"
+#include "controlWindow.h"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/any.hpp>
@@ -6,96 +7,13 @@
 #include <iostream>
 namespace po = boost::program_options;
 using boost::property_tree::ptree;
-using boost::any_cast;
 using namespace std;
-
-
-
-
-
-class Option {
-public:
-	const char* option;
-	const char* description;
-	boost::any default_value;
-	void* target;	// quite ugly but I don't find any other solution
-
-	void set( const char* l, const char* d, void* t ) {
-		this->option = l;
-		this->description = d;
-		this->target = t;
-	}
-
-	Option ( const char* l, const char*  d ) {
-		this->option = l;
-		this->description = d;
-	}
-
-	Option ( const char* l, const char*  d, unsigned int value, void* t ) {
-		set(l,d,t);
-		default_value = value;
-	}
-
-	Option ( const char* l, const char* d, double value, void* t ) {
-		set(l,d,t);
-		default_value = value;
-	}
-
-	Option ( const char* l,  const char* d, int value, void* t ) {
-		set(l,d,t);
-		default_value = value;
-	}
-
-	string current_value ( ) {
-		stringstream out;
-
-		if ( default_value.type() == typeid( int ) ) {
-			out << any_cast<int>( default_value );
-		} else if ( default_value.type() == typeid( uint ) ) {
-			out << any_cast<uint>( default_value );
-		} else if ( default_value.type() == typeid( double ) ) {
-			out << any_cast<double>( default_value );
-		}
-
-		return out.str();
-	}
-
-	string name ( ) {
-		char* out = strdup( option );
-		*( strchrnul( out, ',' ) ) = '\0';
-		return out;
-	}
-
-	void add ( po::options_description_easy_init desc ) {
-
-		if ( default_value.type() == typeid( int ) ) {
-			po::typed_value<int>* out =
-			po::value<int>((int*)target)->default_value( any_cast<int>( default_value ) );
-			desc( option, out, description );
-		} else if ( default_value.type() == typeid( uint ) ) {
-			po::typed_value<uint>* out =
-			po::value<uint>((uint*)target)->default_value( any_cast<uint>( default_value ) );
-			desc( option, out, description );
-		} else if ( default_value.type() == typeid( double ) ) {
-			po::typed_value<double>* out =
-			po::value<double>((double*)target)->default_value( any_cast<double>( default_value ) );
-			desc( option, out, description );
-		} else if ( default_value.empty() ) {
-			desc( option, description );
-		} else {
-			cerr << "Error in option creation.\n";
-			exit( 1 );
-		}
-	}
-};
-
-
-
 
 
 
 Options::Options( ControlWindow* parent, int argc, char** argv ) {
 	this->parent = parent;
+	this->parent->options = this;
 	po::options_description desc("Allowed options");
 	options.push_back( Option("red-min,r", "set low red iterations count", 0u, &parent->lowr ) );
 	options.push_back( Option("green-min,g", "set low green iterations count", 0u, &parent->lowg ) );
