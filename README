@@ -3,3 +3,9 @@ The program as a number of features:
 - it's possible to set various parameters to change the characteristics of the rendered image, like the iteration depth on 3 color channels, brightness and contrast.
 - it's possible to save the image and (hopefully soon) to save and reload the whole calculation.
 - it's possible to change the number of threads calculating the fractal and the number of frames drawn every second.
+
+
+TODO
+- define a format for all command line options (and fields in the .xml configuration file)
+- add an option for executing without interface (or make modular in such a way I can build two separate executables with shared code)
+- add the possibility to run it distributed (via command line, maybe with a gui server)

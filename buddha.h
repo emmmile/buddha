@@ -49,7 +49,7 @@
 #ifdef _WIN32
 #define QTOPENCL	0
 #else
-#define QTOPENCL	1
+#define QTOPENCL	0
 #endif
 
 
