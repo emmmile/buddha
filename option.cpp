@@ -3,67 +3,67 @@
 using boost::any_cast;
 
 
-void Option::set( const char* l, const char* d, void* t ) {
+void Option::init( const char* l, const char* d ) {
 	this->option = l;
 	this->description = d;
-	this->target = t;
 }
 
 Option::Option ( const char* l, const char*  d ) {
-	this->option = l;
-	this->description = d;
+	init( l, d );
 }
 
-Option::Option ( const char* l, const char*  d, unsigned int value, void* t ) {
-	set(l,d,t);
+Option::Option ( const char* l, const char*  d, uint value, uint* t ) {
+	init( l, d );
 	default_value = value;
+	target_variable = t;
 }
 
-Option::Option ( const char* l, const char* d, double value, void* t ) {
-	set(l,d,t);
+Option::Option ( const char* l, const char* d, double value, double* t ) {
+	init( l, d );
 	default_value = value;
+	target_variable = t;
 }
 
-Option::Option ( const char* l,  const char* d, int value, void* t ) {
-	set(l,d,t);
+Option::Option ( const char* l,  const char* d, int value, int* t ) {
+	init( l, d );
 	default_value = value;
+	target_variable = t;
 }
 
-string Option::current_value ( ) {
+string Option::current_value ( ) const {
 	stringstream out;
 	out.precision( PRECISION );
 
+	// another check could be control the type of target
 	if ( default_value.type() == typeid( int ) ) {
-		out << *((int*) target);
+		out << *( any_cast<int*>(target_variable) );
 	} else if ( default_value.type() == typeid( uint ) ) {
-		out << *((uint*) target);
+		out << *( any_cast<uint*>(target_variable) );
 	} else if ( default_value.type() == typeid( double ) ) {
-		out << *((double*) target);
+		out << *( any_cast<double*>(target_variable) );
 	}
+
 
 	return out.str();
 }
 
-string Option::name ( ) {
+string Option::name ( ) const {
 	char* out = strdup( option );
 	*( strchrnul( out, ',' ) ) = '\0';
 	return out;
 }
 
 void Option::add ( po::options_description_easy_init desc ) {
+	#define add_option( T ) \
+		desc( option, po::value<T>( any_cast<T*>( target_variable ) )-> \
+		default_value( any_cast<T>( default_value ) ), description )
 
 	if ( default_value.type() == typeid( int ) ) {
-		po::typed_value<int>* out =
-		po::value<int>((int*)target)->default_value( any_cast<int>( default_value ) );
-		desc( option, out, description );
+		add_option( int );
 	} else if ( default_value.type() == typeid( uint ) ) {
-		po::typed_value<uint>* out =
-		po::value<uint>((uint*)target)->default_value( any_cast<uint>( default_value ) );
-		desc( option, out, description );
+		add_option( uint );
 	} else if ( default_value.type() == typeid( double ) ) {
-		po::typed_value<double>* out =
-		po::value<double>((double*)target)->default_value( any_cast<double>( default_value ) );
-		desc( option, out, description );
+		add_option( double );
 	} else if ( default_value.empty() ) {
 		desc( option, description );
 	} else {

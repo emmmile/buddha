@@ -27,7 +27,7 @@ SOURCES += buddha.cpp \
     demoWindow.cpp \
     options.cpp \
     option.cpp
-LIBS += -lboost_program_options
+LIBS += -lboost_program_options -s
 #LIBS += -L./opencl/lib -lOpenCL
 #include(./opencl/src/opencl/opencl_dep.pri)
 
