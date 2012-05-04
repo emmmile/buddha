@@ -30,42 +30,29 @@
 #define DEMOWINDOW_H
 
 
-#include <QMainWindow>
 #include <QWidget>
-#include <QStatusBar>
-#include "buddha.h"
+#include "baseRenderWindow.h"
 
+#if DEMO_WINDOW
 
-
-class QAction;
-class QLabel;
-class QMenu;
-class QScrollArea;
-class QScrollBar;
-class ControlWindow;
-
-
-
-
-class DemoWindow : public QWidget {
+class DemoWindow : public BaseRenderWindow {
 	Q_OBJECT
-private:
 	Buddha* b;
-	ControlWindow* parent;
 public:
-	
 	DemoWindow( ControlWindow* parent, Buddha* b );
 protected:
-	//void paintEvent(QPaintEvent *event);
-	//void resizeEvent(QResizeEvent *event);
+	void paintEvent(QPaintEvent *event);
+	void resizeEvent(QResizeEvent *event);
 	//void keyPressEvent(QKeyEvent *event);
-	//void wheelEvent(QWheelEvent *event);
-	//void mousePressEvent(QMouseEvent *event);
-	//void mouseMoveEvent(QMouseEvent *event);
-	//void mouseReleaseEvent(QMouseEvent *event);
+	void wheelEvent(QWheelEvent *event);
+	void mousePressEvent(QMouseEvent *event);
+	void mouseMoveEvent(QMouseEvent *event);
+	void mouseReleaseEvent(QMouseEvent *event);
 	//void closeEvent(QCloseEvent* event );
 };
 
+
+#endif
 #endif
 
 

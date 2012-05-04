@@ -27,6 +27,8 @@
 
 
 #include "controlWindow.h"
+#include "renderWindow.h"
+#include "demoWindow.h"
 #include <QVBoxLayout>
 #include <QtGui>
 #include <iostream>
@@ -44,7 +46,10 @@ ControlWindow::ControlWindow ( ) {
 	createRenderBox();
 	createControlBox();
 	createMenus();
-	
+	timer = new QTimer( this );
+
+
+
 	renderWin = new RenderWindow( this, b );
 	QHBoxLayout *hbox = new QHBoxLayout( );
 	QVBoxLayout *vbox = new QVBoxLayout( );
@@ -58,6 +63,8 @@ ControlWindow::ControlWindow ( ) {
 
 	resize( 600, 400 );
 
+
+	connect( timer, SIGNAL( timeout() ), renderWin, SLOT( sendFrameRequest() ) );
         connect(minRbox, SIGNAL(valueChanged(int)), this, SLOT(setMinRIteration(int)));
         connect(minGbox, SIGNAL(valueChanged(int)), this, SLOT(setMinGIteration(int)));
         connect(minBbox, SIGNAL(valueChanged(int)), this, SLOT(setMinBIteration(int)));
@@ -74,9 +81,13 @@ ControlWindow::ControlWindow ( ) {
 	connect( fpsSlider, SIGNAL( valueChanged( int ) ), this, SLOT( setFps( int ) ) );
 	connect( threadsSlider, SIGNAL( valueChanged( int ) ), this, SLOT( setThreadNum( int ) ) );
 	connect( startButton, SIGNAL( clicked() ), this, SLOT(handleStartButton()));
-	//connect( currentButton, SIGNAL( clicked() ), this, SLOT( handleCurrentButton() ) );
 	connect( resetButton, SIGNAL( clicked() ), this, SLOT( handleResetButton() ) );
-	//connect( defaultButton, SIGNAL( clicked() ), this, SLOT( handleDefaultButton() ) );
+#if DEMO_WINDOW
+	demoWin = new DemoWindow( this, b );
+	//demoWin->show();
+	connect( demoButton, SIGNAL( clicked() ), this, SLOT( handleDemoButton() ) );
+	connect( timer, SIGNAL( timeout() ), demoWin, SLOT( sendFrameRequest() ) );
+#endif
 	connect( normalZoom, SIGNAL( toggled( bool) ), renderWin, SLOT( setMouseMode( bool ) ) );
 	
 	// i set some shortcuts also for renderWin
@@ -342,21 +353,28 @@ void ControlWindow::createControlBox ( ) {
 	radioLayout->addWidget( normalZoom );
 	radioLayout->addWidget( mouseZoom );
 
-	//buttonsLayout->addWidget( currentButton );
-	//buttonsLayout->addWidget( resetButton );
-
 	//vbox->addLayout( buttonsLayout );
-	vbox->addWidget( resetButton );
-	vbox->addWidget( startButton );
-	//vbox->addStretch(1);
 	vbox->addWidget( mouseLabel );
 	vbox->addLayout( radioLayout );
+	vbox->addWidget( resetButton );
+	vbox->addWidget( startButton );
+#if DEMO_WINDOW
+	demoButton = new QPushButton( tr( "&Demo" ), buttonsBox );
+	startButton->setToolTip( "Press to open demo window" );
+	demoButton->setDisabled( true );
+	vbox->addWidget( demoButton );
+	connect( b, SIGNAL( stoppedGenerators( bool ) ), demoButton, SLOT( setDisabled( bool ) ) );
+	connect( b, SIGNAL( startedGenerators( bool ) ), demoButton, SLOT( setEnabled( bool ) ) );
+#endif
+	//vbox->addStretch(1);
 	buttonsBox->setLayout( vbox );
+
 
 	
 	mouseZoom->setChecked( true );
 	normalZoom->setChecked( false );
-	
+
+
 	connect( b, SIGNAL( stoppedGenerators( bool ) ), startButton, SLOT( setEnabled( bool ) ) );
 	connect( b, SIGNAL( stoppedGenerators( bool ) ), resetButton, SLOT( setDisabled( bool ) ) );
 	connect( b, SIGNAL( startedGenerators( bool ) ), resetButton, SLOT( setEnabled( bool ) ) );
@@ -378,10 +396,13 @@ void ControlWindow::sendValues ( bool pause ) {
 void ControlWindow::handleStartButton ( ) {
 	qDebug() << "ControlWindow::handleStartButton(), thread " << QThread::currentThreadId();
 	
-	
+
+#if DEMO_WINDOW
+	b->setDemo( 0.0, 0.0, 200.0, demoWin->size(), true );
+#endif
 	emit sendValues( false );
 	emit startCalculation( );
-	renderWin->timer->start( sleepTime );
+	timer->start( sleepTime );
 
         screenShotAct->setEnabled( true );
 	
@@ -395,6 +416,22 @@ void ControlWindow::handleResetButton ( ) {
 	//renderWin->clearBuffers();
 	emit clearBuffers( );
 }
+
+#if DEMO_WINDOW
+void ControlWindow::handleDemoButton() {
+	qDebug() << "ControlWindow::handleStartButton(), thread " << QThread::currentThreadId();
+
+
+#if DEMO_WINDOW
+	b->setDemo( 0.0, 0.0, 200.0, demoWin->size(), true );
+#endif
+
+
+	if ( demoWin->isHidden() )
+		demoWin->show();
+	else	demoWin->hide();
+}
+#endif
 
 bool ControlWindow::valuesChanged ( ) {
 	return  cre != b->cre || cim != b->cim || scale != b->scale ||
@@ -496,9 +533,9 @@ void ControlWindow::setFps ( int value ) {
 	sleepTime = (fps == 0.0) ? 0x0FFFFFFF : 1000.0f / fps;
 	updateFpsLabel( );
 	
-	if ( renderWin->timer->isActive() ) {
-		renderWin->timer->stop();
-		renderWin->timer->start( sleepTime );
+	if ( timer->isActive() ) {
+		timer->stop();
+		timer->start( sleepTime );
 	}
 }
 
@@ -552,11 +589,15 @@ void ControlWindow::showEvent( QShowEvent* ) {
 
 void ControlWindow::renderWinClosed ( ) {	
 	screenShotAct->setEnabled( false );
-	renderWin->timer->stop( );
+	timer->stop( );
 	
 	// here an asynchronous termination is sufficient
 	emit stopCalculation( );
 	emit clearBuffers( );
+
+#if DEMO_WINDOW
+	demoWin->close();
+#endif
 }
 
 void ControlWindow::closeEvent ( QCloseEvent* ) {

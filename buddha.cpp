@@ -27,17 +27,18 @@
 
 
 
-#include "buddhaGenerator.h"
-#include "staticStuff.h"
-#include "controlWindow.h"
+//#include "controlWindow.h"
 #include <math.h>
 #include <float.h>
 #include <iostream>
 #include <QImage>
 #include <QPixmap>
 #include <QString>
+#include <QTime>
+#include <QDebug>
 #include <stdio.h>
-
+#include "buddha.h"
+#include "buddhaGenerator.h"
 
 
 
@@ -48,6 +49,13 @@ Buddha::Buddha( QObject *parent ) : QThread( parent ) {
 	RGBImage = NULL;
 	threads = 0;
 	generatorsStatus = STOP;
+
+#if DEMO_WINDOW
+	demoImage = NULL;
+	demoraw = NULL;
+	democre = democim = demoscale = 0.0;
+	demow = demoh = 0;
+#endif
 
 
 #if QTOPENCL
@@ -115,6 +123,62 @@ void Buddha::createImage ( ) {
 }
 
 
+#if DEMO_WINDOW
+void Buddha::createDemoImage ( ) {
+	unsigned int demoSize = demow * demoh;
+	unsigned int m = *max_element( demoraw, demoraw + demoSize );
+	//float mul = m > 0 ? log( demoscale ) / (float) powf( m, realContrast ) * 150.0 * realLightness : 0.0;
+
+	//qDebug() << m;
+	//qDebug() << demow << demoh << demoscale << democre << democim << demominre << demominim << demomaxre << demomaxim;
+
+
+	//float mul = 2048.0f / m;
+	for ( unsigned int i = 0; i < demoSize; ++i ) {
+		unsigned char pixel = 255.0f * sqrt( demoraw[i] / float( m ) );
+		//if ( pixel != 255 ) pixel = 0;
+		//unsigned char pixel = sqrtf( demoraw[i] ) * mul;//min( powf( demoraw[i], realContrast ) * mul, 255.0f );
+		demoImage[i] = pixel << 16 | pixel << 8 | pixel;
+	}
+}
+
+
+void Buddha::setDemo(double cre, double cim, double scale, QSize ws, bool pause) {
+
+	if ( pause ) pauseGenerators( );
+
+	this->democre = cre;
+	this->democim = cim;
+	this->demoscale = scale;
+	if ( demow * demoh != ws.width() * ws.height() ) {
+		demoraw = (unsigned int*) realloc( demoraw,  ws.width() *  ws.height() * sizeof( unsigned int ) );
+		demoImage = (unsigned int*) realloc( demoImage,  ws.width() *  ws.height() * sizeof( unsigned int ) );
+	}
+	this->demow = ws.width();
+	this->demoh = ws.height();
+
+	double demorangere = demow / demoscale;
+	double demorangeim = demoh / demoscale;
+	demominre = democre - demorangere * 0.5;
+	demomaxre = democre + demorangere * 0.5;
+	demominim = democim - demorangeim * 0.5;
+	demomaxim = democim + demorangeim * 0.5;
+
+	if ( pause ) {
+		mutex.lock();
+		memset( demoImage, 0, demow * demoh * sizeof( int ) );
+		memset( demoraw, 0, demow * demoh * sizeof( int ) );
+		mutex.unlock();
+		resumeGenerators( );
+	}
+
+	emit demoSettedValues();
+}
+
+#endif
+
+
+
 // this function takes the raw data from generator i and sums it
 // to the local raw array. The main difference is that if QTOPENCL is activated
 // I have to use an ARGB array of ints instead the simple RGB array kept by
@@ -154,6 +218,12 @@ void Buddha::reduceStep ( int i, bool checkValues ) {
 	}
 #endif	
 
+#if DEMO_WINDOW
+	for ( j = 0; j < demow * demoh; ++j ) {
+		this->demoraw[j] += generators[i]->demoraw[j];
+	}
+#endif
+
 	if ( checkValues ) {
 		rmul = maxr > 0 ? log( scale ) / (float) powf( maxr, realContrast ) * 150.0 * realLightness : 0.0;
 		gmul = maxg > 0 ? log( scale ) / (float) powf( maxg, realContrast ) * 150.0 * realLightness : 0.0;
@@ -171,6 +241,9 @@ void Buddha::reduce ( ) {
 	memset( raw, 0, 4 * size * sizeof( int ) );
 #else
 	memset( raw, 0, 3 * size * sizeof( int ) );
+#if DEMO_WINDOW
+	memset( demoraw, 0, demow * demoh * sizeof( int ) );
+#endif
 #endif
 	for ( int i = 0; i < threads; ++i )
 		reduceStep( i, i == (threads - 1) );
@@ -203,6 +276,9 @@ void Buddha::updateRGBImage( ) {
 #else
 	mutex.lock();
 	createImage( );
+#if DEMO_WINDOW
+	createDemoImage( );
+#endif
 	emit imageCreated( );
 	mutex.unlock();
 #endif
@@ -250,7 +326,7 @@ void Buddha::set( double re, double im, double s, uint lr, uint lg, uint lb, uin
         low = min( min(lowr, lowg), lowb);
 	resizeSequences( );
 	//status = RUN;
-	
+
 	if ( pause ) {
 		if ( haveToClear ) clearBuffers( );
 		resumeGenerators( );
@@ -328,6 +404,11 @@ void Buddha::resizeBuffers( ) {
 #else
 	raw = (unsigned int*) realloc( raw, size * 3 * sizeof( unsigned int ) );
 #endif
+
+#if DEMO_WINDOW
+	demoraw = (unsigned int*) realloc( demoraw, demow * demoh * sizeof( unsigned int ) );
+	demoImage = (unsigned int*) realloc( demoImage, demow * demoh * sizeof( unsigned int ) );
+#endif
 	RGBImage = (unsigned int*) realloc( RGBImage, size * sizeof( unsigned int ) );
 	mutex.unlock();
 
@@ -343,6 +424,9 @@ void Buddha::resizeBuffers( ) {
 		QMutexLocker( &generators[i]->mutex );
 		// could be done also indirectly but it not so costly
 		generators[i]->raw = (unsigned int*) realloc( generators[i]->raw, 3 * size * sizeof( unsigned int ) );
+#if DEMO_WINDOW
+		generators[i]->demoraw = (unsigned int*) realloc( generators[i]->demoraw, demow * demoh * sizeof( unsigned int ) );
+#endif
 	}
 }
 
@@ -351,12 +435,19 @@ void Buddha::clearBuffers ( ) {
 	mutex.lock();
 	memset( RGBImage, 0, size * sizeof( int ) );
 	memset( raw, 0, 3 * size * sizeof( int ) );
+#if DEMO_WINDOW
+	memset( demoImage, 0, demow * demoh * sizeof( int ) );
+	memset( demoraw, 0, demow * demoh * sizeof( int ) );
+#endif
 	mutex.unlock();
 	
 	for ( int i = 0; i < threads; ++i ) {
 		QMutexLocker( &generators[i]->mutex );
 		// could be done also indirectly but it not so costly
 		if ( generators[i]->raw ) memset( generators[i]->raw, 0, 3 * size * sizeof( int ) );
+#if DEMO_WINDOW
+		if ( generators[i]->demoraw ) memset( generators[i]->demoraw, 0, demow * demoh * sizeof( int ) );
+#endif
 	}
 }
 

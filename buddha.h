@@ -33,18 +33,17 @@
 
 #define TEST		0
 
-#include <string>
 #include <vector>
-#include <cmath>
-#include <stdlib.h>
 #include <QThread>
 #include <QMutex>
 #include <QSemaphore>
 #include <QImage>
-#include <cstdio>
-#include <QDebug>
 #include "complex.h"
 #include "staticStuff.h"
+
+
+
+#define DEMO_WINDOW	1
 
 #ifdef _WIN32
 #define QTOPENCL	0
@@ -60,12 +59,12 @@
 using namespace std;
 
 
-
-enum CurrentStatus { PAUSE, STOP, RUN };
+static const uint maxLightness = 200;
+static const uint maxContrast = 200;
+static const uint maxFps = 40;
 
 class BuddhaGenerator;
-
-
+enum CurrentStatus { PAUSE, STOP, RUN };
 
 
 
@@ -80,7 +79,7 @@ class Buddha : public QThread {
 	QCLImage2D srcImageBuffer;
 	QCLImage2D dstImageBuffer;
 #endif
-	
+
 	int threads;
 	vector<BuddhaGenerator*> generators;
 	CurrentStatus generatorsStatus;
@@ -126,6 +125,15 @@ public:
 	
 
 
+#if DEMO_WINDOW
+	unsigned int* demoraw;
+	unsigned int* demoImage;
+	double democre, democim, demoscale;
+	unsigned int demow, demoh;
+
+	double demominre, demominim;
+	double demomaxre, demomaxim;
+#endif
 
 	
 
@@ -142,6 +150,9 @@ signals:
 	void stoppedGenerators( bool);
 	void startedGenerators( bool);
 	void settedValues( );
+#if DEMO_WINDOW
+	void demoSettedValues( );
+#endif
 public slots:
 	// never call directly these functions from the GUI!!!
 	void startGenerators( );
@@ -157,6 +168,11 @@ public slots:
 	void saveScreenshot ( QString fileName );
 	void setContrast( int value );
 	void setLightness( int value );
+
+#if DEMO_WINDOW
+	void createDemoImage( );
+	void setDemo( double cre, double cim, double scale, QSize ws, bool pause );
+#endif
 };
 
 

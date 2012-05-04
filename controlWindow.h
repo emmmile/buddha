@@ -31,16 +31,17 @@
 
 #include <QtCore/QVariant>
 #include <QtGui/QtGui>
-#include "renderWindow.h"
-#include "buddha.h"
+//#include "demoWindow.h"
+//#include "renderWindow.h"
 #include "options.h"
+#include "buddha.h"
 
 #define PRECISION	15
 
 
-static const uint maxLightness = 200;
-static const uint maxContrast = 200;
-static const uint maxFps = 40;
+class RenderWindow;
+class DemoWindow;
+
 
 class ControlWindow : public QMainWindow {
 	Q_OBJECT
@@ -62,7 +63,7 @@ public:
 	double scale;
 	Buddha* b;
 	Options* options;
-
+	QTimer* timer;
 
 	
 	// XXX test values
@@ -119,7 +120,11 @@ public:
 	QMenu* fileMenu, *viewMenu, *helpMenu;
 	
 	RenderWindow* renderWin;
-	
+#if DEMO_WINDOW
+	DemoWindow* demoWin;
+	QPushButton* demoButton;
+#endif
+
 	int sleepTime;
 
 	void createGraphBox ( );
@@ -147,6 +152,9 @@ public:
 public slots:
 	void handleStartButton( );
         void handleResetButton( );
+#if DEMO_WINDOW
+	void handleDemoButton ( );
+#endif
         void renderWinClosed( );
 	void exit( );
 

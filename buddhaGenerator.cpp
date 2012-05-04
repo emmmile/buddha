@@ -26,6 +26,7 @@
 */
 
 
+#include <QDebug>
 #include "buddhaGenerator.h"
 #include "staticStuff.h"
 #define STEP		16
@@ -106,6 +107,11 @@ void BuddhaGenerator::initialize ( Buddha* b ) {
 	
 	status = RUN;
 	
+#if DEMO_WINDOW
+	demoraw = (unsigned int*) realloc( demoraw, b->demow * b->demoh * sizeof( unsigned int ) );
+	memset( demoraw, 0, b->demow * b->demoh * sizeof( unsigned int ) );
+#endif
+
 	qDebug() << "Initialized generator" << (void*) this << "with seed" << seed;
 }
 
@@ -146,8 +152,22 @@ void BuddhaGenerator::stop ( ) {
 
 
 
+#if DEMO_WINDOW
 
+void BuddhaGenerator::drawDemo ( buddha::complex& c ) {
+	register unsigned int x, y;
 
+	if ( c.re < b->demominre ) return;
+	if ( c.re > b->demomaxre ) return;
+
+	x = ( c.re - b->demominre ) * b->demoscale;
+
+	if ( c.im > b->demominim && c.im < b->demomaxim ) {
+		y = ( b->demomaxim - c.im ) * b->demoscale;
+		demoraw[ y * b->demow + x + 2 ]++;
+	}
+}
+#endif
 
 
 void BuddhaGenerator::drawPoint ( buddha::complex& c, bool drawr, bool drawg, bool drawb ) {
@@ -284,6 +304,9 @@ int BuddhaGenerator::findPoint ( buddha::complex& begin, double& centerDistance,
 	double bestDistance = 64.0;
 	buddha::complex tmp = begin;
 
+	//gaussianMutation( begin, 1 );
+	//max = evaluate( begin, centerDistance, contribute, calculatedInThisIteration );
+
 	// 64 - 512
         #define FINDPOINTMAX 	256
 	
@@ -298,12 +321,20 @@ int BuddhaGenerator::findPoint ( buddha::complex& begin, double& centerDistance,
 		if ( max != -1 && centerDistance < bestDistance ) {
 			bestDistance = centerDistance;
 			begin = tmp;
+
+
                     } else {
                         tmp = begin;
                     }
-        } while ( bestDistance != 0.0 && ++iterations < FINDPOINTMAX );
-	
-	
+#if DEMO_WINDOW
+	//drawDemo( tmp );
+#endif
+	} while ( bestDistance != 0.0 && ++iterations < FINDPOINTMAX );
+
+#if DEMO_WINDOW
+	drawDemo( begin );
+#endif
+
 	return max;
 }
 
@@ -333,20 +364,22 @@ int BuddhaGenerator::metropolis ( ) {
 	// is not sampled well. I tried values between 512 and 8192 and they works well. Over 80000 it becames strange.
 	// Now i'm using something proportional on "how much the point is important".. For example how long the sequence
 	// is and how many points falls on the window.
+	//for ( j = 0; j < 1; ++j ) {
 	for ( j = 0; j < max( (int) selectedOrbitCount * 256, selectedOrbitMax * 2 ); j++ ) {
 		// I put the check here because of the "continue"'s in the middle that makes the thread
 		// a little bit slow to respond to the changes of status
 		QMutexLocker locker( &mutex );
 		if ( !flow( ) ) return -1;
 		locker.unlock();
-
+#if DEMO_WINDOW
+		drawDemo( begin );
+#endif
 		begin = ok;
 		// the radius of the mutations influences a lot the quality of the rendering AND the speed.
 		// I think that choose a random radius is the best way otherwise I noticed some geometric artifacts
 		// around the point (-1.8, 0) for example. This artifacts however depend also on the number of iterations
 		// explained above.
 
-		//seq[0].mutate( random( &buf ) * radius /* + add */, &buf );
 		exponentialMutation( begin, generator.real() * radius );
 		
 		// calculate the new sequence

@@ -5,45 +5,69 @@
 #include <boost/any.hpp>
 #include <sstream>
 #include <iostream>
-namespace po = boost::program_options;
 using boost::property_tree::ptree;
 using namespace std;
 
 
 
-Options::Options( ControlWindow* parent, int argc, char** argv ) {
-	this->parent = parent;
+Options::Options( ControlWindow* p, int argc, char** argv ) : desc( "Allowed options" ) {
+	this->parent = p;
 	this->parent->options = this;
-	po::options_description desc("Allowed options");
-	options.push_back( Option("red-min,r", "set low red iterations count", 0u, &parent->lowr ) );
-	options.push_back( Option("green-min,g", "set low green iterations count", 0u, &parent->lowg ) );
-	options.push_back( Option("blue-min,b", "set low blue iterations count", 0u, &parent->lowb ) );
-	options.push_back( Option("red-max,R", "set high red iterations count", 512u, &parent->highr ) );
-	options.push_back( Option("green-max,G", "set high green iterations count", 2048u, &parent->highg ) );
-	options.push_back( Option("blue-max,B", "set high blue iterations count", 8192u, &parent->highb ) );
-	options.push_back( Option("cre", "set iniatial real center of the image", 0.0, &parent->cre ) );
-	options.push_back( Option("cim", "set iniatial imaginary center of the image", 0.0, &parent->cim ) );
-	options.push_back( Option("scale,s", "set iniatial scale factor of the image", 200.0, &parent->scale ) );
-	options.push_back( Option("lightness,l", "set the lightness of the image", 60, &parent->lightness) );
-	options.push_back( Option("contrast,c", "set the contrast of the image", 75, &parent->contrast) );
-	options.push_back( Option("frame-rate,f", "set the frame rate of the rendering", 2.0, &parent->fps) );
-	options.push_back( Option("help,h", "produce help message" ) );
 
-	for ( uint i = 0; i < options.size(); ++i )
-		options[i].add( desc.add_options() );
-
+	this->operator()
+		( "help,h", "produce help message" )
+		// doing like this is redundant I know, but there is no way to extract back the target variable
+		// prom the po::value class, or the default value
+		("red-min,r", po::value<uint>( &p->lowr )->default_value( 0u ), "set low red iterations count", &p->lowr, 0u )
+		("green-min,g", po::value<uint>( &p->lowg )->default_value( 0u ), "set low green iterations count", &p->lowg, 0u )
+		("blue-min,b", po::value<uint>( &p->lowb )->default_value( 0u ), "set low blue iterations count", &p->lowb, 0u )
+		("red-max,R", po::value<uint>(  &p->highr )->default_value( 8192u ), "set high red iterations count", &p->highr, 8192u )
+		("green-max,G", po::value<uint>( &p->highg  )->default_value( 2048u ), "set high green iterations count", &p->highg, 2048u )
+		("blue-max,B", po::value<uint>(  &p->highb )->default_value( 512u ), "set high blue iterations count", &p->highb, 512u )
+		("cre", po::value<double>( &p->cre )->default_value( 0.0 ), "set iniatial real center of the image", &p->cre, 0.0 )
+		("cim", po::value<double>(  &p->cim )->default_value( 0.0 ), "set iniatial imaginary center of the image", &p->cim, 0.0 )
+		("scale,s", po::value<double>( &p->scale )->default_value( 200.0 ), "set iniatial scale factor of the image", &p->scale, 200.0 )
+		("lightness,l", po::value<int>( &p->lightness )->default_value( 60 ), "set the lightness of the image", &p->lightness, 60 )
+		("contrast,c", po::value<int>(  &p->contrast )->default_value( 75 ), "set the contrast of the image", &p->contrast, 75 )
+		("frame-rate,f", po::value<double>( &p->fps )->default_value( 2.0 ), "set the frame rate of the rendering", &p->fps, 2.0 )
+		( "load", po::value<string>(), "load a configuration file" )
+	;
 
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
 	po::notify(vm);
 
+	//for ( uint i = 0; i < options.size(); ++i )
+	//	cout << options[i].current_value() << endl;
 
 	if ( vm.count("help") ) {
 		cout << desc << "\n";
 		exit( 0 );
 	}
+
+	if ( vm.count("load") ) {
+		// load from file
+	}
 }
 
+
+Options& Options::operator ()( const char* a, const char* b ) {
+	this->desc.add_options()( a, b );
+	//this->options.push_back( Option( a, b ) );
+	return *this;
+}
+
+Options& Options::operator()(const char * a, const po::value_semantic * b , const char * c) {
+	this->desc.add_options()( a, b, c );
+	return *this;
+}
+
+Options& Options::operator()(const char * a, const po::value_semantic * b, const char * c, boost::any d, boost::any e) {
+	this->desc.add_options()( a, b, c );
+	//cout << int ( d.type() == typeid( uint* ) ) << endl;
+	this->options.push_back( Option( a, c, d, e ) );
+	return *this;
+}
 
 
 void Options::save(const string &filename) {

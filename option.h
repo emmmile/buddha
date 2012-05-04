@@ -9,18 +9,12 @@ using namespace std;
 class Option {
 	const char* option;
 	const char* description;
-	boost::any default_value;
 	boost::any target_variable;	// a pointer
-	//void* target;	// quite ugly but I don't find any other solution
+	boost::any default_value;
 
 	void init( const char* l, const char* d );
 public:
-	Option ( const char* l, const char*  d );
-	Option ( const char* l, const char*  d, uint value, uint *t );
-	Option ( const char* l, const char* d, double value, double* t );
-	Option ( const char* l,  const char* d, int value, int* t );
-
-	void add ( po::options_description_easy_init desc );
+	Option ( const char* l, const char* de, boost::any t, boost::any d );
 
 	string current_value ( ) const;
 	string name ( ) const;

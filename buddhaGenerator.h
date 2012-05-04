@@ -26,8 +26,8 @@
 */
 
 
-#ifndef BuddhaGenerator_H
-#define BuddhaGenerator_H
+#ifndef BUDDHAGENERATOR_H
+#define BUDDHAGENERATOR_H
 
 #include <string>
 #include <vector>
@@ -41,8 +41,8 @@
 #include <QImage>
 #include <cstdio>
 #include <iostream>
-#include "buddha.h"
 #include "random.h"
+#include "buddha.h"
 using namespace std;
 
 #ifndef M_PI
@@ -57,6 +57,9 @@ public:
 	Buddha* b;
 	BuddhaGenerator( ) {
 		raw = NULL;
+#if DEMO_WINDOW
+		this->demoraw = NULL;
+#endif
 	}
 	~BuddhaGenerator ( ) {
 		delete[] raw;
@@ -78,7 +81,10 @@ public:
 	int metropolis();
 	
 	
-	
+#if DEMO_WINDOW
+	unsigned int* demoraw;
+	void drawDemo ( buddha::complex& c );
+#endif
 	
 	
 	// things for the random stuff

@@ -42,168 +42,113 @@ void RenderWindow::closeEvent ( QCloseEvent* ) {
 
 
 
-RenderWindow::RenderWindow ( ControlWindow* parent, Buddha* b ) {
-	this->parent = parent;
+RenderWindow::RenderWindow ( ControlWindow* parent, Buddha* b ) : BaseRenderWindow( parent ) {
+	//this->parent = parent;
 	this->b = b;
-	timer = new QTimer( this );
-	mousex = mousey = 0.0;
-	alreadySent = false;
-	resizeSent = false;
-	disabledDrawing = false;
+	this->cre = &b->cre;
+	this->cim = &b->cim;
+	this->scale = &b->scale;
+	this->w = &b->w;
+	this->h = &b->h;
+	this->image = &(b->RGBImage);
 
-	#ifndef QT_NO_CURSOR
-	setCursor(Qt::CrossCursor);
-	#endif
-	setMouseTracking( true );
-	resize( defaultWidth, defaultHeight );
-	setWindowIcon( parent->windowIcon() );
-	
-	connect( timer, SIGNAL( timeout() ), this, SLOT( sendFrameRequest() ) );
+
 	connect( this, SIGNAL( frameRequest( ) ), b, SLOT( updateRGBImage( ) ) );
 	connect( b, SIGNAL( imageCreated() ), this, SLOT( receivedFrame( ) ) );
 	connect( b, SIGNAL( settedValues( ) ), this, SLOT( canRestartDrawing( ) ) );
-
-	selectionBorder = QColor( 255, 255, 255, 191 );
-	selection = QColor( 255, 255, 255, 63 );
 }
 
 
 
-void RenderWindow::sendFrameRequest ( ) {
-	// this only tests if we already sent a frame request, otherwise the request
-	// accumulates on the buddha thread side, and slows a lot the responsivity also of the GUI
-	if ( !alreadySent ) {
-		emit frameRequest( );
-		alreadySent = true;
-	}
+
+void RenderWindow::paintEvent(QPaintEvent *event) {
+	BaseRenderWindow::paintEvent( event );
 }
 
 
-void RenderWindow::receivedFrame( ) {	
-	// a frame has been calculated by the buddha thread, simply I force a repaint
-	alreadySent = false;
-	update( );
-}
+void RenderWindow::resizeEvent( QResizeEvent* event ) {
+	BaseRenderWindow::resizeEvent( event );
 
-// XXX maybe change the name... this can be received also after a resize
-void RenderWindow::canRestartDrawing( ) {
-	disabledDrawing = false;
-
-	// this is a strategy to don't resize the workers at every single resize event
-	// i enable the sending of "resize requests" only if I processed the previous one
-	resizeSent = false;
-	// so, from a resizeEvent to another, there can be a lot of them that has been not
-	// considered, so when I received a "resize done" from the buddha thread a manually
-	// control if the sizes are equal, and if not I send a new request
-	if ( size().height() != (int) b->h || size().width() != (int) b->w )
-		this->resizeEvent( new QResizeEvent( size(), QSize(b->w, b->h ) ) );
-}
-
-
-void RenderWindow::paintEvent( QPaintEvent* ) {
-	//qDebug() << "RenderWindow::paintEvent(), thread " << QThread::currentThreadId();
-	QPoint off( imageOffset.x() < 0 ? 0 : imageOffset.x(), imageOffset.y() < 0 ? 0 : imageOffset.y() );
-
-	QPainter painter ( this );
-	painter.fillRect( rect(), Qt::black );
-	
-	if ( !disabledDrawing ) {
-		// this blocks the interface if it found the buddha thread working. It's not a problem to remove them
-		// but sometimes it visualize an incomplete image (if the buddha thread is already working on the next frame
-		//b->mutex.lock();	// XXX these should be unnecessary
-		out = QImage( (uchar*) b->RGBImage, b->w, b->h, QImage::Format_RGB32 );
-		painter.drawImage( off, out, rect() & rect().translated( -imageOffset ) );
-		//b->mutex.unlock();
-	}
-	
-	painter.setPen( selectionBorder );
-	if ( begMouse != endMouse ) {
-		painter.setBrush( selection );
-		painter.drawRect( QRect( begMouse, endMouse ) );
-	}
-	
-	painter.drawText( 2, size().height() - 2, "Re: " + QString::number( mousex, 'f', 8 ) + 
-			  ", Im: " + QString::number( mousey, 'f', 8 ) );
-}
-
-
-
-void RenderWindow::mousePressEvent(QMouseEvent *event) {
-	qDebug() << "RenderWindow::mousePressEvent()";
-	begMouse = endMouse = event->pos();
-}
-
-
-void RenderWindow::mouseMoveEvent(QMouseEvent *event) {
-	//qDebug() << "RenderWindow::mouseMoveEvent()";
-	mousex = ( event->x() - 0.5 * width() ) / b->scale + b->cre;
-	mousey = ( -event->y() + 0.5 * height() ) / b->scale + b->cim;
-	
-	if (event->buttons() & Qt::LeftButton) {
-		endMouse = event->pos();
-		if ( endMouse.x() > size().width() )  endMouse.setX( size().width() );
-        	if ( endMouse.y() > size().height() ) endMouse.setY( size().height() );
-	}
-	
-	if ( event->buttons() & Qt::RightButton || event->buttons() & Qt::MidButton ) {
-		imageOffset = event->pos() - begMouse;
-	}
-	
-	
-	update();
-}
-
-
-void RenderWindow::mouseReleaseEvent(QMouseEvent *event) {
-	qDebug() << "RenderWindow::mouseReleaseEvent()";
-	endMouse = event->pos();
-	if ( endMouse == begMouse ) return;
-	
-	
-	if ( event->button() == Qt::LeftButton ) {
-	
-		if ( endMouse.x() > size().width() ) endMouse.setX( size().width() );
-      		if ( endMouse.y() > size().height() ) endMouse.setY( size().height() );
-		
-		// calcolo il nuovo zoom
-		double scalex = (double) width() / fabs( ( endMouse - begMouse ).x() );
-		double scaley = (double) height() / fabs( ( endMouse - begMouse ).y() );
-		double scale = min( scalex, scaley );
-		
-		int dx = 0.5 * ( endMouse.x() + begMouse.x() - width() );
-		int dy = -0.5 * ( height() - endMouse.y() - begMouse.y() );
-		scroll( dx, dy );
-		zoom( scale );
-		// TODO ugly, this has been just set in the previous call
-		//parent->putValues( b->cre + dx / b->scale, b->cim - dy / b->scale, parent->getScale() );
-		parent->setCre( b->cre + dx / b->scale );
-		parent->setCim( b->cim + dy / b->scale );
-		parent->modelToGUI();
-		parent->sendValues( true );
-		disabledDrawing = true;
-	}
-	if ( event->button() == Qt::RightButton || event->button() == Qt::MidButton ) {
-		imageOffset = endMouse - begMouse;		
-		
-		scroll( -imageOffset.x(), -imageOffset.y() );
-		parent->sendValues( true );
-		disabledDrawing = true;
-	}
-	
-	begMouse = endMouse = event->pos();
-}
-
-
-void RenderWindow::resizeEvent( QResizeEvent* resize ) {
-	//qDebug() << "RenderWindow::resizeEvent()";
-	//qDebug() << "New size: " << resize->size() << ", old size: " << resize->oldSize();
-	if ( resize->oldSize() != QSize(-1,-1) && !resizeSent ) {
+	if ( event->oldSize() != QSize(-1,-1) && !resizeSent ) {
 		parent->sendValues( true );
 		disabledDrawing = true;
 		resizeSent = true;
 	}
 }
 
+
+void RenderWindow::mouseReleaseEvent(QMouseEvent *event) {
+	qDebug() << "RenderWindow::mouseReleaseEvent()";
+	BaseRenderWindow::mouseReleaseEvent( event );
+	if ( this->newcre == *cre && this->newcim == *cim && this->newscale == *scale )
+		return;
+
+	parent->setCre( this->newcre );
+	parent->setCim( this->newcim );
+	parent->setScale( this->newscale );
+	parent->modelToGUI();
+	disabledDrawing = true;
+	parent->sendValues( true );
+}
+
+
+
+
+void RenderWindow::wheelEvent(QWheelEvent *event) {
+	BaseRenderWindow::wheelEvent( event );
+	parent->setCre( this->newcre );
+	parent->setCim( this->newcim );
+	parent->setScale( this->newscale );
+	parent->modelToGUI();
+	if ( parent->valuesChanged() ) disabledDrawing = true;
+	parent->sendValues( true );
+}
+
+void RenderWindow::mousePressEvent(QMouseEvent *event) {
+	BaseRenderWindow::mousePressEvent( event );
+}
+
+
+void RenderWindow::mouseMoveEvent(QMouseEvent *event) {
+	BaseRenderWindow::mouseMoveEvent( event );
+}
+
+
+
+
+
+
+
+
+
+
+/*
+void RenderWindow::scroll ( int dx, int dy ) {
+	qDebug() <<"RenderWindow::scroll()";
+	if ( dx == 0 && dy == 0 ) return;
+
+	imageOffset = QPoint( 0, 0 );
+	//parent->putValues( b->cre + dx / b->scale, b->cim - dy / b->scale, parent->getScale() );
+	parent->setCre( b->cre + dx / b->scale );
+	parent->setCim( b->cim - dy / b->scale );
+	parent->modelToGUI();
+}
+
+
+// zoom of a factor factor and translate of dx dy
+void RenderWindow::zoom ( double factor, int cutdx, int cutdy ) {
+	qDebug() <<"RenderWindow::zoom()";
+	
+	double multiplier = 0.5 - 0.5 / factor;
+	QPoint topLeft( multiplier * ( width() + 2.0 * cutdx ), multiplier * ( height() + 2.0 * cutdy ) );
+	QPoint newCentre( multiplier * 2.0 * cutdx, multiplier * 2.0 * cutdy );
+	
+	//parent->putValues( b->cre + newCentre.x() / b->scale, b->cim - newCentre.y() / b->scale, b->scale * factor );
+	parent->setCre( b->cre + newCentre.x() / b->scale );
+	parent->setCim( b->cim - newCentre.y() / b->scale );
+	parent->setScale( b->scale * factor );
+	parent->modelToGUI();
+}
 
 void RenderWindow::keyPressEvent( QKeyEvent *event ) {
 	switch (event->key()) {
@@ -236,61 +181,8 @@ void RenderWindow::keyPressEvent( QKeyEvent *event ) {
 			scroll(0, -scrollStep);
 			parent->sendValues( true );
 			if ( parent->valuesChanged() ) disabledDrawing = true;
-                        break;
+			break;
 		default:
 			QWidget::keyPressEvent(event);
 	}
-}
-
-
-
-void RenderWindow::wheelEvent(QWheelEvent *event) {
-	double factor = event->delta() > 0 ? zoomFactor : 1.0 / zoomFactor;
-	int dx, dy;
-	
-	if ( !zoomMode ) {
-		dx = event->x() - width() * 0.5;
-		dy = event->y() - height() * 0.5;
-	} else	dx = dy = 0;
-	
-	zoom( factor, dx, dy );
-	parent->sendValues( true );
-	if ( parent->valuesChanged() ) disabledDrawing = true;
-}
-
-
-void RenderWindow::scroll ( int dx, int dy ) {
-	qDebug() <<"RenderWindow::scroll()";
-	if ( dx == 0 && dy == 0 ) return;
-
-	imageOffset = QPoint( 0, 0 );
-	//parent->putValues( b->cre + dx / b->scale, b->cim - dy / b->scale, parent->getScale() );
-	parent->setCre( b->cre + dx / b->scale );
-	parent->setCim( b->cim - dy / b->scale );
-	parent->modelToGUI();
-}
-
-
-// zoom of a factor factor and translate of dx dy
-void RenderWindow::zoom ( double factor, int cutdx, int cutdy ) {
-	qDebug() <<"RenderWindow::zoom()";
-	
-	double multiplier = 0.5 - 0.5 / factor;
-	QPoint topLeft( multiplier * ( width() + 2.0 * cutdx ), multiplier * ( height() + 2.0 * cutdy ) );
-	QPoint newCentre( multiplier * 2.0 * cutdx, multiplier * 2.0 * cutdy );
-	
-	//parent->putValues( b->cre + newCentre.x() / b->scale, b->cim - newCentre.y() / b->scale, b->scale * factor );
-	parent->setCre( b->cre + newCentre.x() / b->scale );
-	parent->setCim( b->cim - newCentre.y() / b->scale );
-	parent->setScale( b->scale * factor );
-	parent->modelToGUI();
-}
-
-/*bool RenderWindow::valuesChanged ( ) {
-	return width() != (int) b->w || height() != (int) b->h;
 }*/
-
-void RenderWindow::setMouseMode( bool mode ) {
-	this->zoomMode = mode;
-}
-
