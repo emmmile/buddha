@@ -177,7 +177,7 @@ void RenderWindow::mouseReleaseEvent(QMouseEvent *event) {
 		// TODO ugly, this has been just set in the previous call
 		//parent->putValues( b->cre + dx / b->scale, b->cim - dy / b->scale, parent->getScale() );
 		parent->setCre( b->cre + dx / b->scale );
-		parent->setCim( b->cim + dy / b->scale );
+		parent->setCim( b->cim - dy / b->scale );
 		parent->modelToGUI();
 		parent->sendValues( true );
 		disabledDrawing = true;
