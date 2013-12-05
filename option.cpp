@@ -49,7 +49,10 @@ string Option::current_value ( ) const {
 
 string Option::name ( ) const {
 	char* out = strdup( option );
-	*( strchrnul( out, ',' ) ) = '\0';
+	//*( strchrnul( out, ',' ) ) = '\0';
+	char* end = strchr( out, ',' );
+	if ( !end ) end = out + strlen( out );
+	*end = '\0';
 	return out;
 }
 
