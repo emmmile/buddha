@@ -16,8 +16,7 @@ HEADERS += buddha.h \
 	   staticStuff.h \
 	   random.h \
 	   demoWindow.h \
-    options.h \
-    option.h
+    options.h
 SOURCES += buddha.cpp \
 	   buddhaGenerator.cpp \
 	   controlWindow.cpp \
@@ -25,9 +24,8 @@ SOURCES += buddha.cpp \
 	   renderWindow.cpp \
 	   staticStuff.cpp \
     demoWindow.cpp \
-    options.cpp \
-    option.cpp
-LIBS += -lboost_program_options -s
+    options.cpp
+LIBS += -s
 #LIBS += -L./opencl/lib -lOpenCL
 #include(./opencl/src/opencl/opencl_dep.pri)
 

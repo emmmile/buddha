@@ -2,15 +2,13 @@
 #define OPTIONS_H
 
 //#include "controlWindow.h"
-#include "option.h"
 #include <vector>
 using namespace std;
 
 class ControlWindow;
 
 class Options {
-	ControlWindow* parent;
-	vector<Option> options;
+    ControlWindow* parent;
 public:
 	Options( ControlWindow* control, int argc, char **argv );
 

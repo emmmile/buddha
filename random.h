@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define USE_BOOST		1
+#define USE_BOOST		0
 
 #if USE_BOOST
 #include <boost/random.hpp>
