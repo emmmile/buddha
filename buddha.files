@@ -3,10 +3,10 @@ core/buddha.h
 core/buddhaGenerator.cpp
 core/buddhaGenerator.h
 core/complex.h
+core/settings.cpp
+core/settings.h
 core/option.cpp
 core/option.h
-core/options.cpp
-core/options.h
 core/random.h
 core/staticStuff.h
 CMakeLists.txt

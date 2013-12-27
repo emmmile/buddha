@@ -1,14 +1,16 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
+#include "buddha.h"
 #include "option.h"
 #include <vector>
 using namespace std;
 
-class Options {
+class settings {
 	vector<Option> options;
 public:
-    Options(  int argc, char **argv );
+    settings(buddha& parent,  int argc, char **argv );
+    settings( const string& filename );
 
 	void load ( const string& filename );
 	void save ( const string& filename );

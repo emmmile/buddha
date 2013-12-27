@@ -39,7 +39,8 @@
 
 
 
-Buddha::Buddha( ) {
+buddha::buddha( ) {
+    BOOST_LOG_TRIVIAL(debug) << "Buddha::Buddha()";
     size = w = h = lowr = lowg = lowb = highr = highg = highb = 0;
     cre = cim = scale = 0.0;
     raw = NULL;
@@ -47,21 +48,21 @@ Buddha::Buddha( ) {
     threads = 0;
     generatorsStatus = STOP;
 
-    thread(&Buddha::run, this);
+    //thread(&buddha::run, this);
 }
 
 
 
 
 
-void Buddha::setLightness ( int lightness ) {
+void buddha::setLightness ( int lightness ) {
     //mutex.lock();
     this->lightness = lightness;
     realLightness = (float) lightness / ( maxLightness - lightness + 1 );
     //mutex.unlock();
 }
 
-void Buddha::setContrast ( int contrast ) {
+void buddha::setContrast ( int contrast ) {
     //mutex.lock();
     this->contrast = contrast;
     realContrast = (float) contrast / maxContrast * 2.0;
@@ -70,7 +71,7 @@ void Buddha::setContrast ( int contrast ) {
 
 
 /*void Buddha::preprocessImage ( ) {
-    //unsigned int maxr, minr, maxb, minb, maxg, ming;
+    //uint maxr, minr, maxb, minb, maxg, ming;
     float midr, midg, midb;
 
     // this can be optimized but I don't think it impacts very much on the total time
@@ -87,11 +88,11 @@ void Buddha::setContrast ( int contrast ) {
 
 
 
-void Buddha::createImage ( ) {
+void buddha::createImage ( ) {
     //cout << "Buddha::toImage()\n";
     unsigned char r, g, b;
-    unsigned int j = 0;
-    for ( unsigned int i = 0; i < size; ++i, j += 3 ) {
+    uint j = 0;
+    for ( uint i = 0; i < size; ++i, j += 3 ) {
         r = min( powf( raw[j + 0], realContrast ) * rmul, 255.0f );
         g = min( powf( raw[j + 1], realContrast ) * gmul, 255.0f );
         b = min( powf( raw[j + 2], realContrast ) * bmul, 255.0f );
@@ -107,8 +108,8 @@ void Buddha::createImage ( ) {
 // every generator. This is because i get a lot of strange errors from the
 // execution of the opencl kernel. I don't know if this is a bug but for the
 // moment i keep this (useless) difference between using ARGB and RGB.
-void Buddha::reduceStep ( int i, bool checkValues ) {
-    unsigned int j;
+void buddha::reduceStep ( int i, bool checkValues ) {
+    uint j;
     if ( checkValues ) maxr = maxg = maxb = 0;
 
     lock_guard<mutex> lock( generators[i]->execution );
@@ -133,7 +134,7 @@ void Buddha::reduceStep ( int i, bool checkValues ) {
 }
 
 
-void Buddha::reduce ( ) {
+void buddha::reduce ( ) {
     memset( raw, 0, 3 * size * sizeof( int ) );
 
     for ( int i = 0; i < threads; ++i )
@@ -141,7 +142,7 @@ void Buddha::reduce ( ) {
 }
 
 
-void Buddha::updateRGBImage( ) {
+void buddha::updateRGBImage( ) {
     boost::timer time;
     reduce();
     int elapsed = time.elapsed();
@@ -151,7 +152,7 @@ void Buddha::updateRGBImage( ) {
     BOOST_LOG_TRIVIAL(info) << "Buddha::updateRGBImage(), reduce: " << elapsed << " ms, image build: " << time.elapsed() << " ms";
 }
 
-void Buddha::saveScreenshot ( string& fileName ) {
+void buddha::saveScreenshot ( string& fileName ) {
     /*QImage out( (uchar*) RGBImage, w, h, QImage::Format_RGB32 );
     out.save( fileName, "PNG" );
 
@@ -159,9 +160,9 @@ void Buddha::saveScreenshot ( string& fileName ) {
     //cout << "Compressed size vs Full: " << compress.size() << " " << w * h * sizeof(int) << endl;*/
 }
 
-void Buddha::set(double re, double im, double s, uint lr, uint lg, uint lb, uint hr, uint hg, uint hb, isize wsize, bool pause ) {
+void buddha::set(double re, double im, double s, uint lr, uint lg, uint lb, uint hr, uint hg, uint hb, isize wsize, bool pause ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::set()";
-    bool haveToClear = (wsize.width() != (int) w) || (wsize.height() != (int) h) ||(re != cre) || (im != cim) || (s != scale);
+    bool haveToClear = (wsize.width() != w) || (wsize.height() != h) ||(re != cre) || (im != cim) || (s != scale);
 
     if ( pause ) pauseGenerators( );
 
@@ -199,7 +200,7 @@ void Buddha::set(double re, double im, double s, uint lr, uint lg, uint lb, uint
     }
 }
 
-Buddha::~Buddha ( ) {
+buddha::~buddha ( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::~Buddha()";
     free( raw );
     free( RGBImage );
@@ -217,7 +218,7 @@ Buddha::~Buddha ( ) {
 
 
 
-void Buddha::changeThreadNumber ( int threads ) {
+void buddha::changeThreadNumber ( int threads ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::changeThreadNumber(" << threads << "), was " << this->threads;
 
     // add some threads, if necessary
@@ -226,7 +227,7 @@ void Buddha::changeThreadNumber ( int threads ) {
     // first case: the current number of threads is less than the new one, so I have to create someting new
     for ( int i = this->threads; i < threads; ++i ) {
         // in every case if some slots in the array are empty I fill them
-        if ( !generators[i] ) generators[i] = new BuddhaGenerator;
+        if ( !generators[i] ) generators[i] = new buddha_generator;
         // if we're running or in pause and I've created a new generator I have still to initialize it
         if ( generatorsStatus != STOP ) generators[i]->initialize( this );
         // if we're running I start the new generator
@@ -252,7 +253,7 @@ void Buddha::changeThreadNumber ( int threads ) {
 
 
 
-void Buddha::resizeSequences( ) {
+void buddha::resizeSequences( ) {
     for ( int i = 0; i < threads; ++i ) {
         int size = (int) high - (int) low;
         if ( size >= 0 && (int) generators[i]->seq.size() != size )
@@ -260,21 +261,21 @@ void Buddha::resizeSequences( ) {
     }
 }
 
-void Buddha::resizeBuffers( ) {
+void buddha::resizeBuffers( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::resizeBuffers()";
 
-    raw = (unsigned int*) realloc( raw, size * 3 * sizeof( unsigned int ) );
-    RGBImage = (unsigned int*) realloc( RGBImage, size * sizeof( unsigned int ) );
+    raw = (uint*) realloc( raw, size * 3 * sizeof( uint ) );
+    RGBImage = (uint*) realloc( RGBImage, size * sizeof( uint ) );
 
 
     for ( int i = 0; i < threads; ++i ) {
         lock_guard<mutex> locker( generators[i]->execution );
         // could be done also indirectly but it not so costly
-        generators[i]->raw = (unsigned int*) realloc( generators[i]->raw, 3 * size * sizeof( unsigned int ) );
+        generators[i]->raw = (uint*) realloc( generators[i]->raw, 3 * size * sizeof( uint ) );
     }
 }
 
-void Buddha::clearBuffers ( ) {
+void buddha::clearBuffers ( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::clearBuffers()";
     memset( RGBImage, 0, size * sizeof( int ) );
     memset( raw, 0, 3 * size * sizeof( int ) );
@@ -286,7 +287,7 @@ void Buddha::clearBuffers ( ) {
     }
 }
 
-void Buddha::startGenerators ( ) {
+void buddha::startGenerators ( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::startGenerators()";
     for ( int i = 0; i < threads; ++i ) {
         generators[i]->initialize( this );
@@ -303,7 +304,7 @@ void Buddha::startGenerators ( ) {
 // XXX this can cause problems if a generator is in PAUSE, but for how the program is designed
 // I think this is impossible.
 // If the threads were running acquire completely the semaphore.
-void Buddha::stopGenerators ( ) {
+void buddha::stopGenerators ( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::stopGenerators()";
 
     /*for ( int i = 0; i < threads; ++i ) {
@@ -322,7 +323,7 @@ void Buddha::stopGenerators ( ) {
 }
 
 // similar to the previous
-void Buddha::pauseGenerators ( ) {
+void buddha::pauseGenerators ( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::pauseGenerators()";
 
     /*for ( int i = 0; i < threads && generatorsStatus == RUN; ++i ) {
@@ -339,7 +340,7 @@ void Buddha::pauseGenerators ( ) {
     }*/
 }
 
-void Buddha::resumeGenerators ( ) {
+void buddha::resumeGenerators ( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::resumeGenerators()";
 
     // Here I should first release and then re-aquire incrementally the semaphore
@@ -356,9 +357,11 @@ void Buddha::resumeGenerators ( ) {
 
 
 
-void Buddha::run ( ) {
+void buddha::run ( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::run()";
-    startGenerators();
+    dump( );
+
+    //startGenerators();
     //exec( );
     // the goal is also to make things completely asychronous in respect to the interface.
     // for example waiting for the generators to stop cannot happen in the interface because this
@@ -370,3 +373,11 @@ void Buddha::run ( ) {
     //stopGenerators( );
 }
 
+
+void buddha::dump ( ) {
+    BOOST_LOG_TRIVIAL(debug) << "lowr: " << lowr << ", highr " << highr;
+    BOOST_LOG_TRIVIAL(debug) << "lowg: " << lowg << ", highg " << highg;
+    BOOST_LOG_TRIVIAL(debug) << "lowb: " << lowb << ", highb " << highr;
+    BOOST_LOG_TRIVIAL(debug) << "cre: " << cre << ", cim " << cim;
+    BOOST_LOG_TRIVIAL(debug) << "scale: " << scale;
+}

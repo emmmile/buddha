@@ -45,9 +45,9 @@ using namespace std;
 // it would be nice to put a flag somewhere and have the possibility
 // somewhere to choose from the interface if render the buddhabrot or
 // the antibuddhabrot.
-/*int BuddhaGenerator::anti ( unsigned int& calculated ) {
-    buddha::complex z;
-    unsigned int i;
+/*int BuddhaGenerator::anti ( uint& calculated ) {
+    simple_complex z;
+    uint i;
 
     for ( i = 0; i < b->high - 1; ) {
 
@@ -66,7 +66,7 @@ using namespace std;
     return b->high - 1;
 }
 
-int BuddhaGenerator::randomTest ( unsigned int& calculated ) {
+int BuddhaGenerator::randomTest ( uint& calculated ) {
 
     static Random gen( seed );
 
@@ -91,7 +91,7 @@ int BuddhaGenerator::randomTest ( unsigned int& calculated ) {
 
 
 
-void BuddhaGenerator::initialize ( Buddha* b ) {
+void buddha_generator::initialize ( buddha* b ) {
     //BOOST_LOG_TRIVIAL(debug) << "BuddhaGenerator::initialize()";
     this->b = b;
 
@@ -103,14 +103,14 @@ void BuddhaGenerator::initialize ( Buddha* b ) {
 
     BOOST_LOG_TRIVIAL(debug) << "BuddhaGenerator::initialize() with seed " << seed;
 
-    raw = (unsigned int*) realloc( raw, 3 * b->size * sizeof( unsigned int ) );
-    memset( raw, 0, 3 * b->size * sizeof( unsigned int ) );
+    raw = (uint*) realloc( raw, 3 * b->size * sizeof( uint ) );
+    memset( raw, 0, 3 * b->size * sizeof( uint ) );
     seq.resize( b->high - b->low );
 
     status = RUN;
 }
 
-bool BuddhaGenerator::flow ( ) {
+bool buddha_generator::flow ( ) {
     //BOOST_LOG_TRIVIAL(debug) <<"flow()\n" );
     // note that pauseCondition has been set previously
     //QMutexLocker lock ( &mutex );
@@ -126,20 +126,20 @@ bool BuddhaGenerator::flow ( ) {
     return true;
 }
 
-void BuddhaGenerator::start ( ) {
-    thread (&BuddhaGenerator::run, this);
+void buddha_generator::start ( ) {
+    thread (&buddha_generator::run, this);
 }
 
-void BuddhaGenerator::pause ( ) {
+void buddha_generator::pause ( ) {
     status = PAUSE;
 }
 
-void BuddhaGenerator::resume ( ) {
+void buddha_generator::resume ( ) {
     status = RUN;
     resumeCondition.notify_one();
 }
 
-void BuddhaGenerator::stop ( ) {
+void buddha_generator::stop ( ) {
     status = STOP;
 }
 
@@ -149,8 +149,8 @@ void BuddhaGenerator::stop ( ) {
 
 
 
-void BuddhaGenerator::drawPoint ( buddha::complex& c, bool drawr, bool drawg, bool drawb ) {
-    register unsigned int x, y;
+void buddha_generator::drawPoint ( simple_complex& c, bool drawr, bool drawg, bool drawb ) {
+    register uint x, y;
 
 #define plotIm( c, drawr, drawg, drawb ) \
     if ( c.im > b->minim && c.im < b->maxim ) { \
@@ -176,7 +176,7 @@ void BuddhaGenerator::drawPoint ( buddha::complex& c, bool drawr, bool drawg, bo
 
 
 // test if a point is inside the interested area
-int BuddhaGenerator::inside ( buddha::complex& c ) {
+int buddha_generator::inside ( simple_complex& c ) {
     return  c.re <= b->maxre &&
             c.re >= b->minre &&
             ( ( c.im <= b->maxim && c.im >= b->minim ) ||
@@ -188,17 +188,17 @@ int BuddhaGenerator::inside ( buddha::complex& c ) {
 
 
 // this is the main function. Here little modifications impacts a lot on the speed of the program!
-int BuddhaGenerator::evaluate ( buddha::complex& begin, double& centerDistance,
-                                unsigned int& contribute, unsigned int& calculated ) {
-    buddha::complex last = begin;	// holds the last calculated point
-    buddha::complex critical = last;// for periodicity check
-    unsigned int j = 0, criticalStep = STEP;
+int buddha_generator::evaluate ( simple_complex& begin, double& centerDistance,
+                                uint& contribute, uint& calculated ) {
+    simple_complex last = begin;	// holds the last calculated point
+    simple_complex critical = last;// for periodicity check
+    uint j = 0, criticalStep = STEP;
     double tmp = 64.0;
     bool isInside;
     centerDistance = 64.0;
     contribute = 0;
 
-    for ( unsigned int i = 0; i < b->high; ++i ) {
+    for ( uint i = 0; i < b->high; ++i ) {
         // when low <= i < high the points are saved for drawing
         if ( i >= b->low ) seq[j++] = last;
 
@@ -259,14 +259,14 @@ int BuddhaGenerator::evaluate ( buddha::complex& begin, double& centerDistance,
 
 
 
-inline void BuddhaGenerator::gaussianMutation ( buddha::complex& z, double radius ) {
+inline void buddha_generator::gaussianMutation ( simple_complex& z, double radius ) {
     double redev, imdev;
     generator.gaussian( redev, imdev, radius );
     z.re += redev;
     z.im += imdev;
 }
 
-inline void BuddhaGenerator::exponentialMutation ( buddha::complex& z, double radius ) {
+inline void buddha_generator::exponentialMutation ( simple_complex& z, double radius ) {
     double redev, imdev;
     generator.exponential( redev, imdev, radius );
     z.re += redev;
@@ -277,11 +277,11 @@ inline void BuddhaGenerator::exponentialMutation ( buddha::complex& z, double ra
 // search for a point that falls in the screen, simply moves randomly making moves
 // proportional in size to the distance from the center of the screen.
 // I think can be optimized a lot
-int BuddhaGenerator::findPoint ( buddha::complex& begin, double& centerDistance, unsigned int& contribute, unsigned int& calculated ) {
+int buddha_generator::findPoint ( simple_complex& begin, double& centerDistance, uint& contribute, uint& calculated ) {
     int max, iterations = 0;
-    unsigned int calculatedInThisIteration;
+    uint calculatedInThisIteration;
     double bestDistance = 64.0;
-    buddha::complex tmp = begin;
+    simple_complex tmp = begin;
 
     // 64 - 512
 #define FINDPOINTMAX 	256
@@ -309,9 +309,9 @@ int BuddhaGenerator::findPoint ( buddha::complex& begin, double& centerDistance,
 
 // the metropolis algorithm. I don't know very much about the teory under this optimization but I think is
 // implemented quite well.. Maybe a better method for the transition probability can be found but I don't know.
-int BuddhaGenerator::metropolis ( ) {
-    buddha::complex begin( 0.0, 0.0 );
-    unsigned int calculated, total = 0, selectedOrbitCount = 0, proposedOrbitCount = 0;
+int buddha_generator::metropolis ( ) {
+    simple_complex begin( 0.0, 0.0 );
+    uint calculated, total = 0, selectedOrbitCount = 0, proposedOrbitCount = 0;
     int selectedOrbitMax = 0, proposedOrbitMax = 0, j;
     double radius = 40.0 / b->scale; // 100.0;
 
@@ -326,7 +326,7 @@ int BuddhaGenerator::metropolis ( ) {
     // if the search failed I exit
     if ( selectedOrbitCount == 0 ) return calculated;
 
-    buddha::complex ok = begin;
+    simple_complex ok = begin;
     // also "how much" cicles are executed on each point is crucial. In order to have more points on the
     // screen an high iteration count could be better but, not too high because otherwise the space
     // is not sampled well. I tried values between 512 and 8192 and they works well. Over 80000 it becames strange.
@@ -375,7 +375,7 @@ int BuddhaGenerator::metropolis ( ) {
         //locker.relock();
         // draw the points
         for ( int h = 0; h <= proposedOrbitMax - (int) b->low && proposedOrbitCount > 0; h++ ) {
-            unsigned int i = h + b->low;
+            uint i = h + b->low;
             drawPoint( seq[h], i < b->highr && i > b->lowr, i < b->highg && i > b->lowg, i < b->highb && i > b->lowb);
         }
     }
@@ -384,7 +384,7 @@ int BuddhaGenerator::metropolis ( ) {
 }
 
 
-void BuddhaGenerator::run ( ) {
+void buddha_generator::run ( ) {
     //b->semaphore.acquire( 1 );
 
     int exit = 0;

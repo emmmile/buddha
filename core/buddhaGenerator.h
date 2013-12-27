@@ -48,28 +48,28 @@ using namespace std;
 
 
 
-class BuddhaGenerator {
+class buddha_generator {
 public:	
 	// general data and utility functions
-	Buddha* b;
-	BuddhaGenerator( ) {
+	buddha* b;
+    buddha_generator( ) {
 		raw = NULL;
 	}
-	~BuddhaGenerator ( ) {
+    ~buddha_generator ( ) {
 		delete[] raw;
 	}
-	void initialize ( Buddha* b );
+	void initialize ( buddha* b );
 
 
 	// for the raw image and the sequence of points
-	vector<buddha::complex> seq;
-	unsigned int* raw;
+    vector<simple_complex> seq;
+    uint* raw;
 	
-	void drawPoint ( buddha::complex& c, bool r, bool g, bool b );
-	int inside ( buddha::complex& c );
-	int evaluate ( buddha::complex& begin, double& distance, unsigned int& contribute, unsigned int& calculated );
+    void drawPoint ( simple_complex& c, bool r, bool g, bool b );
+    int inside ( simple_complex& c );
+    int evaluate ( simple_complex& begin, double& distance, uint& contribute, uint& calculated );
 
-	int findPoint ( buddha::complex& begin, double& centerDistance, unsigned int& contribute, unsigned int& calculated );
+    int findPoint ( simple_complex& begin, double& centerDistance, uint& contribute, uint& calculated );
 
 	//int normal();
 	int metropolis();
@@ -78,15 +78,15 @@ public:
 	unsigned long int seed;
 	Random generator;
 	
-	void gaussianMutation ( buddha::complex& z, double radius );
-	void exponentialMutation ( buddha::complex& z, double radius );
+    void gaussianMutation ( simple_complex& z, double radius );
+    void exponentialMutation ( simple_complex& z, double radius );
 	
 	
 	
 	// for the synchronization and for controlling the execution
     mutex execution;
     condition_variable resumeCondition;		// this is to stop the Worker and wait for the resume signal
-	CurrentStatus status;
+    current_status status;
 	
     void start ( );
 	void pause ( );

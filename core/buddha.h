@@ -53,18 +53,18 @@ struct isize {
     uint width ( ) { return w; }
 };
 
-enum CurrentStatus { PAUSE, STOP, RUN };
-class BuddhaGenerator;
+enum current_status { PAUSE, STOP, RUN };
+class buddha_generator;
 
 
 
 
 
-class Buddha {
+class buddha {
 
     int threads;
-    vector<BuddhaGenerator*> generators;
-    CurrentStatus generatorsStatus;
+    vector<buddha_generator*> generators;
+    current_status generatorsStatus;
 
     //void preprocessImage ( );
     void createImage ( );
@@ -78,29 +78,29 @@ public:
     double maxre, maxim;
     double minre, minim;
     double cre, cim;
-    unsigned int low;
-    unsigned int lowr;
-    unsigned int lowg;
-    unsigned int lowb;
-    unsigned int high;
-    unsigned int highr;
-    unsigned int highg;
-    unsigned int highb;
+    uint low;
+    uint lowr;
+    uint lowg;
+    uint lowb;
+    uint high;
+    uint highr;
+    uint highg;
+    uint highb;
     double scale;
 
     // these can be calculated from the previous but they are useful
     double rangere, rangeim;
-    unsigned int w;
-    unsigned int h;
-    unsigned int size;
+    uint w;
+    uint h;
+    uint size;
 
 
     // things for the plot
-    unsigned int* raw;          // i want to avoid this in the future XXX
-    unsigned int* RGBImage;		// here will be built the QImage
+    uint* raw;          // i want to avoid this in the future XXX
+    uint* RGBImage;		// here will be built the QImage
     float rmul, gmul, bmul, realContrast, realLightness;
-    int contrast, lightness;
-    unsigned int maxr, minr, maxb, minb, maxg, ming;
+    uint contrast, lightness;
+    uint maxr, minr, maxb, minb, maxg, ming;
 
     static const uint maxLightness = 200;
     static const uint maxContrast = 200;
@@ -110,8 +110,8 @@ public:
 
 
 
-    Buddha ();
-    ~Buddha ( );
+    buddha ();
+    ~buddha ( );
 
     void reduceStep ( int i, bool check );
     void reduce ( );
@@ -137,6 +137,8 @@ public:
     void saveScreenshot (string &fileName );
     void setContrast( int value );
     void setLightness( int value );
+
+    void dump ( );
 };
 
 

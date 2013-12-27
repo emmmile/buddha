@@ -33,25 +33,23 @@
 #include <iostream>
 #include "staticStuff.h"
 
-namespace buddha {
-
 /// semplified structure to store complex numbers and generate random complex numbers
-class complex {
+class simple_complex {
 public:
 	double re;
 	double im;
 
 	
-	complex( double re, double im ) {
+    simple_complex( double re, double im ) {
 		this->re = re;
 		this->im = im;
 	}	
 	
-	complex( ) {
+    simple_complex( ) {
 		//complex( 0.0, 0.0 );
 	}
 	
-	inline complex& operator = ( const complex& z ) {
+    inline simple_complex& operator = ( const simple_complex& z ) {
 		this->re = z.re;
 		this->im = z.im;
 		return *this;
@@ -69,12 +67,12 @@ public:
 		return z;
 	}*/
 	
-	friend const complex operator - (const complex& z, const complex& t ) {
-		return complex( z.re - t.re, z.im - t.im );
+    friend const simple_complex operator - (const simple_complex& z, const simple_complex& t ) {
+        return simple_complex( z.re - t.re, z.im - t.im );
 	}
 	
-	friend const complex operator + (const complex& z, const complex& t ) {
-		return complex( z.re + t.re, z.im + t.im );
+    friend const simple_complex operator + (const simple_complex& z, const simple_complex& t ) {
+        return simple_complex( z.re + t.re, z.im + t.im );
 	}
 	
 	inline double mod ( ) {
@@ -115,7 +113,5 @@ public:
 	}*/
 };
 
-
-}
 
 #endif

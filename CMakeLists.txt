@@ -11,4 +11,4 @@ link_directories ("${PROJECT_SOURCE_DIR}/core")
 
 add_executable(buddha++ main.cpp)
 
-target_link_libraries (buddha++ core)
+target_link_libraries (buddha++ core pthread)
