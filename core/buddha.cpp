@@ -29,19 +29,17 @@
 
 #include "buddhaGenerator.h"
 #include "staticStuff.h"
-#include "controlWindow.h"
 #include <math.h>
 #include <float.h>
 #include <iostream>
-#include <QImage>
-#include <QPixmap>
-#include <QString>
 #include <stdio.h>
+#include <thread>
+#include <boost/timer.hpp>
 
 
 
 
-Buddha::Buddha( QObject *parent ) : QThread( parent ) {
+Buddha::Buddha( ) {
     size = w = h = lowr = lowg = lowb = highr = highg = highb = 0;
     cre = cim = scale = 0.0;
     raw = NULL;
@@ -49,19 +47,7 @@ Buddha::Buddha( QObject *parent ) : QThread( parent ) {
     threads = 0;
     generatorsStatus = STOP;
 
-
-#if QTOPENCL
-    if ( !context.create( QCLDevice::GPU ) )
-        qFatal("Could not create OpenCL context");
-
-    program = context.buildProgramFromSourceFile( "./convertImage.cl" );
-    convert = program.createKernel("convertImage");
-#endif
-
-    start();
-    // this is foundamental for a correct handling of the signals.
-    // read here for explainations: http://huntharo.com/huntharo/Blog/Entries/2009/8/21_QThread_signals_slots_-_Why_your_calls_stay_in_the_main_thread.html
-    QObject::moveToThread( this );
+    thread(&Buddha::run, this);
 }
 
 
@@ -125,22 +111,8 @@ void Buddha::reduceStep ( int i, bool checkValues ) {
     unsigned int j;
     if ( checkValues ) maxr = maxg = maxb = 0;
 
-    QMutexLocker( &generators[i]->mutex );
-#if QTOPENCL
-    unsigned int k = 0;
-    for ( j = 0; j < 3 * size; j += 3, k += 4 ) {
-        raw[k+1] += generators[i]->raw[j+0];
-        raw[k+2] += generators[i]->raw[j+1];
-        raw[k+3] += generators[i]->raw[j+2];
+    lock_guard<mutex> lock( generators[i]->execution );
 
-        if ( checkValues ) {
-            if ( raw[k+1] > maxr ) maxr = raw[k+1];
-            if ( raw[k+2] > maxg ) maxg = raw[k+2];
-            if ( raw[k+3] > maxb ) maxb = raw[k+3];
-        }
-    }
-
-#else
     for ( j = 0; j < 3 * size; j += 3 ) {
         raw[j+0] += generators[i]->raw[j+0];
         raw[j+1] += generators[i]->raw[j+1];
@@ -152,7 +124,6 @@ void Buddha::reduceStep ( int i, bool checkValues ) {
             if ( raw[j+2] > maxb ) maxb = raw[j+2];
         }
     }
-#endif	
 
     if ( checkValues ) {
         rmul = maxr > 0 ? log( scale ) / (float) powf( maxr, realContrast ) * 150.0 * realLightness : 0.0;
@@ -162,64 +133,33 @@ void Buddha::reduceStep ( int i, bool checkValues ) {
 }
 
 
-// Performs the whole reduce part. In the last step I also compute the
-// max calculation on the raw array.
-// TODO. This could be done in logarithmic time using cooperation between
-// generators, for the moment I keep this version for simplicity.
 void Buddha::reduce ( ) {
-#if QTOPENCL
-    memset( raw, 0, 4 * size * sizeof( int ) );
-#else
     memset( raw, 0, 3 * size * sizeof( int ) );
-#endif
+
     for ( int i = 0; i < threads; ++i )
         reduceStep( i, i == (threads - 1) );
 }
 
 
 void Buddha::updateRGBImage( ) {
-    QTime time;
-    time.start();
-
+    boost::timer time;
     reduce();
     int elapsed = time.elapsed();
-    time.start();
-#if QTOPENCL
-    srcImageBuffer = context.createImage2DHost(
-                QCLImageFormat( QCLImageFormat::Order_ARGB, QCLImageFormat::Type_Unnormalized_UInt32 ),
-                raw, QSize( w, h ), QCLMemoryObject::ReadOnly );
 
-    /*BOOST_LOG_TRIVIAL(debug) << "bestLocalWorkSize()" << convert.bestLocalWorkSizeImage2D() << "\n"
-         << "globalWorkSize()" << convert.globalWorkSize() << "\n"
-         << "localWorkSize()" << convert.localWorkSize() << "\n"
-         << "preferredWorkSizeMultiple()" << convert.preferredWorkSizeMultiple();*/
-
-    convert( srcImageBuffer, dstImageBuffer, realContrast, rmul, gmul, bmul );
-
-    mutex.lock();
-    dstImageBuffer.read(RGBImage, QRect(0, 0, w, h) );
-    emit imageCreated( );
-    mutex.unlock();
-#else
-    mutex.lock();
+    time.restart();
     createImage( );
-    emit imageCreated( );
-    mutex.unlock();
-#endif
-
     BOOST_LOG_TRIVIAL(info) << "Buddha::updateRGBImage(), reduce: " << elapsed << " ms, image build: " << time.elapsed() << " ms";
-    //printf( "Image build: %d ms.\n", time.elapsed() );
 }
 
-void Buddha::saveScreenshot ( QString fileName ) {
-    QImage out( (uchar*) RGBImage, w, h, QImage::Format_RGB32 );
+void Buddha::saveScreenshot ( string& fileName ) {
+    /*QImage out( (uchar*) RGBImage, w, h, QImage::Format_RGB32 );
     out.save( fileName, "PNG" );
 
     QByteArray compress = qCompress( (const uchar*) RGBImage, w * h * sizeof(int), 9 );
-    //cout << "Compressed size vs Full: " << compress.size() << " " << w * h * sizeof(int) << endl;
+    //cout << "Compressed size vs Full: " << compress.size() << " " << w * h * sizeof(int) << endl;*/
 }
 
-void Buddha::set( double re, double im, double s, uint lr, uint lg, uint lb, uint hr, uint hg, uint hb, QSize wsize, bool pause ) {
+void Buddha::set(double re, double im, double s, uint lr, uint lg, uint lb, uint hr, uint hg, uint hb, isize wsize, bool pause ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::set()";
     bool haveToClear = (wsize.width() != (int) w) || (wsize.height() != (int) h) ||(re != cre) || (im != cim) || (s != scale);
 
@@ -257,8 +197,6 @@ void Buddha::set( double re, double im, double s, uint lr, uint lg, uint lb, uin
         if ( haveToClear ) clearBuffers( );
         resumeGenerators( );
     }
-
-    emit settedValues( );
 }
 
 Buddha::~Buddha ( ) {
@@ -298,7 +236,7 @@ void Buddha::changeThreadNumber ( int threads ) {
     // second case: I have to stop someting
     for ( int i = threads; i < this->threads; ++i ) {
         if ( generatorsStatus != STOP ) {
-            QMutexLocker locker( &generators[i]->mutex );
+            lock_guard<mutex> locker( generators[i]->execution );
             generators[i]->stop( );
         }
     }
@@ -324,25 +262,13 @@ void Buddha::resizeSequences( ) {
 
 void Buddha::resizeBuffers( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::resizeBuffers()";
-    mutex.lock();
-#if QTOPENCL
-    raw = (unsigned int*) realloc( raw, size * 4 * sizeof( unsigned int ) );
-#else
-    raw = (unsigned int*) realloc( raw, size * 3 * sizeof( unsigned int ) );
-#endif
-    RGBImage = (unsigned int*) realloc( RGBImage, size * sizeof( unsigned int ) );
-    mutex.unlock();
 
-#if QTOPENCL
-    convert.setRoundedGlobalWorkSize( QSize( w, h ) );
-    //convert.setGlobalWorkSize( QSize( w, h ) );
-    convert.setLocalWorkSize( convert.bestLocalWorkSizeImage2D() );
-    dstImageBuffer = context.createImage2DDevice( QImage::Format_RGB32, QSize( w, h ), QCLMemoryObject::WriteOnly );
-#endif
+    raw = (unsigned int*) realloc( raw, size * 3 * sizeof( unsigned int ) );
+    RGBImage = (unsigned int*) realloc( RGBImage, size * sizeof( unsigned int ) );
 
 
     for ( int i = 0; i < threads; ++i ) {
-        QMutexLocker( &generators[i]->mutex );
+        lock_guard<mutex> locker( generators[i]->execution );
         // could be done also indirectly but it not so costly
         generators[i]->raw = (unsigned int*) realloc( generators[i]->raw, 3 * size * sizeof( unsigned int ) );
     }
@@ -350,13 +276,11 @@ void Buddha::resizeBuffers( ) {
 
 void Buddha::clearBuffers ( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::clearBuffers()";
-    mutex.lock();
     memset( RGBImage, 0, size * sizeof( int ) );
     memset( raw, 0, 3 * size * sizeof( int ) );
-    mutex.unlock();
 
     for ( int i = 0; i < threads; ++i ) {
-        QMutexLocker( &generators[i]->mutex );
+        lock_guard<mutex> locker( generators[i]->execution );
         // could be done also indirectly but it not so costly
         if ( generators[i]->raw ) memset( generators[i]->raw, 0, 3 * size * sizeof( int ) );
     }
@@ -370,7 +294,7 @@ void Buddha::startGenerators ( ) {
     }
 
     //semaphore.acquire( threads );
-    emit startedGenerators( true );
+    //startedGenerators( true );
     generatorsStatus = RUN;
 }
 
@@ -382,26 +306,26 @@ void Buddha::startGenerators ( ) {
 void Buddha::stopGenerators ( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::stopGenerators()";
 
-    for ( int i = 0; i < threads; ++i ) {
-        if ( generators[i]->isRunning() ) {
-            QMutexLocker locker( &generators[i]->mutex );
+    /*for ( int i = 0; i < threads; ++i ) {
+        //if ( generators[i]->isRunning() ) { TODO XXX <<-- come fare??
+            lock_guard<mutex> locker( generators[i]->execution );
             if ( generators[i]->status != STOP )
                 generators[i]->stop( );
-        }
+        //}
     }
 
     if ( generatorsStatus == RUN )
         semaphore.acquire( threads );
 
-    emit stoppedGenerators( true );
-    generatorsStatus = STOP;
+    //emit stoppedGenerators( true );
+    generatorsStatus = STOP;*/
 }
 
 // similar to the previous
 void Buddha::pauseGenerators ( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::pauseGenerators()";
 
-    for ( int i = 0; i < threads && generatorsStatus == RUN; ++i ) {
+    /*for ( int i = 0; i < threads && generatorsStatus == RUN; ++i ) {
         if ( generators[i]->isRunning() ) {
             QMutexLocker locker( &generators[i]->mutex );
             if ( generators[i]->status == RUN )
@@ -412,7 +336,7 @@ void Buddha::pauseGenerators ( ) {
     if ( generatorsStatus == RUN ) {
         semaphore.acquire( threads );
         generatorsStatus = PAUSE;
-    }
+    }*/
 }
 
 void Buddha::resumeGenerators ( ) {
@@ -421,20 +345,21 @@ void Buddha::resumeGenerators ( ) {
     // Here I should first release and then re-aquire incrementally the semaphore
     // from the BuddhaGenerators. I simply leave it acquired.
 
-    for ( int i = 0; i < threads && generatorsStatus == PAUSE; ++i ) {
+    /*for ( int i = 0; i < threads && generatorsStatus == PAUSE; ++i ) {
         QMutexLocker locker( &generators[i]->mutex );
         generators[i]->resume( );
     }
 
     if ( generatorsStatus == PAUSE )
-        generatorsStatus = RUN;
+        generatorsStatus = RUN;*/
 }
 
 
 
 void Buddha::run ( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::run()";
-    exec( );
+    startGenerators();
+    //exec( );
     // the goal is also to make things completely asychronous in respect to the interface.
     // for example waiting for the generators to stop cannot happen in the interface because this
     // blocks. Also the creation of a frame from the raw data is a costly operation that has
@@ -442,6 +367,6 @@ void Buddha::run ( ) {
     // So there is this thread that has only an event loop that processes the requests of the interface
     // (like the two mentioned above).
 
-    stopGenerators( );
+    //stopGenerators( );
 }
 

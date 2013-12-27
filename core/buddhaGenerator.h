@@ -34,12 +34,9 @@
 #include <cmath>
 #include <cfloat>
 #include <stdlib.h>
-#include <QThread>
-#include <QMutex>
-#include <QWaitCondition>
-#include <QSemaphore>
-#include <QImage>
 #include <cstdio>
+#include <mutex>
+#include <condition_variable>
 #include <iostream>
 #include "buddha.h"
 #include "random.h"
@@ -51,7 +48,7 @@ using namespace std;
 
 
 
-class BuddhaGenerator : public QThread {
+class BuddhaGenerator {
 public:	
 	// general data and utility functions
 	Buddha* b;
@@ -78,12 +75,6 @@ public:
 	int metropolis();
 	
 	
-	
-	
-	
-	// things for the random stuff
-	//struct random_data buf;
-	//char statebuf [256];
 	unsigned long int seed;
 	Random generator;
 	
@@ -93,10 +84,11 @@ public:
 	
 	
 	// for the synchronization and for controlling the execution
-	QMutex mutex;
-	QWaitCondition resumeCondition;		// this is to stop the Worker and wait for the resume signal
+    mutex execution;
+    condition_variable resumeCondition;		// this is to stop the Worker and wait for the resume signal
 	CurrentStatus status;
 	
+    void start ( );
 	void pause ( );
 	void stop ( );
 	void resume ( );

@@ -25,64 +25,42 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-
 #ifndef BUDDHA_H
 #define BUDDHA_H
-
-
-#define TEST		0
 
 #include <string>
 #include <vector>
 #include <cmath>
 #include <stdlib.h>
-#include <QThread>
-#include <QMutex>
-#include <QSemaphore>
-#include <QImage>
 #include <cstdio>
-#include <QDebug>
+#include <mutex>
+#include <condition_variable>
 #include "complex.h"
 #include "staticStuff.h"
 
 #define BOOST_LOG_DYN_LINK
 #include <boost/log/trivial.hpp>
 
-#ifdef _WIN32
-#define QTOPENCL	0
-#else
-#define QTOPENCL	0
-#endif
-
-
-#if QTOPENCL
-#include "qclcontext.h"
-#endif
-
 using namespace std;
 
 
 
-enum CurrentStatus { PAUSE, STOP, RUN };
+struct isize {
+    uint w;
+    uint h;
 
+    uint height ( ) { return h; }
+    uint width ( ) { return w; }
+};
+
+enum CurrentStatus { PAUSE, STOP, RUN };
 class BuddhaGenerator;
 
 
 
 
 
-class Buddha : public QThread {
-    Q_OBJECT
-
-
-#if QTOPENCL
-    QCLContext context;
-    QCLProgram program;
-    QCLKernel convert;
-    QCLImage2D srcImageBuffer;
-    QCLImage2D dstImageBuffer;
-#endif
+class Buddha {
 
     int threads;
     vector<BuddhaGenerator*> generators;
@@ -90,12 +68,9 @@ class Buddha : public QThread {
 
     //void preprocessImage ( );
     void createImage ( );
-public:	
-    // for the communication with the GUI XXX maibe it can be removed
-    QMutex mutex;
-
+public:
     // for waiting that a BuddhaGenerator has been stopped
-    QSemaphore semaphore;
+    condition_variable semaphore;
 
     // since this class is also used as "container" for the various generators
     // I use directly public variables instead private members and functions like set*()
@@ -121,43 +96,45 @@ public:
 
 
     // things for the plot
-    unsigned int* raw;		// i want to avoid this in the future XXX
+    unsigned int* raw;          // i want to avoid this in the future XXX
     unsigned int* RGBImage;		// here will be built the QImage
     float rmul, gmul, bmul, realContrast, realLightness;
     int contrast, lightness;
     unsigned int maxr, minr, maxb, minb, maxg, ming;
 
+    static const uint maxLightness = 200;
+    static const uint maxContrast = 200;
+    //static const uint maxFps = 40;
 
 
 
 
 
-
-
-    Buddha ( QObject *parent = 0 );
+    Buddha ();
     ~Buddha ( );
 
     void reduceStep ( int i, bool check );
     void reduce ( );
     void run( );
-signals:
+
     void imageCreated( );
     void stoppedGenerators( bool);
     void startedGenerators( bool);
     void settedValues( );
-public slots:
+
+
     // never call directly these functions from the GUI!!!
     void startGenerators( );
     void stopGenerators( );
     void updateRGBImage( );
     void pauseGenerators( );
     void resumeGenerators( );
-    void set( double cre, double cim, double scale, uint lr, uint lg, uint lb, uint hr, uint hg, uint hb, QSize wsize, bool pause );
+    void set( double cre, double cim, double scale, uint lr, uint lg, uint lb, uint hr, uint hg, uint hb, isize wsize, bool pause );
     void clearBuffers ( );
     void resizeBuffers ( );
     void resizeSequences ( );
     void changeThreadNumber( int threads );
-    void saveScreenshot ( QString fileName );
+    void saveScreenshot (string &fileName );
     void setContrast( int value );
     void setLightness( int value );
 };

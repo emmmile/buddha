@@ -11,6 +11,8 @@ class Option {
 	const char* description;
 	boost::any default_value;
 	boost::any target_variable;	// a pointer
+
+    static const size_t precision = 15;
 	//void* target;	// quite ugly but I don't find any other solution
 
 	void init( const char* l, const char* d );

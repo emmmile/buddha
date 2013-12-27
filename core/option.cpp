@@ -1,5 +1,4 @@
 #include "option.h"
-#include "controlWindow.h"
 using boost::any_cast;
 
 
@@ -32,7 +31,7 @@ Option::Option ( const char* l,  const char* d, int value, int* t ) {
 
 string Option::current_value ( ) const {
 	stringstream out;
-	out.precision( PRECISION );
+    out.precision( precision );
 
 	// another check could be control the type of target
 	if ( default_value.type() == typeid( int ) ) {

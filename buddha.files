@@ -11,3 +11,4 @@ core/random.h
 core/staticStuff.h
 CMakeLists.txt
 core/CMakeLists.txt
+main.cpp

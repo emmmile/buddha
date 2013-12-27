@@ -28,6 +28,7 @@
 
 #include "buddhaGenerator.h"
 #include "staticStuff.h"
+#include <thread>
 #define STEP		16
 #define METTHD		16000
 
@@ -113,35 +114,33 @@ bool BuddhaGenerator::flow ( ) {
     //BOOST_LOG_TRIVIAL(debug) <<"flow()\n" );
     // note that pauseCondition has been set previously
     //QMutexLocker lock ( &mutex );
+    std::unique_lock<std::mutex> lk(execution);
 
     if ( status == PAUSE ) {
-        //pauseCondition->wakeOne();
-        b->semaphore.release( 1 );
-        resumeCondition.wait( &mutex );
-        //b->semaphore.acquire( 1 );
+        b->semaphore.notify_one();
+        resumeCondition.wait( lk );
     }
+
     if ( status == STOP ) return false;
 
     return true;
 }
 
+void BuddhaGenerator::start ( ) {
+    thread (&BuddhaGenerator::run, this);
+}
 
 void BuddhaGenerator::pause ( ) {
-    //QMutexLocker lock ( &mutex );
     status = PAUSE;
-    //pauseCondition->wait( &mutex );
 }
 
 void BuddhaGenerator::resume ( ) {
-    //QMutexLocker lock ( &mutex );
     status = RUN;
-    resumeCondition.wakeOne();
+    resumeCondition.notify_one();
 }
 
 void BuddhaGenerator::stop ( ) {
-    //QMutexLocker lock ( &mutex );
     status = STOP;
-    //pauseSemaphore->release( 1 );
 }
 
 
@@ -336,9 +335,9 @@ int BuddhaGenerator::metropolis ( ) {
     for ( j = 0; j < max( (int) selectedOrbitCount * 256, selectedOrbitMax * 2 ); j++ ) {
         // I put the check here because of the "continue"'s in the middle that makes the thread
         // a little bit slow to respond to the changes of status
-        QMutexLocker locker( &mutex );
+        //lock_guard<mutex> locker( execution );
         if ( !flow( ) ) return -1;
-        locker.unlock();
+        //locker.unlock();
 
         begin = ok;
         // the radius of the mutations influences a lot the quality of the rendering AND the speed.
@@ -373,7 +372,7 @@ int BuddhaGenerator::metropolis ( ) {
 
         total += calculated;
 
-        locker.relock();
+        //locker.relock();
         // draw the points
         for ( int h = 0; h <= proposedOrbitMax - (int) b->low && proposedOrbitCount > 0; h++ ) {
             unsigned int i = h + b->low;
@@ -393,10 +392,9 @@ void BuddhaGenerator::run ( ) {
     do {
         exit = metropolis( );
 
-        QMutexLocker locker( &mutex );
         if ( !flow( ) ) exit = -1;
     } while ( exit != -1 );
 
     // the buddha thread maybe is waiting that I've finished
-    b->semaphore.release();
+    b->semaphore.notify_one();
 }
