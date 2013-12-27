@@ -28,7 +28,6 @@
 
 #include "buddhaGenerator.h"
 #include "staticStuff.h"
-#include <thread>
 #define STEP		16
 #define METTHD		16000
 
@@ -89,10 +88,23 @@ int BuddhaGenerator::randomTest ( uint& calculated ) {
 
 
 
+buddha_generator::buddha_generator () {
+    raw = NULL;
+    finish = false;
+}
 
+buddha_generator::buddha_generator (buddha *b) {
+    raw = NULL;
+    initialize( b );
+}
+
+
+buddha_generator::~buddha_generator ( ) {
+    BOOST_LOG_TRIVIAL(debug) << "buddha_generator::~buddha_generator";
+    delete[] raw;
+}
 
 void buddha_generator::initialize ( buddha* b ) {
-    //BOOST_LOG_TRIVIAL(debug) << "BuddhaGenerator::initialize()";
     this->b = b;
 
     seed = powf ( (unsigned long int) this & 0xFF, M_PI ) + ( ( (unsigned long int) this >> 16 ) & 0xFFFF );
@@ -101,46 +113,22 @@ void buddha_generator::initialize ( buddha* b ) {
     //initstate_r( seed, statebuf, sizeof( statebuf ), &buf );
     generator.seed( seed );
 
-    BOOST_LOG_TRIVIAL(debug) << "BuddhaGenerator::initialize() with seed " << seed;
+    BOOST_LOG_TRIVIAL(debug) << "buddha_generator::initialize() with seed " << seed;
 
     raw = (uint*) realloc( raw, 3 * b->size * sizeof( uint ) );
     memset( raw, 0, 3 * b->size * sizeof( uint ) );
     seq.resize( b->high - b->low );
 
-    status = RUN;
-}
-
-bool buddha_generator::flow ( ) {
-    //BOOST_LOG_TRIVIAL(debug) <<"flow()\n" );
-    // note that pauseCondition has been set previously
-    //QMutexLocker lock ( &mutex );
-    std::unique_lock<std::mutex> lk(execution);
-
-    if ( status == PAUSE ) {
-        b->semaphore.notify_one();
-        resumeCondition.wait( lk );
-    }
-
-    if ( status == STOP ) return false;
-
-    return true;
+    finish = false;
 }
 
 void buddha_generator::start ( ) {
-    thread (&buddha_generator::run, this);
-}
-
-void buddha_generator::pause ( ) {
-    status = PAUSE;
-}
-
-void buddha_generator::resume ( ) {
-    status = RUN;
-    resumeCondition.notify_one();
+    t = thread (&buddha_generator::run, this);
 }
 
 void buddha_generator::stop ( ) {
-    status = STOP;
+    lock_guard<mutex> locker( execution );
+    finish = true;
 }
 
 
@@ -189,7 +177,7 @@ int buddha_generator::inside ( simple_complex& c ) {
 
 // this is the main function. Here little modifications impacts a lot on the speed of the program!
 int buddha_generator::evaluate ( simple_complex& begin, double& centerDistance,
-                                uint& contribute, uint& calculated ) {
+                                 uint& contribute, uint& calculated ) {
     simple_complex last = begin;	// holds the last calculated point
     simple_complex critical = last;// for periodicity check
     uint j = 0, criticalStep = STEP;
@@ -333,12 +321,6 @@ int buddha_generator::metropolis ( ) {
     // Now i'm using something proportional on "how much the point is important".. For example how long the sequence
     // is and how many points falls on the window.
     for ( j = 0; j < max( (int) selectedOrbitCount * 256, selectedOrbitMax * 2 ); j++ ) {
-        // I put the check here because of the "continue"'s in the middle that makes the thread
-        // a little bit slow to respond to the changes of status
-        //lock_guard<mutex> locker( execution );
-        if ( !flow( ) ) return -1;
-        //locker.unlock();
-
         begin = ok;
         // the radius of the mutations influences a lot the quality of the rendering AND the speed.
         // I think that choose a random radius is the best way otherwise I noticed some geometric artifacts
@@ -372,12 +354,13 @@ int buddha_generator::metropolis ( ) {
 
         total += calculated;
 
-        //locker.relock();
         // draw the points
+        execution.lock();
         for ( int h = 0; h <= proposedOrbitMax - (int) b->low && proposedOrbitCount > 0; h++ ) {
             uint i = h + b->low;
             drawPoint( seq[h], i < b->highr && i > b->lowr, i < b->highg && i > b->lowg, i < b->highb && i > b->lowb);
         }
+        execution.unlock();
     }
 
     return total;
@@ -385,16 +368,12 @@ int buddha_generator::metropolis ( ) {
 
 
 void buddha_generator::run ( ) {
-    //b->semaphore.acquire( 1 );
+    while ( true ) {
+        metropolis( );
 
-    int exit = 0;
+        lock_guard<mutex> locker ( execution );
 
-    do {
-        exit = metropolis( );
-
-        if ( !flow( ) ) exit = -1;
-    } while ( exit != -1 );
-
-    // the buddha thread maybe is waiting that I've finished
-    b->semaphore.notify_one();
+        BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run()";
+        if ( finish ) break;
+    }
 }

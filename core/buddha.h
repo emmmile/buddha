@@ -53,7 +53,7 @@ struct isize {
     uint width ( ) { return w; }
 };
 
-enum current_status { PAUSE, STOP, RUN };
+
 class buddha_generator;
 
 
@@ -62,15 +62,12 @@ class buddha_generator;
 
 class buddha {
 
-    int threads;
-    vector<buddha_generator*> generators;
-    current_status generatorsStatus;
 
-    //void preprocessImage ( );
+    vector<buddha_generator*> generators;
+
     void createImage ( );
 public:
-    // for waiting that a BuddhaGenerator has been stopped
-    condition_variable semaphore;
+    typedef uint32_t pixel;
 
     // since this class is also used as "container" for the various generators
     // I use directly public variables instead private members and functions like set*()
@@ -96,8 +93,8 @@ public:
 
 
     // things for the plot
-    uint* raw;          // i want to avoid this in the future XXX
-    uint* RGBImage;		// here will be built the QImage
+    pixel* raw;
+    uint* RGBImage;
     float rmul, gmul, bmul, realContrast, realLightness;
     uint contrast, lightness;
     uint maxr, minr, maxb, minb, maxg, ming;
@@ -107,38 +104,26 @@ public:
     //static const uint maxFps = 40;
 
 
+    uint threads;
 
 
 
     buddha ();
     ~buddha ( );
 
+    void dump ( );
+    void clearBuffers ( );
+
     void reduceStep ( int i, bool check );
     void reduce ( );
-    void run( );
+    void toRGB ( );
+    void save (string &fileName );
 
-    void imageCreated( );
-    void stoppedGenerators( bool);
-    void startedGenerators( bool);
-    void settedValues( );
-
-
-    // never call directly these functions from the GUI!!!
     void startGenerators( );
     void stopGenerators( );
-    void updateRGBImage( );
-    void pauseGenerators( );
-    void resumeGenerators( );
-    void set( double cre, double cim, double scale, uint lr, uint lg, uint lb, uint hr, uint hg, uint hb, isize wsize, bool pause );
-    void clearBuffers ( );
-    void resizeBuffers ( );
-    void resizeSequences ( );
-    void changeThreadNumber( int threads );
-    void saveScreenshot (string &fileName );
-    void setContrast( int value );
-    void setLightness( int value );
 
-    void dump ( );
+
+    void run( );
 };
 
 

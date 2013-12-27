@@ -23,7 +23,10 @@ settings::settings(buddha &parent, int argc, char** argv ) {
     options.push_back( Option("scale,s", "set iniatial scale factor of the image", 200.0, &parent.scale ) );
     options.push_back( Option("lightness,l", "set the lightness of the image", 60, &parent.lightness) );
     options.push_back( Option("contrast,c", "set the contrast of the image", 75, &parent.contrast) );
-	options.push_back( Option("help,h", "produce help message" ) );
+    options.push_back( Option("threads,t", "set the number of parallel threads", 2, &parent.threads) );
+    options.push_back( Option("width,w", "width of the output", 3000, &parent.w) );
+    options.push_back( Option("height,h", "height of the output", 2000, &parent.h) );
+    options.push_back( Option("help", "produce help message" ) );
 
 	for ( uint i = 0; i < options.size(); ++i )
 		options[i].add( desc.add_options() );

@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <cstdio>
 #include <mutex>
+#include <thread>
 #include <condition_variable>
 #include <iostream>
 #include "buddha.h"
@@ -48,51 +49,47 @@ using namespace std;
 
 
 
-class buddha_generator {
-public:	
-	// general data and utility functions
-	buddha* b;
-    buddha_generator( ) {
-		raw = NULL;
-	}
-    ~buddha_generator ( ) {
-		delete[] raw;
-	}
+struct buddha_generator {
+    thread t;
+
+    buddha* b;
+
+    // for the raw image and the sequence of points
+    vector<simple_complex> seq;
+    uint* raw;
+
+
+    unsigned long int seed;
+    Random generator;
+
+
+    bool finish;
+
+    // for the synchronization and for controlling the execution
+    mutex execution;
+
+
+    buddha_generator( );
+    buddha_generator( buddha* b);
+    ~buddha_generator ( );
+
 	void initialize ( buddha* b );
 
 
-	// for the raw image and the sequence of points
-    vector<simple_complex> seq;
-    uint* raw;
-	
-    void drawPoint ( simple_complex& c, bool r, bool g, bool b );
+    void gaussianMutation ( simple_complex& z, double radius );
+    void exponentialMutation ( simple_complex& z, double radius );
     int inside ( simple_complex& c );
+
+    void drawPoint ( simple_complex& c, bool r, bool g, bool b );
     int evaluate ( simple_complex& begin, double& distance, uint& contribute, uint& calculated );
 
     int findPoint ( simple_complex& begin, double& centerDistance, uint& contribute, uint& calculated );
-
-	//int normal();
 	int metropolis();
 	
-	
-	unsigned long int seed;
-	Random generator;
-	
-    void gaussianMutation ( simple_complex& z, double radius );
-    void exponentialMutation ( simple_complex& z, double radius );
-	
-	
-	
-	// for the synchronization and for controlling the execution
-    mutex execution;
-    condition_variable resumeCondition;		// this is to stop the Worker and wait for the resume signal
-    current_status status;
-	
+
     void start ( );
-	void pause ( );
-	void stop ( );
-	void resume ( );
-	bool flow ( );				// test if we have to stop, pause or whatever
+    void stop ( );
+
 	void run ( );	
 };
 
