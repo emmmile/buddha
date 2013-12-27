@@ -1,4 +1,5 @@
 *.pro.user
+*.creator.user
 *.o
 *~
 moc_*.cpp
