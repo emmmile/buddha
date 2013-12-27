@@ -282,7 +282,7 @@ Buddha::~Buddha ( ) {
 void Buddha::changeThreadNumber ( int threads ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::changeThreadNumber(" << threads << "), was " << this->threads;
 
-    // resize the array only if it is bigger
+    // add some threads, if necessary
     if ( threads > (int) generators.size() ) generators.resize( threads );
 
     // first case: the current number of threads is less than the new one, so I have to create someting new
