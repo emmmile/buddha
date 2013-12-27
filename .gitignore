@@ -1,8 +1,8 @@
 *.pro.user
 *.o
 *~
-/moc_*.cpp
-/buddha.run
-/Makefile
+moc_*.cpp
+buddha.run
+Makefile
 
 #opencl/

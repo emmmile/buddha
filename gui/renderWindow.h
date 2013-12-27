@@ -26,21 +26,81 @@
 */
 
 
-#include <Qt>
-#include <QtGui>
-#include <iostream>
-#include "controlWindow.h"
-#include "options.h"
+#ifndef RENDERWINDOW_H
+#define RENDERWINDOW_H
 
-int main ( int argc, char** argv ) {
-	qDebug() << "main(), thread " << QThread::currentThreadId();
-	QApplication app(argc, argv);
-	ControlWindow control;
-	Options options( &control, argc, argv );
-	control.show( );
-     	
-	return app.exec( );
-}
 
+#include <QMainWindow>
+#include <QWidget>
+#include <QLabel>
+#include "buddha.h"
+
+
+
+class QAction;
+class QLabel;
+class QMenu;
+class QScrollArea;
+class QScrollBar;
+class ControlWindow;
+
+
+
+static const int scrollStep = 100;
+static const int defaultWidth = 800;
+static const int defaultHeight = 600;
+static const double zoomFactor = 2.0;
+
+
+class RenderWindow : public QWidget {
+	Q_OBJECT
+private:
+	bool disabledDrawing;		// sometimes I don't want to draw because I'm waitinf for a signal from buddha
+	QImage out;			// last frame
+	
+	bool alreadySent;
+	bool resizeSent;
+	Buddha* b;
+	ControlWindow* parent;
+	//QStatusBar* status;
+	QColor selection, selectionBorder;
+	bool zoomMode;
+	double mousex;
+	double mousey;
+	QPoint begMouse;
+	QPoint endMouse;
+        QPoint imageOffset;
+	
+	
+	void scroll ( int dx, int dy );
+	void zoom ( double f, int cutdx = 0, int cutdy = 0 );
+	
+public slots:
+	void receivedFrame( );
+	void setMouseMode( bool );
+	void sendFrameRequest( );
+	void canRestartDrawing( );
+public:
+	
+
+	QTimer* timer;
+	RenderWindow( ControlWindow* parent, Buddha* b );
+	
+	//bool valuesChanged( );
+protected:
+	void paintEvent(QPaintEvent *event);
+	void resizeEvent(QResizeEvent *event);
+	void keyPressEvent(QKeyEvent *event);
+	void wheelEvent(QWheelEvent *event);
+	void mousePressEvent(QMouseEvent *event);
+	void mouseMoveEvent(QMouseEvent *event);
+	void mouseReleaseEvent(QMouseEvent *event);
+	void closeEvent(QCloseEvent* event );
+signals:
+	void frameRequest( );
+	//void resizeBuffers( );
+};
+
+#endif
 
 

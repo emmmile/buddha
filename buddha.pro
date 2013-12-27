@@ -5,31 +5,32 @@
 TEMPLATE = app
 TARGET = buddha.run
 DEPENDPATH += .
-INCLUDEPATH += .
+INCLUDEPATH += core gui
+QT += widgets
+
 
 # Input
-HEADERS += buddha.h \
-	   buddhaGenerator.h \
-	   complex.h \
-	   controlWindow.h \
-	   renderWindow.h \
-	   staticStuff.h \
-	   random.h \
-	   demoWindow.h \
-    options.h \
-    option.h
-SOURCES += buddha.cpp \
-	   buddhaGenerator.cpp \
-	   controlWindow.cpp \
-	   main.cpp \
-	   renderWindow.cpp \
-	   staticStuff.cpp \
-    demoWindow.cpp \
-    options.cpp \
-    option.cpp
-LIBS += -lboost_program_options -s
-#LIBS += -L./opencl/lib -lOpenCL
-#include(./opencl/src/opencl/opencl_dep.pri)
+HEADERS += core/buddha.h \
+    core/buddhaGenerator.h \
+    core/complex.h \
+    gui/controlWindow.h \
+    gui/renderWindow.h \
+    core/staticStuff.h \
+    core/random.h \
+    gui/demoWindow.h \
+    core/options.h \
+    core/option.h
+SOURCES += core/buddha.cpp \
+    core/buddhaGenerator.cpp \
+    gui/controlWindow.cpp \
+    gui/main.cpp \
+    gui/renderWindow.cpp \
+    gui/demoWindow.cpp \
+    core/options.cpp \
+    core/option.cpp
+
+
+
 
 ###############################################
 # to enable profiling                         #
@@ -52,3 +53,9 @@ QMAKE_CXXFLAGS += -DFLAGS=\"`echo "$(CFLAGS)" | sed \'s/-D[^ ]*//g\' | sed \'s/[
 
 OTHER_FILES += \
     convertImage.cl
+
+
+
+LIBS += -lboost_program_options -s
+#LIBS += -L./opencl/lib -lOpenCL
+#include(./opencl/src/opencl/opencl_dep.pri)

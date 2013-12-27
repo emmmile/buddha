@@ -29,8 +29,13 @@
 #ifndef CONTROLWINDOW_H
 #define CONTROLWINDOW_H
 
-#include <QtCore/QVariant>
-#include <QtGui/QtGui>
+#include <QRadioButton>
+#include <QSlider>
+#include <QPushButton>
+#include <QSpinBox>
+#include <QDoubleSpinBox>
+#include <QGroupBox>
+#include <QTime>
 #include "renderWindow.h"
 #include "buddha.h"
 #include "options.h"

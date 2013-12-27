@@ -26,46 +26,20 @@
 */
 
 
-//#include <unistd.h>
-//#include <sys/time.h>
-#include <limits.h>
-#include "staticStuff.h"
-#include <cmath>
-/*
-void getInfo ( unsigned int* raw, unsigned int size, unsigned int& minr, float& midr, unsigned int& maxr, 
-		      unsigned int& ming, float& midg, unsigned int& maxg, unsigned int& minb, float& midb, unsigned int& maxb ) {
-	float sumr = 0.0, sumg = 0.0, sumb = 0.0;
-	
-	minr = ming = minb = UINT_MAX;
-	maxr = maxg = maxb = 0;
-	for ( unsigned int i = 0; i < 3 * size; i += 3 ) {
-		if ( raw[i + 0] > maxr ) maxr = raw[i + 0];
-		if ( raw[i + 0] < minr ) minr = raw[i + 0];
-		if ( raw[i + 1] > maxg ) maxg = raw[i + 1];
-		if ( raw[i + 1] < ming ) ming = raw[i + 1];
-		if ( raw[i + 2] > maxb ) maxb = raw[i + 2];
-		if ( raw[i + 2] < minb ) minb = raw[i + 2];
-		sumr += raw[i + 0];
-		sumg += raw[i + 1];
-		sumb += raw[i + 2];
-	}
-	
-	midr = sumr / size;
-	midg = sumg / size;
-	midb = sumb / size;
-	
-	//qDebug() <<"r = %d %f %d\n", minr, midr, maxr );
-	//qDebug() <<"g = %d %f %d\n", ming, midg, maxg );
-	//qDebug() <<"b = %d %f %d\n", minb, midb, maxb );
+#include <QApplication>
+#include <iostream>
+#include "controlWindow.h"
+#include "options.h"
+
+int main ( int argc, char** argv ) {
+	qDebug() << "main(), thread " << QThread::currentThreadId();
+	QApplication app(argc, argv);
+	ControlWindow control;
+	Options options( &control, argc, argv );
+	control.show( );
+     	
+	return app.exec( );
 }
-*/
 
 
-/*
-int32_t random ( struct random_data* buf ) {
-	int32_t out;
-	
-	random_r( buf, &out );
-	return out;
-}*/
 

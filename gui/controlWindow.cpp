@@ -27,8 +27,15 @@
 
 
 #include "controlWindow.h"
+#include <QApplication>
 #include <QVBoxLayout>
-#include <QtGui>
+#include <QFileDialog>
+#include <QAction>
+#include <QMessageBox>
+#include <QTimer>
+#include <QMenuBar>
+#include <QMenu>
+#include <QShortcut>
 #include <iostream>
 
 
