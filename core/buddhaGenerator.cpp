@@ -91,7 +91,7 @@ int BuddhaGenerator::randomTest ( unsigned int& calculated ) {
 
 
 void BuddhaGenerator::initialize ( Buddha* b ) {
-	qDebug() << "BuddhaGenerator::initialize()";
+    //BOOST_LOG_TRIVIAL(debug) << "BuddhaGenerator::initialize()";
 	this->b = b;
 	
 	seed = powf ( (unsigned long int) this & 0xFF, M_PI ) + ( ( (unsigned long int) this >> 16 ) & 0xFFFF );
@@ -99,18 +99,18 @@ void BuddhaGenerator::initialize ( Buddha* b ) {
 	//buf.state = (int32_t*) statebuf; // this fixes the segfault
 	//initstate_r( seed, statebuf, sizeof( statebuf ), &buf );
 	generator.seed( seed );
+
+    BOOST_LOG_TRIVIAL(debug) << "BuddhaGenerator::initialize() with seed " << seed;
 	
 	raw = (unsigned int*) realloc( raw, 3 * b->size * sizeof( unsigned int ) );
 	memset( raw, 0, 3 * b->size * sizeof( unsigned int ) );
 	seq.resize( b->high - b->low );
 	
-	status = RUN;
-	
-	qDebug() << "Initialized generator" << (void*) this << "with seed" << seed;
+    status = RUN;
 }
 
 bool BuddhaGenerator::flow ( ) {
-	//qDebug() <<"flow()\n" );
+    //BOOST_LOG_TRIVIAL(debug) <<"flow()\n" );
 	// note that pauseCondition has been set previously
 	//QMutexLocker lock ( &mutex );
 	

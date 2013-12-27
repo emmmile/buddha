@@ -46,6 +46,9 @@
 #include "complex.h"
 #include "staticStuff.h"
 
+#define BOOST_LOG_DYN_LINK
+#include <boost/log/trivial.hpp>
+
 #ifdef _WIN32
 #define QTOPENCL	0
 #else

@@ -182,14 +182,14 @@ void Buddha::updateRGBImage( ) {
     time.start();
 
     reduce();
-    printf( "Time taken by the reduce steps: %d ms. ", time.elapsed() );
+    int elapsed = time.elapsed();
     time.start();
 #if QTOPENCL
     srcImageBuffer = context.createImage2DHost(
                 QCLImageFormat( QCLImageFormat::Order_ARGB, QCLImageFormat::Type_Unnormalized_UInt32 ),
                 raw, QSize( w, h ), QCLMemoryObject::ReadOnly );
 
-    /*qDebug() << "bestLocalWorkSize()" << convert.bestLocalWorkSizeImage2D() << "\n"
+    /*BOOST_LOG_TRIVIAL(debug) << "bestLocalWorkSize()" << convert.bestLocalWorkSizeImage2D() << "\n"
          << "globalWorkSize()" << convert.globalWorkSize() << "\n"
          << "localWorkSize()" << convert.localWorkSize() << "\n"
          << "preferredWorkSizeMultiple()" << convert.preferredWorkSizeMultiple();*/
@@ -206,7 +206,9 @@ void Buddha::updateRGBImage( ) {
     emit imageCreated( );
     mutex.unlock();
 #endif
-    printf( "Image build: %d ms.\n", time.elapsed() );
+
+    BOOST_LOG_TRIVIAL(info) << "Buddha::updateRGBImage(), reduce: " << elapsed << " ms, image build: " << time.elapsed() << " ms";
+    //printf( "Image build: %d ms.\n", time.elapsed() );
 }
 
 void Buddha::saveScreenshot ( QString fileName ) {
@@ -214,11 +216,11 @@ void Buddha::saveScreenshot ( QString fileName ) {
     out.save( fileName, "PNG" );
 
     QByteArray compress = qCompress( (const uchar*) RGBImage, w * h * sizeof(int), 9 );
-    cout << "Compressed size vs Full: " << compress.size() << " " << w * h * sizeof(int) << endl;
+    //cout << "Compressed size vs Full: " << compress.size() << " " << w * h * sizeof(int) << endl;
 }
 
 void Buddha::set( double re, double im, double s, uint lr, uint lg, uint lb, uint hr, uint hg, uint hb, QSize wsize, bool pause ) {
-    qDebug() << "Buddha::set()";
+    BOOST_LOG_TRIVIAL(debug) << "Buddha::set()";
     bool haveToClear = (wsize.width() != (int) w) || (wsize.height() != (int) h) ||(re != cre) || (im != cim) || (s != scale);
 
     if ( pause ) pauseGenerators( );
@@ -260,7 +262,7 @@ void Buddha::set( double re, double im, double s, uint lr, uint lg, uint lb, uin
 }
 
 Buddha::~Buddha ( ) {
-    qDebug() << "Buddha::~Buddha()";
+    BOOST_LOG_TRIVIAL(debug) << "Buddha::~Buddha()";
     free( raw );
     free( RGBImage );
 }
@@ -278,7 +280,7 @@ Buddha::~Buddha ( ) {
 
 
 void Buddha::changeThreadNumber ( int threads ) {
-    qDebug() << "Buddha::changeThreadNumber(" << threads << "), was " << this->threads;
+    BOOST_LOG_TRIVIAL(debug) << "Buddha::changeThreadNumber(" << threads << "), was " << this->threads;
 
     // resize the array only if it is bigger
     if ( threads > (int) generators.size() ) generators.resize( threads );
@@ -321,7 +323,7 @@ void Buddha::resizeSequences( ) {
 }
 
 void Buddha::resizeBuffers( ) {
-    qDebug() << "Buddha::resizeBuffers()";
+    BOOST_LOG_TRIVIAL(debug) << "Buddha::resizeBuffers()";
     mutex.lock();
 #if QTOPENCL
     raw = (unsigned int*) realloc( raw, size * 4 * sizeof( unsigned int ) );
@@ -347,7 +349,7 @@ void Buddha::resizeBuffers( ) {
 }
 
 void Buddha::clearBuffers ( ) {
-    qDebug() << "Buddha::clearBuffers()";
+    BOOST_LOG_TRIVIAL(debug) << "Buddha::clearBuffers()";
     mutex.lock();
     memset( RGBImage, 0, size * sizeof( int ) );
     memset( raw, 0, 3 * size * sizeof( int ) );
@@ -361,7 +363,7 @@ void Buddha::clearBuffers ( ) {
 }
 
 void Buddha::startGenerators ( ) {
-    qDebug() << "Buddha::startGenerators()";
+    BOOST_LOG_TRIVIAL(debug) << "Buddha::startGenerators()";
     for ( int i = 0; i < threads; ++i ) {
         generators[i]->initialize( this );
         generators[i]->start( );
@@ -378,7 +380,7 @@ void Buddha::startGenerators ( ) {
 // I think this is impossible.
 // If the threads were running acquire completely the semaphore.
 void Buddha::stopGenerators ( ) {
-    qDebug() << "Buddha::stopGenerators()";
+    BOOST_LOG_TRIVIAL(debug) << "Buddha::stopGenerators()";
 
     for ( int i = 0; i < threads; ++i ) {
         if ( generators[i]->isRunning() ) {
@@ -397,7 +399,7 @@ void Buddha::stopGenerators ( ) {
 
 // similar to the previous
 void Buddha::pauseGenerators ( ) {
-    qDebug() << "Buddha::pauseGenerators()";
+    BOOST_LOG_TRIVIAL(debug) << "Buddha::pauseGenerators()";
 
     for ( int i = 0; i < threads && generatorsStatus == RUN; ++i ) {
         if ( generators[i]->isRunning() ) {
@@ -414,7 +416,7 @@ void Buddha::pauseGenerators ( ) {
 }
 
 void Buddha::resumeGenerators ( ) {
-    qDebug() << "Buddha::resumeGenerators()";
+    BOOST_LOG_TRIVIAL(debug) << "Buddha::resumeGenerators()";
 
     // Here I should first release and then re-aquire incrementally the semaphore
     // from the BuddhaGenerators. I simply leave it acquired.
@@ -431,7 +433,7 @@ void Buddha::resumeGenerators ( ) {
 
 
 void Buddha::run ( ) {
-    qDebug() << "Buddha::run(), is thread " << QThread::currentThreadId();
+    BOOST_LOG_TRIVIAL(debug) << "Buddha::run()";
     exec( );
     // the goal is also to make things completely asychronous in respect to the interface.
     // for example waiting for the generators to stop cannot happen in the interface because this

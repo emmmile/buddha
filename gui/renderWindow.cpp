@@ -129,7 +129,7 @@ void RenderWindow::paintEvent( QPaintEvent* ) {
 
 
 void RenderWindow::mousePressEvent(QMouseEvent *event) {
-	qDebug() << "RenderWindow::mousePressEvent()";
+    BOOST_LOG_TRIVIAL(debug) << "RenderWindow::mousePressEvent()";
 	begMouse = endMouse = event->pos();
 }
 
@@ -155,7 +155,7 @@ void RenderWindow::mouseMoveEvent(QMouseEvent *event) {
 
 
 void RenderWindow::mouseReleaseEvent(QMouseEvent *event) {
-	qDebug() << "RenderWindow::mouseReleaseEvent()";
+    BOOST_LOG_TRIVIAL(debug) << "RenderWindow::mouseReleaseEvent()";
 	endMouse = event->pos();
 	if ( endMouse == begMouse ) return;
 	
@@ -260,7 +260,7 @@ void RenderWindow::wheelEvent(QWheelEvent *event) {
 
 
 void RenderWindow::scroll ( int dx, int dy ) {
-	qDebug() <<"RenderWindow::scroll()";
+    BOOST_LOG_TRIVIAL(debug) <<"RenderWindow::scroll()";
 	if ( dx == 0 && dy == 0 ) return;
 
 	imageOffset = QPoint( 0, 0 );
@@ -273,7 +273,7 @@ void RenderWindow::scroll ( int dx, int dy ) {
 
 // zoom of a factor factor and translate of dx dy
 void RenderWindow::zoom ( double factor, int cutdx, int cutdy ) {
-	qDebug() <<"RenderWindow::zoom()";
+    BOOST_LOG_TRIVIAL(debug) <<"RenderWindow::zoom()";
 	
 	double multiplier = 0.5 - 0.5 / factor;
 	QPoint topLeft( multiplier * ( width() + 2.0 * cutdx ), multiplier * ( height() + 2.0 * cutdy ) );

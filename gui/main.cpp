@@ -32,7 +32,9 @@
 #include "options.h"
 
 int main ( int argc, char** argv ) {
-	qDebug() << "main(), thread " << QThread::currentThreadId();
+    boost::log::core::get()->set_logging_enabled(true);
+
+    BOOST_LOG_TRIVIAL(debug) << "main()";
 	QApplication app(argc, argv);
 	ControlWindow control;
 	Options options( &control, argc, argv );

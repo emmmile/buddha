@@ -8,7 +8,6 @@ DEPENDPATH += .
 INCLUDEPATH += core gui
 QT += widgets
 
-
 # Input
 HEADERS += core/buddha.h \
     core/buddhaGenerator.h \
@@ -17,7 +16,6 @@ HEADERS += core/buddha.h \
     gui/renderWindow.h \
     core/staticStuff.h \
     core/random.h \
-    gui/demoWindow.h \
     core/options.h \
     core/option.h
 SOURCES += core/buddha.cpp \
@@ -25,7 +23,6 @@ SOURCES += core/buddha.cpp \
     gui/controlWindow.cpp \
     gui/main.cpp \
     gui/renderWindow.cpp \
-    gui/demoWindow.cpp \
     core/options.cpp \
     core/option.cpp
 
@@ -56,6 +53,6 @@ OTHER_FILES += \
 
 
 
-LIBS += -lboost_program_options -s
+LIBS += -lboost_program_options -lboost_log -s
 #LIBS += -L./opencl/lib -lOpenCL
 #include(./opencl/src/opencl/opencl_dep.pri)
