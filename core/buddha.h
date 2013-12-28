@@ -68,6 +68,7 @@ class buddha {
     void createImage ( );
 public:
     typedef uint32_t pixel;
+    typedef unsigned char uchar;
 
     // since this class is also used as "container" for the various generators
     // I use directly public variables instead private members and functions like set*()
@@ -94,7 +95,9 @@ public:
 
     // things for the plot
     pixel* raw;
-    uint* RGBImage;
+    uchar* rchannel;
+    uchar* gchannel;
+    uchar* bchannel;
     float rmul, gmul, bmul, realContrast, realLightness;
     uint contrast, lightness;
     uint maxr, minr, maxb, minb, maxg, ming;
@@ -105,7 +108,7 @@ public:
 
 
     uint threads;
-
+    string outfile;
 
 
     buddha ();
@@ -117,7 +120,7 @@ public:
     void reduceStep ( int i, bool check );
     void reduce ( );
     void toRGB ( );
-    void save (string &fileName );
+    void save ( );
 
     void startGenerators( );
     void stopGenerators( );

@@ -115,8 +115,8 @@ void buddha_generator::initialize ( buddha* b ) {
 
     BOOST_LOG_TRIVIAL(debug) << "buddha_generator::initialize() with seed " << seed;
 
-    raw = (uint*) realloc( raw, 3 * b->size * sizeof( uint ) );
-    memset( raw, 0, 3 * b->size * sizeof( uint ) );
+    raw = (buddha::pixel*) realloc( raw, 3 * b->size * sizeof( buddha::pixel ) );
+    memset( raw, 0, 3 * b->size * sizeof( buddha::pixel ) );
     seq.resize( b->high - b->low );
 
     finish = false;
@@ -355,12 +355,14 @@ int buddha_generator::metropolis ( ) {
         total += calculated;
 
         // draw the points
-        execution.lock();
+        lock_guard<mutex> locker( execution );
+
         for ( int h = 0; h <= proposedOrbitMax - (int) b->low && proposedOrbitCount > 0; h++ ) {
             uint i = h + b->low;
             drawPoint( seq[h], i < b->highr && i > b->lowr, i < b->highg && i > b->lowg, i < b->highb && i > b->lowb);
         }
-        execution.unlock();
+
+        if ( finish ) break;
     }
 
     return total;
@@ -369,11 +371,14 @@ int buddha_generator::metropolis ( ) {
 
 void buddha_generator::run ( ) {
     while ( true ) {
+        BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run()";
+
         metropolis( );
 
         lock_guard<mutex> locker ( execution );
-
-        BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run()";
         if ( finish ) break;
     }
+
+
+    BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run(), finished";
 }

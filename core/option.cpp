@@ -23,7 +23,7 @@ Option::Option ( const char* l, const char* d, double value, double* t ) {
     target_variable = t;
 }
 
-Option::Option ( const char* l,  const char* d, int value, int* t ) {
+Option::Option (const char* l,  const char* d, const string &value, string *t ) {
     init( l, d );
     default_value = value;
     target_variable = t;
@@ -40,6 +40,8 @@ string Option::current_value ( ) const {
         out << *( any_cast<uint*>(target_variable) );
     } else if ( default_value.type() == typeid( double ) ) {
         out << *( any_cast<double*>(target_variable) );
+    } else if ( default_value.type() == typeid( string ) ) {
+        out << *( any_cast<string*>(target_variable) );
     }
 
 
@@ -66,6 +68,8 @@ void Option::add ( po::options_description_easy_init desc ) {
         add_option( uint );
     } else if ( default_value.type() == typeid( double ) ) {
         add_option( double );
+    } else if ( default_value.type() == typeid( string ) ) {
+        add_option( string );
     } else if ( default_value.empty() ) {
         desc( option, description );
     } else {

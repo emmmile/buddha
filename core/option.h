@@ -24,6 +24,7 @@ public:
 	Option ( const char* l, const char*  d, uint value, uint *t );
 	Option ( const char* l, const char* d, double value, double* t );
 	Option ( const char* l,  const char* d, int value, int* t );
+    Option ( const char* l,  const char* d, const string& value, string* t );
 
     void add ( po::options_description_easy_init desc );
 

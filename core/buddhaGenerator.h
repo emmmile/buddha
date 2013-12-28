@@ -56,7 +56,7 @@ struct buddha_generator {
 
     // for the raw image and the sequence of points
     vector<simple_complex> seq;
-    uint* raw;
+    buddha::pixel* raw;
 
 
     unsigned long int seed;

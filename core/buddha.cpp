@@ -38,39 +38,23 @@
 #include <boost/timer.hpp>
 
 
+#define png_infopp_NULL (png_infopp)NULL
+#define int_p_NULL (int*)NULL
+#include <boost/gil/extension/io/png_io.hpp>
+
 
 
 buddha::buddha( ) {
-    BOOST_LOG_TRIVIAL(debug) << "Buddha::Buddha()";
+    BOOST_LOG_TRIVIAL(debug) << "buddha::buddha()";
     size = w = h = lowr = lowg = lowb = highr = highg = highb = 0;
     cre = cim = scale = 0.0;
     raw = NULL;
-    RGBImage = NULL;
+    rchannel = gchannel = bchannel = NULL;
     threads = 0;
 }
 
 
 
-void buddha::createImage ( ) {
-    //cout << "Buddha::toImage()\n";
-    unsigned char r, g, b;
-    uint j = 0;
-    for ( uint i = 0; i < size; ++i, j += 3 ) {
-        r = min( powf( raw[j + 0], realContrast ) * rmul, 255.0f );
-        g = min( powf( raw[j + 1], realContrast ) * gmul, 255.0f );
-        b = min( powf( raw[j + 2], realContrast ) * bmul, 255.0f );
-
-        RGBImage[i] = r << 16 | g << 8 | b;
-    }
-}
-
-
-// this function takes the raw data from generator i and sums it
-// to the local raw array. The main difference is that if QTOPENCL is activated
-// I have to use an ARGB array of ints instead the simple RGB array kept by
-// every generator. This is because i get a lot of strange errors from the
-// execution of the opencl kernel. I don't know if this is a bug but for the
-// moment i keep this (useless) difference between using ARGB and RGB.
 void buddha::reduceStep ( int i, bool checkValues ) {
     uint j;
     if ( checkValues ) maxr = maxg = maxb = 0;
@@ -105,48 +89,75 @@ void buddha::reduce ( ) {
 }
 
 
+void buddha::createImage ( ) {
+    //cout << "buddha::toImage()\n";
+    unsigned char r, g, b;
+    uint j = 0;
+    for ( uint i = 0; i < size; ++i, j += 3 ) {
+        r = min( powf( raw[j + 0], realContrast ) * rmul, 255.0f );
+        g = min( powf( raw[j + 1], realContrast ) * gmul, 255.0f );
+        b = min( powf( raw[j + 2], realContrast ) * bmul, 255.0f );
+
+        rchannel[i] = r;
+        gchannel[i] = g;
+        bchannel[i] = b;
+        //RGBImage[i] = r << 16 | g << 8 | b;
+    }
+}
+
 void buddha::toRGB( ) {
     boost::timer time;
     reduce();
-    int elapsed = time.elapsed();
+    double elapsed = time.elapsed() * 1000;
 
     time.restart();
     createImage( );
-    BOOST_LOG_TRIVIAL(info) << "Buddha::updateRGBImage(), reduce: " << elapsed << " ms, image build: " << time.elapsed() << " ms";
+    BOOST_LOG_TRIVIAL(info) << "buddha::updateRGBImage(), reduce: " << elapsed << " ms, image build: " << time.elapsed() * 1000 << " ms";
 }
 
-void buddha::save ( string& fileName ) {
+void buddha::save () {
+    BOOST_LOG_TRIVIAL(debug) << "buddha::~buddha()";
+
+
+    boost::gil::rgb8c_planar_view_t view = boost::gil::planar_rgb_view(w, h, rchannel, gchannel, bchannel, w);
+    boost::gil::png_write_view( outfile + ".png", view);
+
     /*QImage out( (uchar*) RGBImage, w, h, QImage::Format_RGB32 );
     out.save( fileName, "PNG" );
+
 
     QByteArray compress = qCompress( (const uchar*) RGBImage, w * h * sizeof(int), 9 );
     //cout << "Compressed size vs Full: " << compress.size() << " " << w * h * sizeof(int) << endl;*/
 }
 
 buddha::~buddha ( ) {
-    BOOST_LOG_TRIVIAL(debug) << "Buddha::~Buddha()";
+    BOOST_LOG_TRIVIAL(debug) << "buddha::~buddha()";
     free( raw );
-    free( RGBImage );
+    free( rchannel );
+    free( gchannel );
+    free( bchannel );
 }
 
 
 
 
 void buddha::clearBuffers ( ) {
-    BOOST_LOG_TRIVIAL(debug) << "Buddha::clearBuffers()";
-    memset( RGBImage, 0, size * sizeof( int ) );
-    memset( raw, 0, 3 * size * sizeof( int ) );
+    BOOST_LOG_TRIVIAL(debug) << "buddha::clearBuffers()";
+    memset( rchannel, 0, size * sizeof( uchar ) );
+    memset( gchannel, 0, size * sizeof( uchar ) );
+    memset( bchannel, 0, size * sizeof( uchar ) );
+    memset( raw, 0, 3 * size * sizeof( pixel ) );
 
     for ( uint i = 0; i < threads; ++i ) {
         lock_guard<mutex> locker( generators[i]->execution );
         // could be done also indirectly but it not so costly
-        if ( generators[i]->raw ) memset( generators[i]->raw, 0, 3 * size * sizeof( int ) );
+        if ( generators[i]->raw ) memset( generators[i]->raw, 0, 3 * size * sizeof( pixel ) );
     }
 }
 
 
 void buddha::startGenerators ( ) {
-    BOOST_LOG_TRIVIAL(debug) << "Buddha::startGenerators()";
+    BOOST_LOG_TRIVIAL(debug) << "buddha::startGenerators()";
 
     // Block all signals for background threads
     sigset_t new_mask;
@@ -173,12 +184,16 @@ void buddha::stopGenerators ( ) {
         generators[i]->finish = true;
     }
 
-    BOOST_LOG_TRIVIAL(debug) << "Buddha::stopGenerators()";
+    for ( uint i = 0; i < threads; ++i ) {
+        generators[i]->t.join();
+    }
+
+    BOOST_LOG_TRIVIAL(debug) << "buddha::stopGenerators()";
 }
 
 
 void buddha::run ( ) {
-    BOOST_LOG_TRIVIAL(debug) << "Buddha::run()";
+    BOOST_LOG_TRIVIAL(debug) << "buddha::run()";
 
     rangere = w / scale;
     rangeim = h / scale;
@@ -190,10 +205,15 @@ void buddha::run ( ) {
     low = min( min(lowr, lowg), lowb);
     size = w * h;
 
-    //dump( );
+    realLightness = (float) lightness / ( maxLightness - lightness + 1 );
+    realContrast = (float) contrast / maxContrast * 2.0;
+
+    dump( );
 
     raw = (pixel*) realloc( raw, size * 3 * sizeof( pixel ) );
-    RGBImage = (uint*) realloc( RGBImage, size * sizeof( uint ) );
+    rchannel = (uchar*) realloc( rchannel, size * sizeof( uchar ) );
+    gchannel = (uchar*) realloc( gchannel, size * sizeof( uchar ) );
+    bchannel = (uchar*) realloc( bchannel, size * sizeof( uchar ) );
 
     for ( uint i = 0; i < threads; ++i )
         generators.push_back( new buddha_generator( this ) );
@@ -214,6 +234,9 @@ void buddha::run ( ) {
     BOOST_LOG_TRIVIAL(debug) << "interrupt signal (" << sig << ") received";
 
     stopGenerators( );
+
+    toRGB();
+    save( );
 }
 
 
@@ -224,4 +247,5 @@ void buddha::dump ( ) {
     BOOST_LOG_TRIVIAL(debug) << "cre: " << cre << ", cim " << cim;
     BOOST_LOG_TRIVIAL(debug) << "width: " << w << ", height: " << h;
     BOOST_LOG_TRIVIAL(debug) << "scale: " << scale << ", threads: " << threads;
+    BOOST_LOG_TRIVIAL(debug) << "lightness: " << lightness << ", contrast: " << contrast;
 }
