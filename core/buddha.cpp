@@ -148,9 +148,18 @@ void buddha::clearBuffers ( ) {
 void buddha::startGenerators ( ) {
     BOOST_LOG_TRIVIAL(debug) << "Buddha::startGenerators()";
 
+    // Block all signals for background threads
+    sigset_t new_mask;
+    sigfillset(&new_mask);
+    sigset_t old_mask;
+    pthread_sigmask(SIG_BLOCK, &new_mask, &old_mask);
+
     for ( uint i = 0; i < threads; ++i ) {
         generators[i]->start( );
     }
+
+    // Restore previous signals.
+    pthread_sigmask(SIG_SETMASK, &old_mask, 0);
 }
 
 
@@ -159,21 +168,12 @@ void buddha::startGenerators ( ) {
 // I think this is impossible.
 // If the threads were running acquire completely the semaphore.
 void buddha::stopGenerators ( ) {
-    BOOST_LOG_TRIVIAL(debug) << "Buddha::stopGenerators()";
-
-    /*for ( int i = 0; i < threads; ++i ) {
-        //if ( generators[i]->isRunning() ) { TODO XXX <<-- come fare??
-            lock_guard<mutex> locker( generators[i]->execution );
-            if ( generators[i]->status != STOP )
-                generators[i]->stop( );
-        //}
+    for ( uint i = 0; i < threads; ++i ) {
+        lock_guard<mutex> locker ( generators[i]->execution );
+        generators[i]->finish = true;
     }
 
-    if ( generatorsStatus == RUN )
-        semaphore.acquire( threads );
-
-    //emit stoppedGenerators( true );
-    generatorsStatus = STOP;*/
+    BOOST_LOG_TRIVIAL(debug) << "Buddha::stopGenerators()";
 }
 
 
@@ -201,12 +201,18 @@ void buddha::run ( ) {
 
     startGenerators();
 
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, SIGINT);
-    pthread_sigmask(SIG_UNBLOCK, &set, NULL);
+    // Wait for signal indicating time to shut down.
+    sigset_t wait_mask;
+    sigemptyset(&wait_mask);
+    sigaddset(&wait_mask, SIGINT);
+    sigaddset(&wait_mask, SIGQUIT);
+    sigaddset(&wait_mask, SIGTERM);
+    pthread_sigmask(SIG_BLOCK, &wait_mask, 0);
+    int sig = 0;
+    sigwait(&wait_mask, &sig);
 
-    sleep( 10 ); // some kind of loop with a timer that saves
+    BOOST_LOG_TRIVIAL(debug) << "interrupt signal (" << sig << ") received";
+
     stopGenerators( );
 }
 
