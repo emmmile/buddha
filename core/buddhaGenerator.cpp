@@ -120,6 +120,7 @@ void buddha_generator::initialize ( buddha* b ) {
     seq.resize( b->high - b->low );
 
     finish = false;
+    computed = 0;
 }
 
 void buddha_generator::start ( ) {
@@ -297,9 +298,9 @@ int buddha_generator::findPoint ( simple_complex& begin, double& centerDistance,
 
 // the metropolis algorithm. I don't know very much about the teory under this optimization but I think is
 // implemented quite well.. Maybe a better method for the transition probability can be found but I don't know.
-int buddha_generator::metropolis ( ) {
+void buddha_generator::metropolis ( ) {
     simple_complex begin( 0.0, 0.0 );
-    uint calculated, total = 0, selectedOrbitCount = 0, proposedOrbitCount = 0;
+    uint calculated, selectedOrbitCount = 0, proposedOrbitCount = 0;
     int selectedOrbitMax = 0, proposedOrbitMax = 0, j;
     double radius = 40.0 / b->scale; // 100.0;
 
@@ -308,11 +309,11 @@ int buddha_generator::metropolis ( ) {
 
     // search a point that has some contribute in the interested area
     selectedOrbitMax = findPoint( begin, distance, selectedOrbitCount, calculated );
-
+    computed += calculated;
     //cout << selectedOrbitMax << endl;
 
     // if the search failed I exit
-    if ( selectedOrbitCount == 0 ) return calculated;
+    if ( selectedOrbitCount == 0 ) return;
 
     simple_complex ok = begin;
     // also "how much" cicles are executed on each point is crucial. In order to have more points on the
@@ -352,7 +353,7 @@ int buddha_generator::metropolis ( ) {
             selectedOrbitMax = proposedOrbitMax;
         }
 
-        total += calculated;
+        computed += calculated;
 
         // draw the points
         lock_guard<mutex> locker( execution );
@@ -364,8 +365,6 @@ int buddha_generator::metropolis ( ) {
 
         if ( finish ) break;
     }
-
-    return total;
 }
 
 

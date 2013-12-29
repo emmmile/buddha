@@ -35,12 +35,35 @@
 #include <stdio.h>
 #include <thread>
 #include <signal.h>
-#include <boost/timer.hpp>
-
+//#include <boost/timer.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #define png_infopp_NULL (png_infopp)NULL
 #define int_p_NULL (int*)NULL
 #include <boost/gil/extension/io/png_io.hpp>
+
+namespace pt = boost::posix_time;
+
+
+struct buddha_timer {
+
+    pt::ptime start;
+
+    buddha_timer ( ) {
+        start = pt::microsec_clock::universal_time();
+    }
+
+    void restart ( ) {
+        start = pt::microsec_clock::universal_time();
+    }
+
+    double elapsed ( ) {
+        pt::ptime end = pt::microsec_clock::universal_time();
+        return (end - start).total_microseconds() / 1000000.0;
+    }
+};
+
+
 
 
 
@@ -51,6 +74,7 @@ buddha::buddha( ) {
     raw = NULL;
     rchannel = gchannel = bchannel = NULL;
     threads = 0;
+    computed = 0;
 }
 
 
@@ -78,6 +102,8 @@ void buddha::reduceStep ( int i, bool checkValues ) {
         gmul = maxg > 0 ? log( scale ) / (float) powf( maxg, realContrast ) * 150.0 * realLightness : 0.0;
         bmul = maxb > 0 ? log( scale ) / (float) powf( maxb, realContrast ) * 150.0 * realLightness : 0.0;
     }
+
+    computed += generators[i]->computed;
 }
 
 
@@ -86,6 +112,10 @@ void buddha::reduce ( ) {
 
     for ( uint i = 0; i < threads; ++i )
         reduceStep( i, i == (threads - 1) );
+
+
+    BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), computed " << computed << " points in " << totaltime << " s";
+    BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), " << computed / totaltime / 1000000.0 << " Mpoints/s";
 }
 
 
@@ -106,13 +136,14 @@ void buddha::createImage ( ) {
 }
 
 void buddha::toRGB( ) {
-    boost::timer time;
+    buddha_timer time;
     reduce();
     double elapsed = time.elapsed() * 1000;
 
+
     time.restart();
     createImage( );
-    BOOST_LOG_TRIVIAL(info) << "buddha::updateRGBImage(), reduce: " << elapsed << " ms, image build: " << time.elapsed() * 1000 << " ms";
+    BOOST_LOG_TRIVIAL(info) << "buddha::toRGB(), reduce: " << elapsed << " ms, image build: " << time.elapsed() * 1000 << " ms";
 }
 
 void buddha::save () {
@@ -218,7 +249,7 @@ void buddha::run ( ) {
     for ( uint i = 0; i < threads; ++i )
         generators.push_back( new buddha_generator( this ) );
 
-
+    buddha_timer time;
     startGenerators();
 
     // Wait for signal indicating time to shut down.
@@ -234,6 +265,7 @@ void buddha::run ( ) {
     BOOST_LOG_TRIVIAL(debug) << "interrupt signal (" << sig << ") received";
 
     stopGenerators( );
+    totaltime = time.elapsed();
 
     toRGB();
     save( );

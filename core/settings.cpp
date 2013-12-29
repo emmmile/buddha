@@ -15,13 +15,13 @@ settings::settings(buddha &parent, int argc, char** argv ) {
     options.push_back( Option("red-min,r", "set low red iterations count", 0u, &parent.lowr ) );
     options.push_back( Option("green-min,g", "set low green iterations count", 0u, &parent.lowg ) );
     options.push_back( Option("blue-min,b", "set low blue iterations count", 0u, &parent.lowb ) );
-    options.push_back( Option("red-max,R", "set high red iterations count", 512u, &parent.highr ) );
+    options.push_back( Option("red-max,R", "set high red iterations count", 8192u, &parent.highr ) );
     options.push_back( Option("green-max,G", "set high green iterations count", 2048u, &parent.highg ) );
-    options.push_back( Option("blue-max,B", "set high blue iterations count", 8192u, &parent.highb ) );
+    options.push_back( Option("blue-max,B", "set high blue iterations count", 512u, &parent.highb ) );
     options.push_back( Option("cre", "set iniatial real center of the image", 0.0, &parent.cre ) );
     options.push_back( Option("cim", "set iniatial imaginary center of the image", 0.0, &parent.cim ) );
     options.push_back( Option("scale,s", "set iniatial scale factor of the image", 800.0, &parent.scale ) );
-    options.push_back( Option("lightness,l", "set the lightness of the image", 90, &parent.lightness) );
+    options.push_back( Option("lightness,l", "set the lightness of the image", 100, &parent.lightness) );
     options.push_back( Option("contrast,c", "set the contrast of the image", 75, &parent.contrast) );
     options.push_back( Option("threads,t", "set the number of parallel threads", 4, &parent.threads) );
     options.push_back( Option("width,w", "width of the output", 3000, &parent.w) );

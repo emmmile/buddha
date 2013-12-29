@@ -50,6 +50,7 @@ using namespace std;
 
 
 struct buddha_generator {
+
     thread t;
 
     buddha* b;
@@ -58,7 +59,7 @@ struct buddha_generator {
     vector<simple_complex> seq;
     buddha::pixel* raw;
 
-
+    buddha::long_type computed;
     unsigned long int seed;
     Random generator;
 
@@ -84,7 +85,7 @@ struct buddha_generator {
     int evaluate ( simple_complex& begin, double& distance, uint& contribute, uint& calculated );
 
     int findPoint ( simple_complex& begin, double& centerDistance, uint& contribute, uint& calculated );
-	int metropolis();
+    void metropolis();
 	
 
     void start ( );

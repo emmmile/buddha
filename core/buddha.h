@@ -69,6 +69,7 @@ class buddha {
 public:
     typedef uint32_t pixel;
     typedef unsigned char uchar;
+    typedef unsigned long int long_type;
 
     // since this class is also used as "container" for the various generators
     // I use directly public variables instead private members and functions like set*()
@@ -105,7 +106,8 @@ public:
     static const uint maxLightness = 200;
     static const uint maxContrast = 200;
     //static const uint maxFps = 40;
-
+    long_type computed;
+    double totaltime;
 
     uint threads;
     string outfile;
