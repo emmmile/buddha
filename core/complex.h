@@ -25,13 +25,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-
 #ifndef COMPLEX_H
 #define COMPLEX_H
 
-#include <iostream>
-#include "staticStuff.h"
 
 /// semplified structure to store complex numbers and generate random complex numbers
 class simple_complex {

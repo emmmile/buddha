@@ -26,8 +26,7 @@
 */
 
 
-#include "buddhaGenerator.h"
-#include "staticStuff.h"
+#include "buddha_generator.h"
 #define STEP		16
 #define METTHD		16000
 
@@ -369,8 +368,9 @@ void buddha_generator::metropolis ( ) {
 
 
 void buddha_generator::run ( ) {
+    BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run()";
+
     while ( true ) {
-        BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run()";
 
         metropolis( );
 

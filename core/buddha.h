@@ -28,15 +28,24 @@
 #ifndef BUDDHA_H
 #define BUDDHA_H
 
+#include <cfloat>
+#include <cmath>
+#include <csignal>
+#include <cstdio>
+#include <cstdlib>
+
+#include <fstream>
 #include <string>
 #include <vector>
-#include <cmath>
-#include <stdlib.h>
-#include <cstdio>
-#include <mutex>
+
 #include <condition_variable>
+#include <mutex>
+#include <thread>
+
+#include "buddha_timer.h"
 #include "complex.h"
-#include "staticStuff.h"
+#include "random.h"
+#include "utils.h"
 
 #define BOOST_LOG_DYN_LINK
 #include <boost/log/trivial.hpp>
@@ -44,24 +53,7 @@
 using namespace std;
 
 
-typedef unsigned char uchar;
-typedef unsigned int uint;
-
-
-struct isize {
-    uint w;
-    uint h;
-
-    uint height ( ) { return h; }
-    uint width ( ) { return w; }
-};
-
-
 struct buddha_generator;
-
-
-
-
 
 class buddha {
 
@@ -113,6 +105,7 @@ public:
 
     uint threads;
     string outfile;
+    string infile;
 
 
     buddha ();
@@ -125,6 +118,7 @@ public:
     void reduce ( );
     void toRGB ( );
     void save ( );
+    void load ( );
 
     void startGenerators( );
     void stopGenerators( );

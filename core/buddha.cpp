@@ -27,43 +27,22 @@
 
 
 
-#include "buddhaGenerator.h"
-#include "staticStuff.h"
-#include <math.h>
-#include <float.h>
-#include <iostream>
-#include <stdio.h>
-#include <thread>
-#include <signal.h>
+#include "buddha_generator.h"
+
 #include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/bzip2.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/serialization/vector.hpp>
 
 #define png_infopp_NULL (png_infopp)NULL
 #define int_p_NULL (int*)NULL
 #include <boost/gil/extension/io/png_io.hpp>
 
-namespace pt = boost::posix_time;
+namespace bar = boost::archive;
+namespace bio = boost::iostreams;
 
-
-struct buddha_timer {
-
-    pt::ptime start;
-
-    buddha_timer ( ) {
-        start = pt::microsec_clock::universal_time();
-    }
-
-    void restart ( ) {
-        start = pt::microsec_clock::universal_time();
-    }
-
-    double elapsed ( ) {
-        pt::ptime end = pt::microsec_clock::universal_time();
-        return (end - start).total_microseconds() / 1000000.0;
-    }
-};
 
 
 
@@ -110,7 +89,7 @@ void buddha::reduceStep ( int i, bool checkValues ) {
 
 
 void buddha::reduce ( ) {
-    memset( raw, 0, 3 * size * sizeof( int ) );
+    //memset( raw, 0, 3 * size * sizeof( int ) );
 
     for ( uint i = 0; i < threads; ++i )
         reduceStep( i, i == (threads - 1) );
@@ -149,42 +128,50 @@ void buddha::toRGB( ) {
 }
 
 void buddha::save () {
-    BOOST_LOG_TRIVIAL(debug) << "buddha::~buddha()";
+    //BOOST_LOG_TRIVIAL(debug) << "buddha::save()";
+    buddha_timer time;
 
 
+    // save the image
     boost::gil::rgb8c_planar_view_t view = boost::gil::planar_rgb_view(w, h, rchannel, gchannel, bchannel, w);
     boost::gil::png_write_view( outfile + ".png", view);
 
-
-    namespace bar = boost::archive;
-    namespace bio = boost::iostreams;
-
-
-
-    std::ostringstream oss;
-    {
-        buddha_timer time;
-        bio::filtering_stream<bio::output> f;
-        f.push(bio::gzip_compressor());
-        f.push(oss);
-        bar::binary_oarchive oa(f);
-        for ( uint i = 0; i < size; ++i )
-            oa << raw[i];
-
-
-        BOOST_LOG_TRIVIAL(debug) << "buddha::~buddha(), compression: " << time.elapsed() * 1000 << " ms";
-    } // gzip_compressor flushes when f goes out of scope
+    BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() * 1000 << " ms";
+    time.restart();
 
 
 
+    // save the raw histogram
+    std::ofstream oss( outfile + ".bz2", std::ios::binary);
 
-    /*QImage out( (uchar*) RGBImage, w, h, QImage::Format_RGB32 );
-    out.save( fileName, "PNG" );
+    bio::filtering_stream<bio::output> f;
+    f.push(bio::bzip2_compressor());
+    f.push(oss);
+    bar::binary_oarchive oa(f);
+    vector<pixel> tmp( 3 * size );
+    copy( raw, raw +  3 * size, tmp.begin() );
+    oa << tmp;
 
-
-    QByteArray compress = qCompress( (const uchar*) RGBImage, w * h * sizeof(int), 9 );
-    //cout << "Compressed size vs Full: " << compress.size() << " " << w * h * sizeof(int) << endl;*/
+    BOOST_LOG_TRIVIAL(info) << "buddha::save(), compression: " << time.elapsed() * 1000 << " ms";
 }
+
+
+void buddha::load ( ) {
+    buddha_timer time;
+    // save the raw histogram
+    std::ifstream iss( infile, ios::in | ios::binary);
+
+    bio::filtering_stream<bio::input> f;
+    f.push(bio::bzip2_decompressor());
+    f.push(iss);
+    bar::binary_iarchive ia(f);
+    vector<pixel> tmp( 3 * size );
+    ia >> tmp;
+    copy( tmp.begin(), tmp.end(), raw );
+
+    BOOST_LOG_TRIVIAL(debug) << "buddha::load(), decompression: " << time.elapsed() * 1000 << " ms";
+}
+
 
 buddha::~buddha ( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::~buddha()";
@@ -273,6 +260,10 @@ void buddha::run ( ) {
 
     for ( uint i = 0; i < threads; ++i )
         generators.push_back( new buddha_generator( this ) );
+
+    clearBuffers();
+    if ( infile != "" ) load( );
+
 
     buddha_timer time;
     startGenerators();

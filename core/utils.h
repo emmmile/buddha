@@ -26,74 +26,49 @@
 */
 
 
-#ifndef BuddhaGenerator_H
-#define BuddhaGenerator_H
+#ifndef UTILS_H
+#define UTILS_H
 
-#include <string>
-#include <vector>
-#include <cmath>
-#include <cfloat>
-#include <stdlib.h>
-#include <cstdio>
-#include <mutex>
-#include <thread>
-#include <condition_variable>
-#include <iostream>
-#include "buddha.h"
-#include "random.h"
-using namespace std;
+#include <cstdlib>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
+#define sqr( x )		({ typeof(x) __x = (x); __x * __x; })
+
+#define XSTR(s) STR(s)
+#define STR(s) #s
+
+
+#if TEST > 0
+# undef _print
+# define _print( str )		std::cout << str << endl;
+#else
+# undef _print
+# define _print( str )		;
 #endif
 
 
-
-struct buddha_generator {
-
-    thread t;
-
-    buddha* b;
-
-    // for the raw image and the sequence of points
-    vector<simple_complex> seq;
-    buddha::pixel* raw;
-
-    buddha::long_type computed;
-    unsigned long int seed;
-    Random generator;
+typedef unsigned char uchar;
+typedef unsigned int uint;
 
 
-    bool finish;
+struct isize {
+    uint w;
+    uint h;
 
-    // for the synchronization and for controlling the execution
-    mutex execution;
-
-
-    buddha_generator( );
-    buddha_generator( buddha* b);
-    ~buddha_generator ( );
-
-	void initialize ( buddha* b );
-
-
-    void gaussianMutation ( simple_complex& z, double radius );
-    void exponentialMutation ( simple_complex& z, double radius );
-    int inside ( simple_complex& c );
-
-    void drawPoint ( simple_complex& c, bool r, bool g, bool b );
-    int evaluate ( simple_complex& begin, double& distance, uint& contribute, uint& calculated );
-
-    int findPoint ( simple_complex& begin, double& centerDistance, uint& contribute, uint& calculated );
-    void metropolis();
-	
-
-    void start ( );
-    void stop ( );
-
-	void run ( );	
+    uint height ( ) { return h; }
+    uint width ( ) { return w; }
 };
 
+
+// x MUST be an int32_t
+/*#define scaleToOne(x)		( ( (x) << 1 ) / (double) RAND_MAX )
+#define scaleToTwo(x)		( scaleToOne(x) * 2.0 )
+#define scaleToOnePositive(x)	( (x) / (double) RAND_MAX )*/
+
+
+
+
+//void getInfo ( unsigned int* raw, unsigned int size, unsigned int& minr, float& midr, unsigned int& maxr,
+//		      unsigned int& ming, float& midg, unsigned int& maxg, unsigned int& minb, float& midb, unsigned int& maxb );
+
+
 #endif
-
-

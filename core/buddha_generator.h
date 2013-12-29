@@ -26,37 +26,63 @@
 */
 
 
-#ifndef STATICUTILS_H
-#define STATICUTILS_H
+#ifndef BUDDHA_GENERATOR_H
+#define BUDDHA_GENERATOR_H
 
-#include <iostream>
-#include <stdlib.h>
+#include "buddha.h"
+using namespace std;
 
-#define sqr( x )		({ typeof(x) __x = (x); __x * __x; })
-
-#define XSTR(s) STR(s)
-#define STR(s) #s
-
-
-#if TEST > 0
-# undef _print
-# define _print( str )		std::cout << str << endl;
-#else
-# undef _print
-# define _print( str )		;
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
 #endif
 
 
-// x MUST be an int32_t
-/*#define scaleToOne(x)		( ( (x) << 1 ) / (double) RAND_MAX )
-#define scaleToTwo(x)		( scaleToOne(x) * 2.0 )
-#define scaleToOnePositive(x)	( (x) / (double) RAND_MAX )*/
+
+struct buddha_generator {
+
+    thread t;
+
+    buddha* b;
+
+    // for the raw image and the sequence of points
+    vector<simple_complex> seq;
+    buddha::pixel* raw;
+
+    buddha::long_type computed;
+    unsigned long int seed;
+    Random generator;
 
 
+    bool finish;
+
+    // for the synchronization and for controlling the execution
+    mutex execution;
 
 
-//void getInfo ( unsigned int* raw, unsigned int size, unsigned int& minr, float& midr, unsigned int& maxr,
-//		      unsigned int& ming, float& midg, unsigned int& maxg, unsigned int& minb, float& midb, unsigned int& maxb );
+    buddha_generator( );
+    buddha_generator( buddha* b);
+    ~buddha_generator ( );
 
+	void initialize ( buddha* b );
+
+
+    void gaussianMutation ( simple_complex& z, double radius );
+    void exponentialMutation ( simple_complex& z, double radius );
+    int inside ( simple_complex& c );
+
+    void drawPoint ( simple_complex& c, bool r, bool g, bool b );
+    int evaluate ( simple_complex& begin, double& distance, uint& contribute, uint& calculated );
+
+    int findPoint ( simple_complex& begin, double& centerDistance, uint& contribute, uint& calculated );
+    void metropolis();
+	
+
+    void start ( );
+    void stop ( );
+
+	void run ( );	
+};
 
 #endif
+
+

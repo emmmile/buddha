@@ -1,8 +1,6 @@
 
-#include <functional>
 #include "core/buddha.h"
 #include "core/settings.h"
-#include <signal.h>
 
 int main ( int argc, char** argv ) {
 

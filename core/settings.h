@@ -1,9 +1,9 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
+#include <vector>
 #include "buddha.h"
 #include "option.h"
-#include <vector>
 using namespace std;
 
 class settings {
