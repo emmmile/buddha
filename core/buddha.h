@@ -44,6 +44,9 @@
 using namespace std;
 
 
+typedef unsigned char uchar;
+typedef unsigned int uint;
+
 
 struct isize {
     uint w;
@@ -54,7 +57,7 @@ struct isize {
 };
 
 
-class buddha_generator;
+struct buddha_generator;
 
 
 
@@ -68,7 +71,6 @@ class buddha {
     void createImage ( );
 public:
     typedef uint32_t pixel;
-    typedef unsigned char uchar;
     typedef unsigned long int long_type;
 
     // since this class is also used as "container" for the various generators

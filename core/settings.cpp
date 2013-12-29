@@ -3,6 +3,7 @@
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/any.hpp>
 #include <sstream>
+#include <thread>
 #include <iostream>
 namespace po = boost::program_options;
 using boost::property_tree::ptree;
@@ -23,7 +24,7 @@ settings::settings(buddha &parent, int argc, char** argv ) {
     options.push_back( Option("scale,s", "set iniatial scale factor of the image", 800.0, &parent.scale ) );
     options.push_back( Option("lightness,l", "set the lightness of the image", 100, &parent.lightness) );
     options.push_back( Option("contrast,c", "set the contrast of the image", 75, &parent.contrast) );
-    options.push_back( Option("threads,t", "set the number of parallel threads", 4, &parent.threads) );
+    options.push_back( Option("threads,t", "set the number of parallel threads", std::thread::hardware_concurrency(), &parent.threads) );
     options.push_back( Option("width,w", "width of the output", 3000, &parent.w) );
     options.push_back( Option("height,h", "height of the output", 2000, &parent.h) );
     options.push_back( Option("out,o", "output filename", "output", &parent.outfile) );

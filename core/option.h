@@ -9,6 +9,11 @@
 namespace po = boost::program_options;
 using namespace std;
 
+
+typedef unsigned char uchar;
+typedef unsigned int uint;
+
+
 class Option {
 	const char* option;
 	const char* description;
