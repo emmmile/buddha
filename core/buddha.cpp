@@ -35,7 +35,9 @@
 #include <stdio.h>
 #include <thread>
 #include <signal.h>
-//#include <boost/timer.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #define png_infopp_NULL (png_infopp)NULL
@@ -152,6 +154,29 @@ void buddha::save () {
 
     boost::gil::rgb8c_planar_view_t view = boost::gil::planar_rgb_view(w, h, rchannel, gchannel, bchannel, w);
     boost::gil::png_write_view( outfile + ".png", view);
+
+
+    namespace bar = boost::archive;
+    namespace bio = boost::iostreams;
+
+
+
+    std::ostringstream oss;
+    {
+        buddha_timer time;
+        bio::filtering_stream<bio::output> f;
+        f.push(bio::gzip_compressor());
+        f.push(oss);
+        bar::binary_oarchive oa(f);
+        for ( uint i = 0; i < size; ++i )
+            oa << raw[i];
+
+
+        BOOST_LOG_TRIVIAL(debug) << "buddha::~buddha(), compression: " << time.elapsed() * 1000 << " ms";
+    } // gzip_compressor flushes when f goes out of scope
+
+
+
 
     /*QImage out( (uchar*) RGBImage, w, h, QImage::Format_RGB32 );
     out.save( fileName, "PNG" );
