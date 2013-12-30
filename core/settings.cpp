@@ -31,6 +31,7 @@ settings::settings(buddha &parent, int argc, char** argv ) {
     options.push_back( Option("out,o", "output filename", "output", &parent.outfile) );
     options.push_back( Option("load,L", "try to load a previously saved state", "", &parent.infile) );
     options.push_back( Option("help", "produce help message" ) );
+    options.push_back( Option("inverse", "produce the anti-buddhabrot" ) );
 
     for ( uint i = 0; i < options.size(); ++i )
         options[i].add( desc.add_options() );
@@ -44,6 +45,10 @@ settings::settings(buddha &parent, int argc, char** argv ) {
     if ( vm.count("help") ) {
         cout << desc << "\n";
         exit( 0 );
+    }
+
+    if ( vm.count("inverse") ) {
+        parent.inverse = true;
     }
 }
 

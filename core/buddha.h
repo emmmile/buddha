@@ -106,6 +106,7 @@ public:
     uint threads;
     string outfile;
     string infile;
+    bool inverse;
 
 
     buddha ();

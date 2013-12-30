@@ -72,9 +72,11 @@ struct buddha_generator {
 
     void drawPoint ( simple_complex& c, bool r, bool g, bool b );
     int evaluate ( simple_complex& begin, double& distance, uint& contribute, uint& calculated );
+    int evaluate_inverse ( simple_complex& begin, uint& calculated );
 
     int findPoint ( simple_complex& begin, double& centerDistance, uint& contribute, uint& calculated );
     void metropolis();
+    void inverse();
 	
 
     void start ( );

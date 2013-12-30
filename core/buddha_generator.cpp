@@ -38,55 +38,6 @@ using namespace std;
 #endif
 
 
-// these are not for the buddhabrot, are others functions
-
-// this is the anti-buddhabrot evaluate function
-// it would be nice to put a flag somewhere and have the possibility
-// somewhere to choose from the interface if render the buddhabrot or
-// the antibuddhabrot.
-/*int BuddhaGenerator::anti ( uint& calculated ) {
-    simple_complex z;
-    uint i;
-
-    for ( i = 0; i < b->high - 1; ) {
-
-        if ( seq[i].mod( ) > 4.0 ) {
-            calculated = i;
-            return -1;
-        }
-
-        z.re = sqr( seq[i].re ) - sqr( seq[i].im ) + seq[0].re;
-        z.im = 2.0 * seq[i].re * seq[i].im + seq[0].im;
-        seq[++i].re = z.re;
-        seq[i].im = z.im;
-    }
-
-    calculated = b->high;
-    return b->high - 1;
-}
-
-int BuddhaGenerator::randomTest ( uint& calculated ) {
-
-    static Random gen( seed );
-
-    for ( int i = 0; i < 1000000; i++ ) {
-        seq[0].re = seq[0].im = 0.0;
-        gen.exponential( seq[0].re, seq[0].im,0.0001 );
-
-        mutex.lock();
-        drawPoint( seq[0], 1, 1,1 );
-        if ( !flow( ) ) {
-            mutex.unlock();
-            return -1;
-        }
-        mutex.unlock();
-    }
-
-    return 0;
-}
-*/
-
-
 
 buddha_generator::buddha_generator () {
     raw = NULL;
@@ -249,6 +200,49 @@ int buddha_generator::evaluate ( simple_complex& begin, double& centerDistance,
 
 
 
+
+int buddha_generator::evaluate_inverse ( simple_complex& begin, uint& calculated ) {
+    simple_complex last = begin;	// holds the last calculated point
+    uint j = 0;
+    double tmp;
+
+    for ( uint i = 0; i < b->high; ++i ) {
+        // when low <= i < high the points are saved for drawing
+        if ( i >= b->low ) seq[j++] = last;
+
+        /*// this checks if the last point is inside the screen
+        if ( ( isInside = inside( last ) ) ) {
+            centerDistance = 0.0;
+            ++contribute;
+        }
+
+        // if we didn't passed inside the screen calculate the distance
+        // it will update after the variable centerDistance
+        if ( centerDistance != 0.0 ) {
+            tmp = ( last.re - b->cre ) * ( last.re - b->cre ) +
+                    ( last.im - b->cim ) * ( last.im - b->cim );
+            if ( tmp < centerDistance && last.mod() < 4.0 ) centerDistance = tmp;
+        }*/
+
+        // test the stop condition and eventually continue a little bit
+        if ( last.mod( ) > 4.0 ) {
+            if ( !inside( last ) ) {
+                calculated = i;
+                return i - 1;
+            }
+        }
+
+        tmp = last.re * last.re - last.im * last.im + begin.re;
+        last.im = 2.0 * last.re * last.im + begin.im;
+        last.re = tmp;
+    }
+
+    calculated = b->high;
+    return -1;
+}
+
+
+
 inline void buddha_generator::gaussianMutation ( simple_complex& z, double radius ) {
     double redev, imdev;
     generator.gaussian( redev, imdev, radius );
@@ -369,12 +363,43 @@ void buddha_generator::metropolis ( ) {
 }
 
 
+
+// the metropolis algorithm. I don't know very much about the teory under this optimization but I think is
+// implemented quite well.. Maybe a better method for the transition probability can be found but I don't know.
+void buddha_generator::inverse ( ) {
+    simple_complex begin( 0.0, 0.0 );
+    uint calculated;
+    //double radius = 40.0 / b->scale; // 100.0;
+    int j;
+
+    // starting point, TODO
+    //exponentialMutation( begin, generator.real() * radius );
+    gaussianMutation( begin, 0.25 * sqrt( 64.0 ) );
+
+    // calculate the new sequence
+    j = evaluate_inverse( begin, calculated );
+    computed += calculated;
+
+    if ( j != -1 ) return;
+
+    // draw the points
+    lock_guard<mutex> locker( execution );
+
+    for ( uint h = 0; h <= b->high - b->low; h++ ) {
+        uint i = h + b->low;
+        drawPoint( seq[h], i < b->highr && i > b->lowr, i < b->highg && i > b->lowg, i < b->highb && i > b->lowb);
+    }
+}
+
+
 void buddha_generator::run ( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run()";
 
     while ( true ) {
-
-        metropolis( );
+        if ( ! b->inverse )
+            metropolis( );
+        else
+            inverse( );
 
         lock_guard<mutex> locker ( execution );
         if ( finish ) break;
