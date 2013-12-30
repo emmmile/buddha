@@ -10,6 +10,8 @@ struct buddha_timer {
     buddha_timer ( );
     void restart ( );
     double elapsed ( );
+
+    static unsigned long int microseconds ( );
 };
 
 

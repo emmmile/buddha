@@ -25,8 +25,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+#include <random>
 #include "buddha_generator.h"
+#include "buddha_timer.h"
 #define STEP		16
 #define METTHD		16000
 
@@ -106,7 +107,8 @@ buddha_generator::~buddha_generator ( ) {
 void buddha_generator::initialize ( buddha* b ) {
     this->b = b;
 
-    seed = powf ( (unsigned long int) this & 0xFF, M_PI ) + ( ( (unsigned long int) this >> 16 ) & 0xFFFF );
+    random_device rd;
+    seed = rd();
 
     //buf.state = (int32_t*) statebuf; // this fixes the segfault
     //initstate_r( seed, statebuf, sizeof( statebuf ), &buf );
