@@ -7,7 +7,7 @@ core/settings.cpp
 core/settings.h
 core/option.cpp
 core/option.h
-core/random.h
+random/random.h
 core/utils.h
 CMakeLists.txt
 core/CMakeLists.txt
