@@ -52,10 +52,9 @@ buddha::buddha( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::buddha()";
     size = w = h = lowr = lowg = lowb = highr = highg = highb = 0;
     cre = cim = scale = 0.0;
-    raw = NULL;
-    rchannel = gchannel = bchannel = NULL;
     threads = 0;
     computed = 0;
+    inverse = false;
 }
 
 
@@ -89,7 +88,6 @@ void buddha::reduceStep ( int i, bool checkValues ) {
 
 
 void buddha::reduce ( ) {
-    //memset( raw, 0, 3 * size * sizeof( int ) );
 
     for ( uint i = 0; i < threads; ++i )
         reduceStep( i, i == (threads - 1) );
@@ -133,7 +131,7 @@ void buddha::save () {
 
 
     // save the image
-    boost::gil::rgb8c_planar_view_t view = boost::gil::planar_rgb_view(w, h, rchannel, gchannel, bchannel, w);
+    boost::gil::rgb8c_planar_view_t view = boost::gil::planar_rgb_view(w, h, &rchannel[0], &gchannel[0], &bchannel[0], w);
     boost::gil::png_write_view( outfile + ".png", view);
 
     BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() * 1000 << " ms";
@@ -148,9 +146,7 @@ void buddha::save () {
     f.push(bio::bzip2_compressor());
     f.push(oss);
     bar::binary_oarchive oa(f);
-    vector<pixel> tmp( 3 * size );
-    copy( raw, raw +  3 * size, tmp.begin() );
-    oa << tmp;
+    oa << raw;
 
     BOOST_LOG_TRIVIAL(info) << "buddha::save(), compression: " << time.elapsed() * 1000 << " ms";
 }
@@ -165,9 +161,7 @@ void buddha::load ( ) {
     f.push(bio::bzip2_decompressor());
     f.push(iss);
     bar::binary_iarchive ia(f);
-    vector<pixel> tmp( 3 * size );
-    ia >> tmp;
-    copy( tmp.begin(), tmp.end(), raw );
+    ia >> raw;
 
     BOOST_LOG_TRIVIAL(debug) << "buddha::load(), decompression: " << time.elapsed() * 1000 << " ms";
 }
@@ -175,10 +169,6 @@ void buddha::load ( ) {
 
 buddha::~buddha ( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::~buddha()";
-    free( raw );
-    free( rchannel );
-    free( gchannel );
-    free( bchannel );
 }
 
 
@@ -186,15 +176,12 @@ buddha::~buddha ( ) {
 
 void buddha::clearBuffers ( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::clearBuffers()";
-    memset( rchannel, 0, size * sizeof( uchar ) );
-    memset( gchannel, 0, size * sizeof( uchar ) );
-    memset( bchannel, 0, size * sizeof( uchar ) );
-    memset( raw, 0, 3 * size * sizeof( pixel ) );
+    rchannel.assign( size, 0 );
+    gchannel.assign( size, 0 );
+    bchannel.assign( size, 0 );
+    raw.assign( 3 * size, 0 );
 
     for ( uint i = 0; i < threads; ++i ) {
-        lock_guard<mutex> locker( generators[i]->execution );
-        // could be done also indirectly but it not so costly
-        if ( generators[i]->raw ) memset( generators[i]->raw, 0, 3 * size * sizeof( pixel ) );
     }
 }
 
@@ -235,8 +222,7 @@ void buddha::stopGenerators ( ) {
 }
 
 
-void buddha::run ( ) {
-    BOOST_LOG_TRIVIAL(debug) << "buddha::run()";
+void buddha::indirect_settings ( ) {
 
     rangere = w / scale;
     rangeim = h / scale;
@@ -250,13 +236,22 @@ void buddha::run ( ) {
 
     realLightness = (float) lightness / ( maxLightness - lightness + 1 );
     realContrast = (float) contrast / maxContrast * 2.0;
+}
 
+
+void buddha::run ( ) {
+    BOOST_LOG_TRIVIAL(debug) << "buddha::run()";
+    indirect_settings( );
     dump( );
 
-    raw = (pixel*) realloc( raw, size * 3 * sizeof( pixel ) );
-    rchannel = (uchar*) realloc( rchannel, size * sizeof( uchar ) );
-    gchannel = (uchar*) realloc( gchannel, size * sizeof( uchar ) );
-    bchannel = (uchar*) realloc( bchannel, size * sizeof( uchar ) );
+    raw.resize( 3 * size );
+    rchannel.resize( size );
+    gchannel.resize( size );
+    bchannel.resize( size );
+    raw.shrink_to_fit( );
+    rchannel.shrink_to_fit( );
+    gchannel.shrink_to_fit( );
+    bchannel.shrink_to_fit( );
 
     for ( uint i = 0; i < threads; ++i )
         generators.push_back( new buddha_generator( this ) );
@@ -293,6 +288,8 @@ void buddha::dump ( ) {
     BOOST_LOG_TRIVIAL(debug) << "lowg: " << lowg << ", highg " << highg;
     BOOST_LOG_TRIVIAL(debug) << "lowb: " << lowb << ", highb " << highb;
     BOOST_LOG_TRIVIAL(debug) << "cre: " << cre << ", cim " << cim;
+    BOOST_LOG_TRIVIAL(debug) << "maxre: " << maxre << ", maxim " << maxim;
+    BOOST_LOG_TRIVIAL(debug) << "minre: " << minre << ", minim " << minim;
     BOOST_LOG_TRIVIAL(debug) << "width: " << w << ", height: " << h;
     BOOST_LOG_TRIVIAL(debug) << "scale: " << scale << ", threads: " << threads;
     BOOST_LOG_TRIVIAL(debug) << "lightness: " << lightness << ", contrast: " << contrast;

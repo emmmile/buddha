@@ -37,22 +37,23 @@ using namespace std;
 #define M_PI 3.14159265358979323846
 #endif
 
+double norm ( simple_complex& c ) {
+    return c.norm();
+}
+
 
 
 buddha_generator::buddha_generator () {
-    raw = NULL;
     finish = false;
 }
 
 buddha_generator::buddha_generator (buddha *b) {
-    raw = NULL;
     initialize( b );
 }
 
 
 buddha_generator::~buddha_generator ( ) {
-    BOOST_LOG_TRIVIAL(debug) << "buddha_generator::~buddha_generator";
-    delete[] raw;
+    //BOOST_LOG_TRIVIAL(debug) << "buddha_generator::~buddha_generator";
 }
 
 void buddha_generator::initialize ( buddha* b ) {
@@ -67,9 +68,12 @@ void buddha_generator::initialize ( buddha* b ) {
 
     BOOST_LOG_TRIVIAL(debug) << "buddha_generator::initialize() with seed " << seed;
 
-    raw = (buddha::pixel*) realloc( raw, 3 * b->size * sizeof( buddha::pixel ) );
-    memset( raw, 0, 3 * b->size * sizeof( buddha::pixel ) );
+    //raw = (buddha::pixel*) realloc( raw, 3 * b->size * sizeof( buddha::pixel ) );
+    //memset( raw, 0, 3 * b->size * sizeof( buddha::pixel ) );
+    raw.resize( 3 * b->size );
+    raw.shrink_to_fit( );
     seq.resize( b->high - b->low );
+    raw.shrink_to_fit( );
 
     finish = false;
     computed = 0;
@@ -90,7 +94,7 @@ void buddha_generator::stop ( ) {
 
 
 
-void buddha_generator::drawPoint ( simple_complex& c, bool drawr, bool drawg, bool drawb ) {
+void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool drawb ) {
     register uint x, y;
 
 #define plotIm( c, drawr, drawg, drawb ) \
@@ -117,7 +121,7 @@ void buddha_generator::drawPoint ( simple_complex& c, bool drawr, bool drawg, bo
 
 
 // test if a point is inside the interested area
-int buddha_generator::inside ( simple_complex& c ) {
+int buddha_generator::inside ( complex_type& c ) {
     return  c.re <= b->maxre &&
             c.re >= b->minre &&
             ( ( c.im <= b->maxim && c.im >= b->minim ) ||
@@ -129,10 +133,10 @@ int buddha_generator::inside ( simple_complex& c ) {
 
 
 // this is the main function. Here little modifications impacts a lot on the speed of the program!
-int buddha_generator::evaluate ( simple_complex& begin, double& centerDistance,
+int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
                                  uint& contribute, uint& calculated ) {
-    simple_complex last = begin;	// holds the last calculated point
-    simple_complex critical = last;// for periodicity check
+    complex_type last = begin;	// holds the last calculated point
+    complex_type critical = last;// for periodicity check
     uint j = 0, criticalStep = STEP;
     double tmp = 64.0;
     bool isInside;
@@ -153,12 +157,12 @@ int buddha_generator::evaluate ( simple_complex& begin, double& centerDistance,
         // it will update after the variable centerDistance
         if ( centerDistance != 0.0 ) {
             tmp = ( last.re - b->cre ) * ( last.re - b->cre ) +
-                    ( last.im - b->cim ) * ( last.im - b->cim );
-            if ( tmp < centerDistance && last.mod() < 4.0 ) centerDistance = tmp;
+                  ( last.im - b->cim ) * ( last.im - b->cim );
+            if ( tmp < centerDistance && norm( last ) < 4.0 ) centerDistance = tmp;
         }
 
         // test the stop condition and eventually continue a little bit
-        if ( last.mod( ) > 4.0 ) {
+        if ( norm( last ) > 4.0 ) {
             if ( !isInside ) {
                 calculated = i;
                 return i - 1;
@@ -201,8 +205,8 @@ int buddha_generator::evaluate ( simple_complex& begin, double& centerDistance,
 
 
 
-int buddha_generator::evaluate_inverse ( simple_complex& begin, uint& calculated ) {
-    simple_complex last = begin;	// holds the last calculated point
+int buddha_generator::evaluate_inverse ( complex_type& begin, uint& calculated ) {
+    complex_type last = begin;	// holds the last calculated point
     uint j = 0;
     double tmp;
 
@@ -225,7 +229,7 @@ int buddha_generator::evaluate_inverse ( simple_complex& begin, uint& calculated
         }*/
 
         // test the stop condition and eventually continue a little bit
-        if ( last.mod( ) > 4.0 ) {
+        if ( norm( last ) > 4.0 ) {
             if ( !inside( last ) ) {
                 calculated = i;
                 return i - 1;
@@ -243,14 +247,14 @@ int buddha_generator::evaluate_inverse ( simple_complex& begin, uint& calculated
 
 
 
-inline void buddha_generator::gaussianMutation ( simple_complex& z, double radius ) {
+inline void buddha_generator::gaussianMutation ( complex_type& z, double radius ) {
     double redev, imdev;
     generator.gaussian( redev, imdev, radius );
     z.re += redev;
     z.im += imdev;
 }
 
-inline void buddha_generator::exponentialMutation ( simple_complex& z, double radius ) {
+inline void buddha_generator::exponentialMutation ( complex_type& z, double radius ) {
     double redev, imdev;
     generator.exponential( redev, imdev, radius );
     z.re += redev;
@@ -261,11 +265,11 @@ inline void buddha_generator::exponentialMutation ( simple_complex& z, double ra
 // search for a point that falls in the screen, simply moves randomly making moves
 // proportional in size to the distance from the center of the screen.
 // I think can be optimized a lot
-int buddha_generator::findPoint ( simple_complex& begin, double& centerDistance, uint& contribute, uint& calculated ) {
+int buddha_generator::findPoint ( complex_type& begin, double& centerDistance, uint& contribute, uint& calculated ) {
     int max, iterations = 0;
     uint calculatedInThisIteration;
     double bestDistance = 64.0;
-    simple_complex tmp = begin;
+    complex_type tmp = begin;
 
     // 64 - 512
 #define FINDPOINTMAX 	256
@@ -294,7 +298,7 @@ int buddha_generator::findPoint ( simple_complex& begin, double& centerDistance,
 // the metropolis algorithm. I don't know very much about the teory under this optimization but I think is
 // implemented quite well.. Maybe a better method for the transition probability can be found but I don't know.
 void buddha_generator::metropolis ( ) {
-    simple_complex begin( 0.0, 0.0 );
+    complex_type begin( 0.0, 0.0 );
     uint calculated, selectedOrbitCount = 0, proposedOrbitCount = 0;
     int selectedOrbitMax = 0, proposedOrbitMax = 0, j;
     double radius = 40.0 / b->scale; // 100.0;
@@ -310,7 +314,7 @@ void buddha_generator::metropolis ( ) {
     // if the search failed I exit
     if ( selectedOrbitCount == 0 ) return;
 
-    simple_complex ok = begin;
+    complex_type ok = begin;
     // also "how much" cicles are executed on each point is crucial. In order to have more points on the
     // screen an high iteration count could be better but, not too high because otherwise the space
     // is not sampled well. I tried values between 512 and 8192 and they works well. Over 80000 it becames strange.
@@ -367,7 +371,7 @@ void buddha_generator::metropolis ( ) {
 // the metropolis algorithm. I don't know very much about the teory under this optimization but I think is
 // implemented quite well.. Maybe a better method for the transition probability can be found but I don't know.
 void buddha_generator::inverse ( ) {
-    simple_complex begin( 0.0, 0.0 );
+    complex_type begin( 0.0, 0.0 );
     uint calculated;
     //double radius = 40.0 / b->scale; // 100.0;
     int j;

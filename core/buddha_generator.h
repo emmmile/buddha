@@ -36,17 +36,17 @@ using namespace std;
 #define M_PI 3.14159265358979323846
 #endif
 
-
-
+//template<class complex_type>
 struct buddha_generator {
+    typedef complex<double> complex_type;
 
     thread t;
 
     buddha* b;
 
     // for the raw image and the sequence of points
-    vector<simple_complex> seq;
-    buddha::pixel* raw;
+    vector<complex_type> seq;
+    vector<buddha::pixel> raw;
 
     buddha::long_type computed;
     unsigned long int seed;
@@ -63,18 +63,18 @@ struct buddha_generator {
     buddha_generator( buddha* b);
     ~buddha_generator ( );
 
-	void initialize ( buddha* b );
+    void initialize ( buddha* b );
 
 
-    void gaussianMutation ( simple_complex& z, double radius );
-    void exponentialMutation ( simple_complex& z, double radius );
-    int inside ( simple_complex& c );
+    void gaussianMutation ( complex_type& z, double radius );
+    void exponentialMutation ( complex_type& z, double radius );
+    int inside ( complex_type& c );
 
-    void drawPoint ( simple_complex& c, bool r, bool g, bool b );
-    int evaluate ( simple_complex& begin, double& distance, uint& contribute, uint& calculated );
-    int evaluate_inverse ( simple_complex& begin, uint& calculated );
+    void drawPoint ( complex_type& c, bool r, bool g, bool b );
+    int evaluate ( complex_type& begin, double& distance, uint& contribute, uint& calculated );
+    int evaluate_inverse ( complex_type& begin, uint& calculated );
 
-    int findPoint ( simple_complex& begin, double& centerDistance, uint& contribute, uint& calculated );
+    int findPoint ( complex_type& begin, double& centerDistance, uint& contribute, uint& calculated );
     void metropolis();
     void inverse();
 	

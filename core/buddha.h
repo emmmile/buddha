@@ -35,6 +35,7 @@
 #include <cstdlib>
 
 #include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -89,10 +90,10 @@ public:
 
 
     // things for the plot
-    pixel* raw;
-    uchar* rchannel;
-    uchar* gchannel;
-    uchar* bchannel;
+    vector<pixel> raw;
+    vector<uchar> rchannel;
+    vector<uchar> gchannel;
+    vector<uchar> bchannel;
     float rmul, gmul, bmul, realContrast, realLightness;
     uint contrast, lightness;
     uint maxr, minr, maxb, minb, maxg, ming;
@@ -124,7 +125,7 @@ public:
     void startGenerators( );
     void stopGenerators( );
 
-
+    void indirect_settings( );
     void run( );
 };
 

@@ -31,82 +31,91 @@
 
 /// semplified structure to store complex numbers and generate random complex numbers
 class simple_complex {
-public:
-	double re;
-	double im;
+private:
+    double re;
+    double im;
 
-	
-    simple_complex( double re, double im ) {
-		this->re = re;
-		this->im = im;
-	}	
-	
-    simple_complex( ) {
-		//complex( 0.0, 0.0 );
-	}
-	
+public:
+    simple_complex( double re = 0.0, double im = 0.0 ) {
+        this->re = re;
+        this->im = im;
+    }
+
+    //simple_complex( ) {
+    //complex( 0.0, 0.0 );
+    //}
+
     inline simple_complex& operator = ( const simple_complex& z ) {
-		this->re = z.re;
-		this->im = z.im;
-		return *this;
-	}
-	/*
-	friend complex& operator -= ( complex& z, const complex& t ) {
-		z.re -= t.re;
-		z.im -= t.im;
-		return z;
-	}
-	
-	friend complex& operator += ( complex& z, const complex& t ) {
-		z.re += t.re;
-		z.im += t.im;
-		return z;
-	}*/
-	
+        this->re = z.re;
+        this->im = z.im;
+        return *this;
+    }
+
+    inline double real ( ) const {
+        return re;
+    }
+
+    inline double imag ( ) const {
+        return im;
+    }
+
+    /*
+    friend complex& operator -= ( complex& z, const complex& t ) {
+        z.re -= t.re;
+        z.im -= t.im;
+        return z;
+    }
+
+    friend complex& operator += ( complex& z, const complex& t ) {
+        z.re += t.re;
+        z.im += t.im;
+        return z;
+    }*/
+
     friend const simple_complex operator - (const simple_complex& z, const simple_complex& t ) {
         return simple_complex( z.re - t.re, z.im - t.im );
-	}
-	
+    }
+
     friend const simple_complex operator + (const simple_complex& z, const simple_complex& t ) {
         return simple_complex( z.re + t.re, z.im + t.im );
-	}
-	
-	inline double mod ( ) {
-		return re * re + im * im;
-	}
-	
-	/*inline void randomGaussian2 ( struct random_data* buf ) {
-		re = -0.3333333333333333;
-		im = 0.0;
-		mutate ( 1.0, buf );
-	}
-	
-	inline void random2 ( struct random_data* buf ) {
-		//re = ( random( buf ) << 1 ) * 9.31322575049159384821E-10;
-		//im = ( random( buf ) << 1 ) * 9.31322575049159384821E-10;
-		re = scaleToTwo( random( buf ) );
-		im = scaleToTwo( random( buf ) );
-	}
-	
-	inline double randomCircle ( struct random_data* buf ) {
-		while ( TRUE ) {
-			re = scaleToOne( random( buf ) );
-			im = scaleToOne( random( buf ) );
-	
-			double s = mod( );
-			if ( s < 1.0 ) return s;
-		}
-	}
-	
-	void mutate ( double radius, struct random_data* buf ) {
-		// XXX can be optimized I think
-		// the Marsaglia polar method
-		complex cc;
-		double s = cc.randomCircle( buf );
-		double factor = sqrt( -2.0 * log( s ) / s ) * radius;
-		re += cc.re * factor;
-		im += cc.im * factor;
-	}*/
+    }
+
+    inline double norm ( ) {
+        return re * re + im * im;
+    }
+
+    /*inline void randomGaussian2 ( struct random_data* buf ) {
+        re = -0.3333333333333333;
+        im = 0.0;
+        mutate ( 1.0, buf );
+    }
+
+    inline void random2 ( struct random_data* buf ) {
+        //re = ( random( buf ) << 1 ) * 9.31322575049159384821E-10;
+        //im = ( random( buf ) << 1 ) * 9.31322575049159384821E-10;
+        re = scaleToTwo( random( buf ) );
+        im = scaleToTwo( random( buf ) );
+    }
+
+    inline double randomCircle ( struct random_data* buf ) {
+        while ( TRUE ) {
+            re = scaleToOne( random( buf ) );
+            im = scaleToOne( random( buf ) );
+
+            double s = mod( );
+            if ( s < 1.0 ) return s;
+        }
+    }
+
+    void mutate ( double radius, struct random_data* buf ) {
+        // XXX can be optimized I think
+        // the Marsaglia polar method
+        complex cc;
+        double s = cc.randomCircle( buf );
+        double factor = sqrt( -2.0 * log( s ) / s ) * radius;
+        re += cc.re * factor;
+        im += cc.im * factor;
+    }*/
 };
 
 
