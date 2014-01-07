@@ -2,7 +2,6 @@ core/buddha.cpp
 core/buddha.h
 core/buddha_generator.cpp
 core/buddha_generator.h
-core/complex.h
 core/settings.cpp
 core/settings.h
 core/option.cpp

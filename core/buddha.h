@@ -34,6 +34,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <complex>
 #include <fstream>
 #include <memory>
 #include <string>
@@ -44,7 +45,6 @@
 #include <thread>
 
 #include "buddha_timer.h"
-#include "complex.h"
 #include "random.h"
 #include "utils.h"
 

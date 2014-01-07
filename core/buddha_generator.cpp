@@ -28,7 +28,6 @@
 #include <random>
 #include "buddha_generator.h"
 #include "buddha_timer.h"
-#define STEP		16
 #define METTHD		16000
 
 using namespace std;
@@ -36,11 +35,6 @@ using namespace std;
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
-
-double norm ( simple_complex& c ) {
-    return c.norm();
-}
-
 
 
 buddha_generator::buddha_generator () {
@@ -98,72 +92,66 @@ void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool
     register uint x, y;
 
 #define plotIm( c, drawr, drawg, drawb ) \
-    if ( c.im > b->minim && c.im < b->maxim ) { \
-    y = ( b->maxim - c.im ) * b->scale; \
+    if ( c.imag() > b->minim && c.imag() < b->maxim ) { \
+    y = ( b->maxim - c.imag() ) * b->scale; \
     if ( drawb )	raw[ y * 3 * b->w + 3 * x + 2 ]++;	\
     if ( drawr )	raw[ y * 3 * b->w + 3 * x + 0 ]++;	\
     if ( drawg )	raw[ y * 3 * b->w + 3 * x + 1 ]++;	\
 }
 
-    if ( c.re < b->minre ) return;
-    if ( c.re > b->maxre ) return;
+    if ( c.real() < b->minre ) return;
+    if ( c.real() > b->maxre ) return;
 
-    x = ( c.re - b->minre ) * b->scale;
+    x = ( c.real() - b->minre ) * b->scale;
     //if ( x >= b->w ) return; // activate in case of problems
 
     // the y coordinates are referred to the point (b->minre, b->maxim), and are symetric in
     // respect of the real axis (re = 0). So I draw always also the simmetric point (I try).
     plotIm( c, drawr, drawg, drawb );
 
-    c.im = -c.im;
+    c = conj( c );
     plotIm( c, drawr, drawg, drawb );
 }
 
 
 // test if a point is inside the interested area
 int buddha_generator::inside ( complex_type& c ) {
-    return  c.re <= b->maxre &&
-            c.re >= b->minre &&
-            ( ( c.im <= b->maxim && c.im >= b->minim ) ||
-              ( -c.im <= b->maxim && -c.im >= b->minim ) );
+    return  c.real() <= b->maxre &&
+            c.real() >= b->minre &&
+            ( ( c.imag() <= b->maxim && c.imag() >= b->minim ) ||
+              ( -c.imag() <= b->maxim && -c.imag() >= b->minim ) );
 
-    //return  c.re <= b->maxre && c.re >= b->minre && c.im <= b->maxim && c.im >= b->minim ;
+    //return  c.real() <= b->maxre && c.real() >= b->minre && c.imag() <= b->maxim && c.imag() >= b->minim ;
 }
 
 
 
+//void inline loop ( complex_type& last, complex_type& critical, uint j, uint criticalStep, bool orbit_inside)
+
+
+
+
 // this is the main function. Here little modifications impacts a lot on the speed of the program!
-int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
-                                 uint& contribute, uint& calculated ) {
+int buddha_generator::evaluate ( complex_type& begin, uint& contribute, uint& calculated ) {
     complex_type last = begin;	// holds the last calculated point
     complex_type critical = last;// for periodicity check
-    uint j = 0, criticalStep = STEP;
-    double tmp = 64.0;
-    bool isInside;
-    centerDistance = 64.0;
+    uint j = 0, criticalStep = step;
     contribute = 0;
 
-    for ( uint i = 0; i < b->high; ++i ) {
-        // when low <= i < high the points are saved for drawing
-        if ( i >= b->low ) seq[j++] = last;
+    for ( uint i = 0; i < min( step, b->low ); ++i ) {
+        double re = last.real() * last.real() - last.imag() * last.imag() + begin.real();
+        double im = 2.0 * last.real() * last.imag() + begin.imag();
+        last = complex_type(re, im);
+    }
+
+    for ( uint i = min( step, b->low ); i < b->low; ++i ) {
 
         // this checks if the last point is inside the screen
-        if ( ( isInside = inside( last ) ) ) {
-            centerDistance = 0.0;
-            ++contribute;
-        }
-
-        // if we didn't passed inside the screen calculate the distance
-        // it will update after the variable centerDistance
-        if ( centerDistance != 0.0 ) {
-            tmp = ( last.re - b->cre ) * ( last.re - b->cre ) +
-                  ( last.im - b->cim ) * ( last.im - b->cim );
-            if ( tmp < centerDistance && norm( last ) < 4.0 ) centerDistance = tmp;
-        }
+        if ( inside( last ) ) ++contribute;
 
         // test the stop condition and eventually continue a little bit
         if ( norm( last ) > 4.0 ) {
-            if ( !isInside ) {
+            if ( ! inside( last ) ) {
                 calculated = i;
                 return i - 1;
             }
@@ -173,13 +161,12 @@ int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
             critical = last;
         } else if ( i > criticalStep ) {
             // compute the distance from the critical point
-            tmp = ( last.re - critical.re ) * ( last.re - critical.re ) +
-                    ( last.im - critical.im ) * ( last.im - critical.im );
+            double distance = norm( last - critical );
 
             // if I found that two calculated points are very very close I conclude that
             // they are the same point, so the sequence is periodic so we are computing a point
             // in the mandelbrot, so I stop the calculation
-            if ( tmp < FLT_EPSILON * FLT_EPSILON ) { // maybe also DBL_EPSILON is sufficient
+            if ( distance < FLT_EPSILON * FLT_EPSILON ) { // maybe also DBL_EPSILON is sufficient
                 calculated = i;
                 return -1;
             }
@@ -193,9 +180,132 @@ int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
         }
 
 
-        tmp = last.re * last.re - last.im * last.im + begin.re;
-        last.im = 2.0 * last.re * last.im + begin.im;
-        last.re = tmp;
+        double re = last.real() * last.real() - last.imag() * last.imag() + begin.real();
+        double im = 2.0 * last.real() * last.imag() + begin.imag();
+        last = complex_type(re, im);
+    }
+
+    for ( uint i = b->low; i < b->high; ++i ) {
+        seq[j++] = last;
+
+        // this checks if the last point is inside the screen
+        if ( inside( last ) ) ++contribute;
+
+        // test the stop condition and eventually continue a little bit
+        if ( norm( last ) > 4.0 ) {
+            if ( ! inside( last ) ) {
+                calculated = i;
+                return i - 1;
+            }
+        }
+
+        if ( i == criticalStep ) {
+            critical = last;
+        } else if ( i > criticalStep ) {
+            // compute the distance from the critical point
+            double distance = norm( last - critical );
+
+            // if I found that two calculated points are very very close I conclude that
+            // they are the same point, so the sequence is periodic so we are computing a point
+            // in the mandelbrot, so I stop the calculation
+            if ( distance < FLT_EPSILON * FLT_EPSILON ) { // maybe also DBL_EPSILON is sufficient
+                calculated = i;
+                return -1;
+            }
+
+            // I don't do this step at every iteration to be more fast, I found that a very good
+            // compromise is to use a multiplicative distance between each check
+            if ( i == criticalStep * 2 ) {
+                criticalStep *= 2;
+                critical = last;
+            }
+        }
+
+
+        double re = last.real() * last.real() - last.imag() * last.imag() + begin.real();
+        double im = 2.0 * last.real() * last.imag() + begin.imag();
+        last = complex_type(re, im);
+    }
+
+    calculated = b->high;
+    return -1;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+// this is the main function. Here little modifications impacts a lot on the speed of the program!
+int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
+                                 uint& contribute, uint& calculated ) {
+    complex_type last = begin;	// holds the last calculated point
+    complex_type critical = last;// for periodicity check
+    uint j = 0, criticalStep = step;
+    bool orbit_inside = false;
+    centerDistance = 64.0;
+    contribute = 0;
+
+    // XXX this loop whould benefit a lot of removal of the first if
+
+    for ( uint i = 0; i < b->high; ++i ) {
+        if ( i >= b->low ) seq[j++] = last;
+
+        // this checks if the last point is inside the screen
+        if ( inside( last ) ) {
+            orbit_inside = true;
+            centerDistance = 0.0;
+            ++contribute;
+        }
+
+        // if we didn't passed inside the screen calculate the distance
+        // it will update after the variable centerDistance
+        if ( ! orbit_inside ) {
+            double distance = norm( last - complex_type( b->cre, b->cim ) );
+            if ( distance < centerDistance && norm( last ) < 4.0 ) centerDistance = distance;
+        }
+
+        // test the stop condition and eventually continue a little bit
+        if ( norm( last ) > 4.0 ) {
+            if ( ! inside( last ) ) {
+                calculated = i;
+                return i - 1;
+            }
+        }
+
+        if ( i == criticalStep ) {
+            critical = last;
+        } else if ( i > criticalStep ) {
+            // compute the distance from the critical point
+            double distance = norm( last - critical );
+
+            // if I found that two calculated points are very very close I conclude that
+            // they are the same point, so the sequence is periodic so we are computing a point
+            // in the mandelbrot, so I stop the calculation
+            if ( distance < FLT_EPSILON * FLT_EPSILON ) { // maybe also DBL_EPSILON is sufficient
+                calculated = i;
+                return -1;
+            }
+
+            // I don't do this step at every iteration to be more fast, I found that a very good
+            // compromise is to use a multiplicative distance between each check
+            if ( i == criticalStep * 2 ) {
+                criticalStep *= 2;
+                critical = last;
+            }
+        }
+
+
+        double re = last.real() * last.real() - last.imag() * last.imag() + begin.real();
+        double im = 2.0 * last.real() * last.imag() + begin.imag();
+        last = complex_type(re, im);
     }
 
     calculated = b->high;
@@ -208,7 +318,6 @@ int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
 int buddha_generator::evaluate_inverse ( complex_type& begin, uint& calculated ) {
     complex_type last = begin;	// holds the last calculated point
     uint j = 0;
-    double tmp;
 
     for ( uint i = 0; i < b->high; ++i ) {
         // when low <= i < high the points are saved for drawing
@@ -223,8 +332,8 @@ int buddha_generator::evaluate_inverse ( complex_type& begin, uint& calculated )
         // if we didn't passed inside the screen calculate the distance
         // it will update after the variable centerDistance
         if ( centerDistance != 0.0 ) {
-            tmp = ( last.re - b->cre ) * ( last.re - b->cre ) +
-                    ( last.im - b->cim ) * ( last.im - b->cim );
+            tmp = ( last.real() - b->cre ) * ( last.real() - b->cre ) +
+                    ( last.imag() - b->cim ) * ( last.imag() - b->cim );
             if ( tmp < centerDistance && last.mod() < 4.0 ) centerDistance = tmp;
         }*/
 
@@ -236,9 +345,9 @@ int buddha_generator::evaluate_inverse ( complex_type& begin, uint& calculated )
             }
         }
 
-        tmp = last.re * last.re - last.im * last.im + begin.re;
-        last.im = 2.0 * last.re * last.im + begin.im;
-        last.re = tmp;
+        double re = last.real() * last.real() - last.imag() * last.imag() + begin.real();
+        double im = 2.0 * last.real() * last.imag() + begin.imag();
+        last = complex_type(re, im);
     }
 
     calculated = b->high;
@@ -250,15 +359,13 @@ int buddha_generator::evaluate_inverse ( complex_type& begin, uint& calculated )
 inline void buddha_generator::gaussianMutation ( complex_type& z, double radius ) {
     double redev, imdev;
     generator.gaussian( redev, imdev, radius );
-    z.re += redev;
-    z.im += imdev;
+    z = z + complex_type( redev, imdev );
 }
 
 inline void buddha_generator::exponentialMutation ( complex_type& z, double radius ) {
     double redev, imdev;
     generator.exponential( redev, imdev, radius );
-    z.re += redev;
-    z.im += imdev;
+    z = z + complex_type( redev, imdev );
 }
 
 
@@ -331,7 +438,7 @@ void buddha_generator::metropolis ( ) {
         exponentialMutation( begin, generator.real() * radius );
 
         // calculate the new sequence
-        proposedOrbitMax = evaluate( begin, distance, proposedOrbitCount, calculated );
+        proposedOrbitMax = evaluate( begin, proposedOrbitCount, calculated );
 
         // the sequence is periodic, I try another mutation
         if ( proposedOrbitMax <= 0 ) continue;
@@ -377,7 +484,7 @@ void buddha_generator::inverse ( ) {
     int j;
 
     // starting point, TODO
-    //exponentialMutation( begin, generator.real() * radius );
+    //exponentialMutation( begin, generator.real()al() * radius );
     gaussianMutation( begin, 0.25 * sqrt( 64.0 ) );
 
     // calculate the new sequence

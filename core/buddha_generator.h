@@ -36,10 +36,9 @@ using namespace std;
 #define M_PI 3.14159265358979323846
 #endif
 
-//template<class complex_type>
 struct buddha_generator {
     typedef complex<double> complex_type;
-
+    static const uint step = 32;
     thread t;
 
     buddha* b;
@@ -71,6 +70,7 @@ struct buddha_generator {
     int inside ( complex_type& c );
 
     void drawPoint ( complex_type& c, bool r, bool g, bool b );
+    int evaluate ( complex_type& begin, uint& contribute, uint& calculated );
     int evaluate ( complex_type& begin, double& distance, uint& contribute, uint& calculated );
     int evaluate_inverse ( complex_type& begin, uint& calculated );
 

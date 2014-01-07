@@ -1,18 +1,19 @@
 #include "buddha_timer.h"
 
 buddha_timer::buddha_timer() {
-    start = pt::microsec_clock::universal_time();
+    start = std::chrono::high_resolution_clock::now();
 }
 
 void buddha_timer::restart() {
-    start = pt::microsec_clock::universal_time();
+    start = std::chrono::high_resolution_clock::now();
 }
 
 double buddha_timer::elapsed() {
-    pt::ptime end = pt::microsec_clock::universal_time();
-    return (end - start).total_microseconds() / 1000000.0;
+    auto end = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000000.0;
 }
 
 long unsigned int buddha_timer::microseconds() {
-    return pt::microsec_clock::universal_time().time_of_day().total_microseconds() % 1000000;
+    return std::chrono::duration_cast<std::chrono::microseconds>
+           (std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 }

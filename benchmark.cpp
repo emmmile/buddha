@@ -23,7 +23,7 @@ int main ( int argc, char** argv ) {
     // now start a generator's evaluate() manually
     b.indirect_settings();
     //b.dump();
-    vector<simple_complex> starting_points;
+    vector<buddha_generator::complex_type> starting_points;
     double distance;
     uint contribute;
     uint calculated;
@@ -62,6 +62,8 @@ int main ( int argc, char** argv ) {
 
     BOOST_LOG_TRIVIAL(info) << "computed " << computed << " points in " << totaltime << " s";
     BOOST_LOG_TRIVIAL(info) << "" << computed / totaltime / 1000000.0 << " Mpoints/s";
+
+    assert( 786702000 == computed );
 
     return 0;
 }
