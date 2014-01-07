@@ -30,6 +30,7 @@
 #define BUDDHA_GENERATOR_H
 
 #include "buddha.h"
+#include "complex.h"
 using namespace std;
 
 #ifndef M_PI
@@ -37,8 +38,9 @@ using namespace std;
 #endif
 
 struct buddha_generator {
-    typedef complex<double> complex_type;
-    static const uint step = 32;
+    //typedef complex<double> complex_type;
+    typedef simple_complex complex_type;
+    static constexpr uint step = 32;
     thread t;
 
     buddha* b;

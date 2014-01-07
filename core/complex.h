@@ -41,10 +41,6 @@ public:
         this->im = im;
     }
 
-    //simple_complex( ) {
-    //complex( 0.0, 0.0 );
-    //}
-
     inline simple_complex& operator = ( const simple_complex& z ) {
         this->re = z.re;
         this->im = z.im;
@@ -84,38 +80,13 @@ public:
         return re * re + im * im;
     }
 
-    /*inline void randomGaussian2 ( struct random_data* buf ) {
-        re = -0.3333333333333333;
-        im = 0.0;
-        mutate ( 1.0, buf );
+    friend double norm ( const simple_complex& c ) {
+        return c.real() * c.real() + c.imag() * c.imag();
     }
 
-    inline void random2 ( struct random_data* buf ) {
-        //re = ( random( buf ) << 1 ) * 9.31322575049159384821E-10;
-        //im = ( random( buf ) << 1 ) * 9.31322575049159384821E-10;
-        re = scaleToTwo( random( buf ) );
-        im = scaleToTwo( random( buf ) );
+    friend simple_complex conj ( const simple_complex& c ) {
+        return simple_complex( c.real(), -c.imag() );
     }
-
-    inline double randomCircle ( struct random_data* buf ) {
-        while ( TRUE ) {
-            re = scaleToOne( random( buf ) );
-            im = scaleToOne( random( buf ) );
-
-            double s = mod( );
-            if ( s < 1.0 ) return s;
-        }
-    }
-
-    void mutate ( double radius, struct random_data* buf ) {
-        // XXX can be optimized I think
-        // the Marsaglia polar method
-        complex cc;
-        double s = cc.randomCircle( buf );
-        double factor = sqrt( -2.0 * log( s ) / s ) * radius;
-        re += cc.re * factor;
-        im += cc.im * factor;
-    }*/
 };
 
 
