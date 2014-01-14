@@ -30,13 +30,16 @@
 
 
 /// semplified structure to store complex numbers and generate random complex numbers
+template<class F>
 class simple_complex {
 private:
-    double re;
-    double im;
+    F re;
+    F im;
 
 public:
-    simple_complex( double re = 0.0, double im = 0.0 ) {
+    typedef F value_type;
+
+    simple_complex( value_type re = 0.0, value_type im = 0.0 ) {
         this->re = re;
         this->im = im;
     }
@@ -47,26 +50,13 @@ public:
         return *this;
     }
 
-    inline double real ( ) const {
+    inline value_type real ( ) const {
         return re;
     }
 
-    inline double imag ( ) const {
+    inline value_type imag ( ) const {
         return im;
     }
-
-    /*
-    friend complex& operator -= ( complex& z, const complex& t ) {
-        z.re -= t.re;
-        z.im -= t.im;
-        return z;
-    }
-
-    friend complex& operator += ( complex& z, const complex& t ) {
-        z.re += t.re;
-        z.im += t.im;
-        return z;
-    }*/
 
     friend const simple_complex operator - (const simple_complex& z, const simple_complex& t ) {
         return simple_complex( z.re - t.re, z.im - t.im );
@@ -76,11 +66,7 @@ public:
         return simple_complex( z.re + t.re, z.im + t.im );
     }
 
-    inline double norm ( ) {
-        return re * re + im * im;
-    }
-
-    friend double norm ( const simple_complex& c ) {
+    friend value_type norm ( const simple_complex& c ) {
         return c.real() * c.real() + c.imag() * c.imag();
     }
 
