@@ -1,3 +1,6 @@
+*.dblite
+.scons*
+.svn/
 *.pro.user
 *.creator.user
 *.o
