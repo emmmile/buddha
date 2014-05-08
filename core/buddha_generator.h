@@ -40,7 +40,6 @@ using namespace std;
 struct buddha_generator {
     //typedef complex<double> complex_type;
     typedef simple_complex<double> complex_type;
-    static constexpr uint step = 32;
     thread t;
 
     buddha* b;
