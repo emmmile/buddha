@@ -387,7 +387,7 @@ int buddha_generator::findPoint ( complex_type& begin, double& centerDistance, u
     calculated = 0;
     do {
         //seq[0].mutate( 0.25 * sqrt(dist), &buf );
-        gaussianMutation( tmp, 0.25 * sqrt( bestDistance ) );
+        gaussianMutation( tmp, 0.25 * 0.25 * sqrt( bestDistance ) );
 
         max = evaluate( tmp, centerDistance, contribute, calculatedInThisIteration );
         calculated += calculatedInThisIteration;
