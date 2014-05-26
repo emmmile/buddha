@@ -24,13 +24,6 @@ core/option.h
 core/settings.cpp
 core/settings.h
 core/utils.h
-legacy/buddha-com.c
-legacy/buddha-lib.c
-legacy/buddha-parser.c
-legacy/buddha-server.c
-legacy/buddha.c
-legacy/buddha.h
-legacy/rnorrexp.c
 random/random.h
 random/test.cpp
 benchmark.cpp
@@ -48,13 +41,6 @@ core/option.h
 core/settings.cpp
 core/settings.h
 core/utils.h
-legacy/buddha-com.c
-legacy/buddha-lib.c
-legacy/buddha-parser.c
-legacy/buddha-server.c
-legacy/buddha.c
-legacy/buddha.h
-legacy/rnorrexp.c
 random/random.h
 random/test.cpp
 test/test.cpp
