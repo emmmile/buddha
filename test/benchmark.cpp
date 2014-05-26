@@ -1,7 +1,8 @@
 
-#include "core/buddha.h"
-#include "core/buddha_generator.h"
-#include "core/settings.h"
+#include "buddha.h"
+#include "buddha_generator.h"
+#include "settings.h"
+#include "timer.h"
 
 #define BOOST_LOG_DYN_LINK
 #include <boost/log/trivial.hpp>
@@ -50,7 +51,7 @@ int main ( int argc, char** argv ) {
 
     buddha_generator benchmark( &b );
 
-    buddha_timer time;
+    timer time;
     for ( uint i = 0; i < 1000; ++i ) {
         for ( auto begin : starting_points ) {
             benchmark.evaluate( begin, distance, contribute, calculated );

@@ -28,6 +28,7 @@
 
 
 #include "buddha_generator.h"
+#include "timer.h"
 
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
@@ -115,7 +116,7 @@ void buddha::createImage ( ) {
 }
 
 void buddha::toRGB( ) {
-    buddha_timer time;
+    timer time;
     reduce();
     double elapsed = time.elapsed() * 1000;
 
@@ -127,7 +128,7 @@ void buddha::toRGB( ) {
 
 void buddha::save () {
     //BOOST_LOG_TRIVIAL(debug) << "buddha::save()";
-    buddha_timer time;
+    timer time;
 
 
     // save the image
@@ -153,7 +154,7 @@ void buddha::save () {
 
 
 void buddha::load ( ) {
-    buddha_timer time;
+    timer time;
     // save the raw histogram
     std::ifstream iss( infile, ios::in | ios::binary);
 
@@ -260,7 +261,7 @@ void buddha::run ( ) {
     if ( infile != "" ) load( );
 
 
-    buddha_timer time;
+    timer time;
     startGenerators();
 
     // Wait for signal indicating time to shut down.

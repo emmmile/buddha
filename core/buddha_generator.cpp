@@ -27,7 +27,7 @@
 
 #include <random>
 #include "buddha_generator.h"
-#include "buddha_timer.h"
+#include "timer.h"
 #define METTHD		16000
 
 using namespace std;
@@ -92,7 +92,8 @@ void buddha_generator::stop ( ) {
 
 
 void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool drawb ) {
-    register uint x, y;
+    uint x;
+    uint y;
 
 #define plotIm( c, drawr, drawg, drawb ) \
     if ( c.imag() > b->minim && c.imag() < b->maxim ) { \

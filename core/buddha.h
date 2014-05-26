@@ -44,7 +44,6 @@
 #include <mutex>
 #include <thread>
 
-#include "buddha_timer.h"
 #include "random.h"
 #include "utils.h"
 

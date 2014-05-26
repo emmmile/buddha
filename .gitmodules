@@ -4,3 +4,6 @@
 [submodule "random"]
 	path = random
 	url = git@github.com:emmmile/random.git
+[submodule "timer"]
+	path = timer
+	url = https://github.com/emmmile/timer.git

@@ -12,15 +12,12 @@ CMakeLists.txt
 core/CMakeLists.txt
 main.cpp
 core/buddha_timer.h
-core/buddha_timer.cpp
-benchmark.cpp
+test/benchmark.cpp
 core/complex.h
 core/buddha.cpp
 core/buddha.h
 core/buddha_generator.cpp
 core/buddha_generator.h
-core/buddha_timer.cpp
-core/buddha_timer.h
 core/complex.h
 core/option.cpp
 core/option.h
@@ -63,3 +60,5 @@ random/test.cpp
 test/test.cpp
 benchmark.cpp
 main.cpp
+timer/timer.cpp
+timer/timer.h

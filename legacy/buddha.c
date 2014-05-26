@@ -256,9 +256,6 @@ int buddha ( complex_t* seq, buddha_t* b ) {
 
 
 
-void findPoint ( ) {
-	
-}
 
 
 
