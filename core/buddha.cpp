@@ -33,7 +33,7 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
-#include <boost/iostreams/filter/bzip2.hpp>
+//#include <boost/iostreams/filter/bzip2.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/serialization/vector.hpp>
 
@@ -144,7 +144,7 @@ void buddha::save () {
     std::ofstream oss( outfile + ".bz2", std::ios::binary);
 
     bio::filtering_stream<bio::output> f;
-    f.push(bio::bzip2_compressor());
+    f.push(bio::gzip_compressor());
     f.push(oss);
     bar::binary_oarchive oa(f);
     oa << raw;
@@ -159,7 +159,7 @@ void buddha::load ( ) {
     std::ifstream iss( infile, ios::in | ios::binary);
 
     bio::filtering_stream<bio::input> f;
-    f.push(bio::bzip2_decompressor());
+    f.push(bio::gzip_decompressor());
     f.push(iss);
     bar::binary_iarchive ia(f);
     ia >> raw;
