@@ -3,7 +3,7 @@
 	url = git://gitorious.org/qt-labs/opencl.git
 [submodule "random"]
 	path = random
-	url = git@github.com:emmmile/random.git
+	url = https://github.com/emmmile/random.git
 [submodule "timer"]
 	path = timer
 	url = https://github.com/emmmile/timer.git
