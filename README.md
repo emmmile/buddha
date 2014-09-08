@@ -11,6 +11,5 @@ I later found that this is a variation of the [Brent's method](http://en.wikiped
 * Makes use of OpenCL for the histogram -> image conversion, i.e. the color calculation (where contrast and brightness apply). It can be easily disabled at compile time.
 
 
-## TODO list
-* Add an option for executing without interface (or make it more modular in such a way I can build two separate executables with shared code).
-* Add the possibility to run it distributed (via command line, maybe with a gui server).
+## Update (January 2014)
+* I created a version that runs basically with the only dependency of Boost libraries, without a gui (branch `no-gui`).
