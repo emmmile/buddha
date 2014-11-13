@@ -134,7 +134,7 @@ int buddha_generator::inside ( complex_type& c ) {
 
 
 
-
+/*
 // this is the main function. Here little modifications impacts a lot on the speed of the program!
 int buddha_generator::evaluate ( complex_type& begin, uint& contribute, uint& calculated ) {
     complex_type last = begin;	// holds the last calculated point
@@ -233,7 +233,7 @@ int buddha_generator::evaluate ( complex_type& begin, uint& contribute, uint& ca
 
     calculated = b->high;
     return -1;
-}
+}*/
 
 
 
@@ -263,25 +263,23 @@ int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
         if ( i >= b->low ) seq[j++] = last;
 
         // this checks if the last point is inside the screen
+        orbit_inside = orbit_inside || inside(last);
         if ( inside( last ) ) {
-            orbit_inside = true;
+            
             centerDistance = 0.0;
             ++contribute;
-        }
+        } else {
 
-        // if we didn't passed inside the screen calculate the distance
-        // it will update after the variable centerDistance
-        if ( ! orbit_inside ) {
+            // if we didn't passed inside the screen calculate the distance
+            // it will update after the variable centerDistance
             double distance = norm( last - complex_type( b->cre, b->cim ) );
             if ( distance < centerDistance && norm( last ) < 4.0 ) centerDistance = distance;
         }
 
         // test the stop condition and eventually continue a little bit
-        if ( norm( last ) > 4.0 ) {
-            if ( ! inside( last ) ) {
-                calculated = i;
-                return i - 1;
-            }
+        if ( norm( last ) > 8.0 ) {
+            calculated = i;
+            return i - 1;
         }
 
         if ( i == criticalStep ) {
@@ -442,7 +440,7 @@ void buddha_generator::metropolis ( ) {
         exponentialMutation( begin, generator.real() * radius );
 
         // calculate the new sequence
-        proposedOrbitMax = evaluate( begin, proposedOrbitCount, calculated );
+        proposedOrbitMax = evaluate( begin, distance, proposedOrbitCount, calculated );
 
         // the sequence is periodic, I try another mutation
         if ( proposedOrbitMax <= 0 ) continue;

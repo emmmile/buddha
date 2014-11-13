@@ -34,18 +34,18 @@ include_directories("${PROJECT_SOURCE_DIR}/random")
 include_directories("${PROJECT_SOURCE_DIR}/core")
 include_directories("${PROJECT_SOURCE_DIR}/timer")
 add_subdirectory("${PROJECT_SOURCE_DIR}/core")
-add_subdirectory("${PROJECT_SOURCE_DIR}/timer")
+#add_subdirectory("${PROJECT_SOURCE_DIR}/timer")
 link_directories("${PROJECT_SOURCE_DIR}/core")
-link_directories("${PROJECT_SOURCE_DIR}/timer")
+#link_directories("${PROJECT_SOURCE_DIR}/timer")
 
 
 add_executable(buddha++ main.cpp)
 add_executable(benchmark test/benchmark.cpp)
 add_executable(test_generators test/test.cpp)
 
-target_link_libraries(buddha++ core pthread timer)
-target_link_libraries(benchmark core pthread timer)
-target_link_libraries(test_generators core boost_system boost_unit_test_framework timer)
+target_link_libraries(buddha++ core pthread)
+target_link_libraries(benchmark core pthread)
+target_link_libraries(test_generators core boost_system boost_unit_test_framework)
 
 enable_testing()
 add_test(test_generators test_generators)
