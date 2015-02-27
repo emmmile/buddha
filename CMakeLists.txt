@@ -34,7 +34,7 @@ include_directories("${PROJECT_SOURCE_DIR}/random")
 include_directories("${PROJECT_SOURCE_DIR}/core")
 include_directories("${PROJECT_SOURCE_DIR}/timer")
 add_subdirectory("${PROJECT_SOURCE_DIR}/core")
-#add_subdirectory("${PROJECT_SOURCE_DIR}/timer")
+add_subdirectory("${PROJECT_SOURCE_DIR}/timer")
 link_directories("${PROJECT_SOURCE_DIR}/core")
 link_directories("${PROJECT_SOURCE_DIR}/timer")
 
