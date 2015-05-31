@@ -34,7 +34,7 @@ BOOST_AUTO_TEST_CASE( distribution )
     size_t trials = 100000;
 
     Random gen( std::chrono::system_clock::now().time_since_epoch().count() );
-    for ( int i = 0; i < trials; ++i ) {
+    for ( size_t i = 0; i < trials; ++i ) {
         sum += gen.realnegative();
     }
 
@@ -54,7 +54,7 @@ BOOST_AUTO_TEST_CASE( start )
 
     size_t trials = 10;
     uint ok = 0;
-    for ( int i = 0; i < trials; ++i ) {
+    for ( size_t i = 0; i < trials; ++i ) {
         buddha_generator::complex_type begin( 0.0, 0.0 );
         double centerDistance;
         uint contribute;
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE( evaluate )
 
     size_t trials = 10;
     uint ok = 0;
-    for ( int i = 0; i < trials; ++i ) {
+    for ( size_t i = 0; i < trials; ++i ) {
         buddha_generator::complex_type begin( 0.0, 0.0 );
         double centerDistance;
         uint contribute;

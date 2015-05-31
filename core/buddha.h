@@ -33,6 +33,7 @@
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include <complex>
 #include <fstream>
@@ -45,13 +46,14 @@
 #include <thread>
 
 #include "random.h"
-#include "utils.h"
 
 #define BOOST_LOG_DYN_LINK
 #include <boost/log/trivial.hpp>
 
 using namespace std;
 
+typedef unsigned char uchar;
+typedef unsigned int uint;
 
 struct buddha_generator;
 
