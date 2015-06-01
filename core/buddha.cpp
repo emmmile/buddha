@@ -29,6 +29,8 @@
 
 #include "buddha_generator.h"
 #include "timer.h"
+#include <dlfcn.h>
+
 
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
@@ -94,7 +96,7 @@ void buddha::reduce ( ) {
         reduceStep( i, i == (threads - 1) );
 
 
-    BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), computed " << computed << " points in " << totaltime << " s";
+    BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), computed " << computed / 1000000.0 << " Mpoints in " << totaltime << " s";
     BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), " << computed / totaltime / 1000000.0 << " Mpoints/s";
 }
 
@@ -237,6 +239,39 @@ void buddha::indirect_settings ( ) {
 
     realLightness = (float) lightness / ( maxLightness - lightness + 1 );
     realContrast = (float) contrast / maxContrast * 2.0;
+
+    compile_formula();
+}
+
+void buddha::compile_formula ( ) {
+    ofstream source("/tmp/code.cpp");
+
+    source << "#include <complex.h>\nusing namespace std;\n"
+           << "extern \"C\" void next_point ( complex<double>& z, complex<double>& c ) {\n"
+           << "  " << formula << ";\n"
+           << "}" << endl;
+    source.close();
+
+    system("rm -f /tmp/code.so");
+    system("c++ -O3 -mtune=native -ffast-math -funroll-loops -Wall /tmp/code.cpp -o /tmp/code.so -shared -fPIC -std=c++11");
+
+    char *error;
+    void* handle = dlopen("/tmp/code.so", RTLD_NOW);
+    if (!handle) {
+        BOOST_LOG_TRIVIAL(fatal) << dlerror();
+        exit(EXIT_FAILURE);
+    }
+
+    dlerror();    // Clear any existing error
+    next_point = (void (*)(complex<double>&, complex<double>&)) 
+                 dlsym(handle, "next_point");
+
+    if ((error = dlerror()) != NULL) {
+        BOOST_LOG_TRIVIAL(fatal) << error;
+        exit(EXIT_FAILURE);
+    }
+
+    BOOST_LOG_TRIVIAL(debug) << "successfully loaded formula: `" << formula << "'";
 }
 
 
@@ -294,4 +329,5 @@ void buddha::dump ( ) {
     BOOST_LOG_TRIVIAL(debug) << "width: " << w << ", height: " << h;
     BOOST_LOG_TRIVIAL(debug) << "scale: " << scale << ", threads: " << threads;
     BOOST_LOG_TRIVIAL(debug) << "lightness: " << lightness << ", contrast: " << contrast;
+    BOOST_LOG_TRIVIAL(debug) << "formula: " << formula;
 }

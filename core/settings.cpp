@@ -32,6 +32,7 @@ settings::settings(buddha &parent, int argc, char** argv ) {
     options.push_back( Option("load,L", "try to load a previously saved state", "", &parent.infile) );
     options.push_back( Option("help", "produce help message" ) );
     options.push_back( Option("inverse", "produce the anti-buddhabrot" ) );
+    options.push_back( Option("formula", "specify the formula to evaluate", "z = z * z + c", &parent.formula) );
 
     for ( uint i = 0; i < options.size(); ++i )
         options[i].add( desc.add_options() );

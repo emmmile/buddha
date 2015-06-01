@@ -30,7 +30,6 @@
 #define BUDDHA_GENERATOR_H
 
 #include "buddha.h"
-#include "complex.h"
 using namespace std;
 
 #ifndef M_PI
@@ -38,8 +37,8 @@ using namespace std;
 #endif
 
 struct buddha_generator {
-    //typedef complex<double> complex_type;
-    typedef simple_complex<double> complex_type;
+    typedef complex<double> complex_type;
+    //typedef simple_complex<double> complex_type;
     thread t;
 
     buddha* b;
@@ -51,6 +50,7 @@ struct buddha_generator {
     buddha::long_type computed;
     unsigned long int seed;
     Random generator;
+    void (*next_point)(complex<double>&, complex<double>&);
 
 
     bool finish;

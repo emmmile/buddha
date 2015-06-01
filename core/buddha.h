@@ -110,6 +110,9 @@ public:
     string infile;
     bool inverse;
 
+    string formula;
+    void (*next_point)(complex<double>&, complex<double>&);
+
 
     buddha ();
     ~buddha ( );
@@ -127,6 +130,7 @@ public:
     void stopGenerators( );
 
     void indirect_settings( );
+    void compile_formula( );
     void run( );
 };
 

@@ -71,6 +71,7 @@ void buddha_generator::initialize ( buddha* b ) {
     raw.shrink_to_fit( );
     seq.resize( b->high - b->low );
     raw.shrink_to_fit( );
+    next_point = b->next_point;
 
     finish = false;
     computed = 0;
@@ -127,118 +128,6 @@ int buddha_generator::inside ( complex_type& c ) {
 
     //return  c.real() <= b->maxre && c.real() >= b->minre && c.imag() <= b->maxim && c.imag() >= b->minim ;
 }
-
-
-
-//void inline loop ( complex_type& last, complex_type& critical, uint j, uint criticalStep, bool orbit_inside)
-
-
-
-/*
-// this is the main function. Here little modifications impacts a lot on the speed of the program!
-int buddha_generator::evaluate ( complex_type& begin, uint& contribute, uint& calculated ) {
-    complex_type last = begin;	// holds the last calculated point
-    complex_type critical = last;// for periodicity check
-    uint j = 0, criticalStep = step;
-    contribute = 0;
-
-    for ( uint i = 0; i < min( step, b->low ); ++i ) {
-        double re = last.real() * last.real() - last.imag() * last.imag() + begin.real();
-        double im = 2.0 * last.real() * last.imag() + begin.imag();
-        last = complex_type(re, im);
-    }
-
-    for ( uint i = min( step, b->low ); i < b->low; ++i ) {
-
-        // this checks if the last point is inside the screen
-        if ( inside( last ) ) ++contribute;
-
-        // test the stop condition and eventually continue a little bit
-        if ( norm( last ) > 4.0 ) {
-            if ( ! inside( last ) ) {
-                calculated = i;
-                return i - 1;
-            }
-        }
-
-        if ( i == criticalStep ) {
-            critical = last;
-        } else if ( i > criticalStep ) {
-            // compute the distance from the critical point
-            double distance = norm( last - critical );
-
-            // if I found that two calculated points are very very close I conclude that
-            // they are the same point, so the sequence is periodic so we are computing a point
-            // in the mandelbrot, so I stop the calculation
-            if ( distance < FLT_EPSILON * FLT_EPSILON ) { // maybe also DBL_EPSILON is sufficient
-                calculated = i;
-                return -1;
-            }
-
-            // I don't do this step at every iteration to be more fast, I found that a very good
-            // compromise is to use a multiplicative distance between each check
-            if ( i == criticalStep * 2 ) {
-                criticalStep *= 2;
-                critical = last;
-            }
-        }
-
-
-        double re = last.real() * last.real() - last.imag() * last.imag() + begin.real();
-        double im = 2.0 * last.real() * last.imag() + begin.imag();
-        last = complex_type(re, im);
-    }
-
-    for ( uint i = b->low; i < b->high; ++i ) {
-        seq[j++] = last;
-
-        // this checks if the last point is inside the screen
-        if ( inside( last ) ) ++contribute;
-
-        // test the stop condition and eventually continue a little bit
-        if ( norm( last ) > 4.0 ) {
-            if ( ! inside( last ) ) {
-                calculated = i;
-                return i - 1;
-            }
-        }
-
-        if ( i == criticalStep ) {
-            critical = last;
-        } else if ( i > criticalStep ) {
-            // compute the distance from the critical point
-            double distance = norm( last - critical );
-
-            // if I found that two calculated points are very very close I conclude that
-            // they are the same point, so the sequence is periodic so we are computing a point
-            // in the mandelbrot, so I stop the calculation
-            if ( distance < FLT_EPSILON * FLT_EPSILON ) { // maybe also DBL_EPSILON is sufficient
-                calculated = i;
-                return -1;
-            }
-
-            // I don't do this step at every iteration to be more fast, I found that a very good
-            // compromise is to use a multiplicative distance between each check
-            if ( i == criticalStep * 2 ) {
-                criticalStep *= 2;
-                critical = last;
-            }
-        }
-
-
-        double re = last.real() * last.real() - last.imag() * last.imag() + begin.real();
-        double im = 2.0 * last.real() * last.imag() + begin.imag();
-        last = complex_type(re, im);
-    }
-
-    calculated = b->high;
-    return -1;
-}*/
-
-
-
-
-
 
 
 
@@ -304,10 +193,10 @@ int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
             }
         }
 
-
-        double re = last.real() * last.real() - last.imag() * last.imag() + begin.real();
-        double im = 2.0 * last.real() * last.imag() + begin.imag();
-        last = complex_type(re, im);
+        next_point( last, begin );
+        // double re = z.real() * z.real() - z.imag() * z.imag() + c.real();
+        // double im = 2.0 * z.real() * z.imag() + c.imag();
+        // z = complex<double>(re, im);
     }
 
     calculated = b->high;
