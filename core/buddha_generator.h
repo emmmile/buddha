@@ -70,7 +70,7 @@ struct buddha_generator {
     void exponentialMutation ( complex_type& z, double radius );
     int inside ( complex_type& c );
 
-    void drawPoint ( complex_type& c, bool r, bool g, bool b );
+    void drawPoint ( complex_type& c );
     int evaluate ( complex_type& begin, uint& contribute, uint& calculated );
     int evaluate ( complex_type& begin, double& distance, uint& contribute, uint& calculated );
     int evaluate_inverse ( complex_type& begin, uint& calculated );

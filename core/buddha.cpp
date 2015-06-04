@@ -59,26 +59,11 @@ buddha::buddha( ) {
 
 void buddha::reduceStep ( int i, bool checkValues ) {
     uint j;
-    if ( checkValues ) maxr = maxg = maxb = 0;
 
     lock_guard<mutex> lock( generators[i]->execution );
 
-    for ( j = 0; j < 3 * s.size; j += 3 ) {
+    for ( j = 0; j < s.size; j ++ ) {
         raw[j+0] += generators[i]->raw[j+0];
-        raw[j+1] += generators[i]->raw[j+1];
-        raw[j+2] += generators[i]->raw[j+2];
-
-        if ( checkValues ) {
-            if ( raw[j+0] > maxr ) maxr = raw[j+0];
-            if ( raw[j+1] > maxg ) maxg = raw[j+1];
-            if ( raw[j+2] > maxb ) maxb = raw[j+2];
-        }
-    }
-
-    if ( checkValues ) {
-        rmul = maxr > 0 ? log( s.scale ) / (float) powf( maxr, s.realContrast ) * 150.0 * s.realLightness : 0.0;
-        gmul = maxg > 0 ? log( s.scale ) / (float) powf( maxg, s.realContrast ) * 150.0 * s.realLightness : 0.0;
-        bmul = maxb > 0 ? log( s.scale ) / (float) powf( maxb, s.realContrast ) * 150.0 * s.realLightness : 0.0;
     }
 
     computed += generators[i]->computed;
@@ -86,10 +71,9 @@ void buddha::reduceStep ( int i, bool checkValues ) {
 
 
 void buddha::reduce ( ) {
+    swap(raw, generators[0]->raw);
 
-    for ( uint i = 0; i < s.threads; ++i )
-        reduceStep( i, i == (s.threads - 1) );
-
+    computed += generators[0]->computed;
 
     BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), computed " << computed / 1000000.0 << " Mpoints in " << totaltime << " s";
     BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), " << computed / totaltime / 1000000.0 << " Mpoints/s";
@@ -97,48 +81,20 @@ void buddha::reduce ( ) {
 
 
 void buddha::createImage ( ) {
-    //cout << "buddha::toImage()\n";
-    unsigned char r, g, b;
-    uint j = 0;
-    for ( uint i = 0; i < s.size; ++i, j += 3 ) {
-        r = min( powf( raw[j + 0], s.realContrast ) * rmul, 255.0f );
-        g = min( powf( raw[j + 1], s.realContrast ) * gmul, 255.0f );
-        b = min( powf( raw[j + 2], s.realContrast ) * bmul, 255.0f );
-
-        rchannel[i] = r;
-        gchannel[i] = g;
-        bchannel[i] = b;
-        //RGBImage[i] = r << 16 | g << 8 | b;
-    }
 }
 
 void buddha::toRGB( ) {
     timer time;
     reduce();
     double elapsed = time.elapsed() * 1000;
-
-
-    time.restart();
-    createImage( );
-    BOOST_LOG_TRIVIAL(info) << "buddha::toRGB(), reduce: " << elapsed << " ms, image build: " << time.elapsed() * 1000 << " ms";
 }
 
 void buddha::save () {
     //BOOST_LOG_TRIVIAL(debug) << "buddha::save()";
     timer time;
 
-
-    // save the image
-    boost::gil::rgb8c_planar_view_t view = boost::gil::planar_rgb_view(s.w, s.h, &rchannel[0], &gchannel[0], &bchannel[0], s.w);
-    boost::gil::png_write_view( s.outfile + ".png", view);
-
-    BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() * 1000 << " ms";
-    time.restart();
-
-
-
     // save the raw histogram
-    std::ofstream oss( s.outfile + ".bz2", std::ios::binary);
+    std::ofstream oss( s.outfile + ".gz", std::ios::binary);
 
     bio::filtering_stream<bio::output> f;
     f.push(bio::gzip_compressor());
@@ -147,6 +103,31 @@ void buddha::save () {
     oa << raw;
 
     BOOST_LOG_TRIVIAL(info) << "buddha::save(), compression: " << time.elapsed() * 1000 << " ms";
+
+    
+    vector<unsigned char> channel;
+    maxr = *max_element(raw.begin(), raw.end());
+    float rmul = maxr > 0 ? log( s.scale ) / (float) powf( maxr, s.realContrast ) * 150.0 * s.realLightness : 0.0;
+    for ( uint i = 0; i < s.size; i+=4 ) {
+        int a = min( powf( raw[i], s.realContrast ) * rmul, 255.0f ) +
+                          min( powf( raw[i+1], s.realContrast ) * rmul, 255.0f ) +
+                          min( powf( raw[i+2], s.realContrast ) * rmul, 255.0f ) +
+                          min( powf( raw[i+3], s.realContrast ) * rmul, 255.0f );
+
+        channel.push_back(a / 4);
+    }
+
+    time.restart();
+
+    // save the image
+    boost::gil::rgb8c_planar_view_t view = 
+        boost::gil::planar_rgb_view(s.w / 4, s.h / 4, 
+            &channel[0], &channel[0], &channel[0], s.w);
+    boost::gil::png_write_view( s.outfile + ".png", view);
+
+    BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() * 1000 << " ms";
+
+
 }
 
 
@@ -174,13 +155,6 @@ buddha::~buddha ( ) {
 
 void buddha::clearBuffers ( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::clearBuffers()";
-    rchannel.assign( s.size, 0 );
-    gchannel.assign( s.size, 0 );
-    bchannel.assign( s.size, 0 );
-    raw.assign( 3 * s.size, 0 );
-
-    for ( uint i = 0; i < s.threads; ++i ) {
-    }
 }
 
 
@@ -225,15 +199,6 @@ void buddha::run ( const settings& settings ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::run()";
     s = settings;
     s.dump( );
-
-    raw.resize( 3 * s.size );
-    rchannel.resize( s.size );
-    gchannel.resize( s.size );
-    bchannel.resize( s.size );
-    raw.shrink_to_fit( );
-    rchannel.shrink_to_fit( );
-    gchannel.shrink_to_fit( );
-    bchannel.shrink_to_fit( );
 
     for ( uint i = 0; i < s.threads; ++i )
         generators.push_back( new buddha_generator( &s ) );

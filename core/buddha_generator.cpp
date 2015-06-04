@@ -67,7 +67,7 @@ void buddha_generator::initialize ( settings* b ) {
 
     //raw = (buddha::pixel*) realloc( raw, 3 * b->size * sizeof( buddha::pixel ) );
     //memset( raw, 0, 3 * b->size * sizeof( buddha::pixel ) );
-    raw.resize( 3 * b->size );
+    raw.resize( b->size );
     raw.shrink_to_fit( );
     seq.resize( b->high - b->low );
     raw.shrink_to_fit( );
@@ -92,16 +92,14 @@ void buddha_generator::stop ( ) {
 
 
 
-void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool drawb ) {
+void buddha_generator::drawPoint ( complex_type& c ) {
     uint x;
     uint y;
 
-#define plotIm( c, drawr, drawg, drawb ) \
+#define plotIm( c ) \
     if ( c.imag() > b->minim && c.imag() < b->maxim ) { \
     y = ( b->maxim - c.imag() ) * b->scale; \
-    if ( drawb )	raw[ y * 3 * b->w + 3 * x + 2 ]++;	\
-    if ( drawr )	raw[ y * 3 * b->w + 3 * x + 0 ]++;	\
-    if ( drawg )	raw[ y * 3 * b->w + 3 * x + 1 ]++;	\
+    raw[ y * b->w + x ]++; \
 }
 
     if ( c.real() < b->minre ) return;
@@ -112,10 +110,10 @@ void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool
 
     // the y coordinates are referred to the point (b->minre, b->maxim), and are symetric in
     // respect of the real axis (re = 0). So I draw always also the simmetric point (I try).
-    plotIm( c, drawr, drawg, drawb );
+    plotIm( c );
 
     c = conj( c );
-    plotIm( c, drawr, drawg, drawb );
+    plotIm( c );
 }
 
 
@@ -355,9 +353,8 @@ void buddha_generator::metropolis ( ) {
         // draw the points
         lock_guard<mutex> locker( execution );
 
-        for ( int h = 0; h <= proposedOrbitMax - (int) b->low && proposedOrbitCount > 0; h++ ) {
-            uint i = h + b->low;
-            drawPoint( seq[h], i < b->highr && i > b->lowr, i < b->highg && i > b->lowg, i < b->highb && i > b->lowb);
+        for ( int h = 0; h <= proposedOrbitMax - (int) b->low && proposedOrbitCount > 0 && h <= b->high - b->low; h++ ) {
+            drawPoint( seq[h] );
         }
 
         if ( finish ) break;
@@ -388,8 +385,7 @@ void buddha_generator::inverse ( ) {
     lock_guard<mutex> locker( execution );
 
     for ( uint h = 0; h <= b->high - b->low; h++ ) {
-        uint i = h + b->low;
-        drawPoint( seq[h], i < b->highr && i > b->lowr, i < b->highg && i > b->lowg, i < b->highb && i > b->lowb);
+        drawPoint( seq[h] );
     }
 }
 

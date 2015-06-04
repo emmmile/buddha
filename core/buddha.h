@@ -73,9 +73,6 @@ public:
 
     // things for the plot
     vector<pixel> raw;
-    vector<uchar> rchannel;
-    vector<uchar> gchannel;
-    vector<uchar> bchannel;
     uint maxr, minr, maxb, minb, maxg, ming;
     float rmul, gmul, bmul;
    
