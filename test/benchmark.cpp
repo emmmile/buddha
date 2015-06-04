@@ -1,7 +1,7 @@
 
 #include "buddha.h"
 #include "buddha_generator.h"
-#include "settings.h"
+#include "settings_parser.h"
 #include "timer.h"
 
 #define BOOST_LOG_DYN_LINK
@@ -9,8 +9,8 @@
 
 int main ( int argc, char** argv ) {
     // uses this only as container for the program parameters
-    buddha b;
-    settings options( b, argc, argv );
+    settings_parser options( argc, argv );
+    settings s = options();
 
     uint computed = 0;
     double totaltime;
@@ -18,11 +18,8 @@ int main ( int argc, char** argv ) {
     //b.w = b.w / 10;
     //b.h = b.h / 10;
     //b.scale = b.scale / 10;
-    b.highr = b.highg = b.highb = 8192 * 16;
+    s.high = s.highr = s.highg = s.highb = 8192 * 16;
 
-
-    // now start a generator's evaluate() manually
-    b.indirect_settings();
     //b.dump();
     vector<buddha_generator::complex_type> starting_points;
     double distance;
@@ -49,7 +46,7 @@ int main ( int argc, char** argv ) {
 //    starting_points.emplace_back( -0.749504, -0.0253876 );
 
 
-    buddha_generator benchmark( &b );
+    buddha_generator benchmark( &s );
 
     timer time;
     for ( uint i = 0; i < 1000; ++i ) {

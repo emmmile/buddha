@@ -41,13 +41,13 @@ struct buddha_generator {
     //typedef simple_complex<double> complex_type;
     thread t;
 
-    buddha* b;
+    settings* b;
 
     // for the raw image and the sequence of points
     vector<complex_type> seq;
     vector<buddha::pixel> raw;
 
-    buddha::long_type computed;
+    unsigned long int computed;
     unsigned long int seed;
     Random generator;
     void (*next_point)(complex<double>&, complex<double>&);
@@ -60,10 +60,10 @@ struct buddha_generator {
 
 
     buddha_generator( );
-    buddha_generator( buddha* b);
+    buddha_generator( settings* b);
     ~buddha_generator ( );
 
-    void initialize ( buddha* b );
+    void initialize ( settings* b );
 
 
     void gaussianMutation ( complex_type& z, double radius );

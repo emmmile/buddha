@@ -1,82 +1,65 @@
+#include <settings.h>
 
-#include <iostream>
-#include <sstream>
-#include <thread>
+void settings::indirect_settings ( ) {
+	    rangere = w / scale;
+	    rangeim = h / scale;
+	    minre = cre - rangere * 0.5;
+	    maxre = cre + rangere * 0.5;
+	    minim = cim - rangeim * 0.5;
+	    maxim = cim + rangeim * 0.5;
+	    high = max( max( highr, highg ), highb );
+	    low = min( min(lowr, lowg), lowb);
+	    size = w * h;
 
-#include "settings.h"
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/xml_parser.hpp>
-namespace po = boost::program_options;
-using boost::property_tree::ptree;
-using namespace std;
+	    realLightness = (float) lightness / ( maxLightness - lightness + 1 ) * 0.5;
+	    realContrast = (float) contrast / (maxContrast);
 
-
-
-settings::settings(buddha &parent, int argc, char** argv ) {
-    po::options_description desc("Allowed options");
-    options.push_back( Option("red-min,r", "set low red iterations count", 0u, &parent.lowr ) );
-    options.push_back( Option("green-min,g", "set low green iterations count", 0u, &parent.lowg ) );
-    options.push_back( Option("blue-min,b", "set low blue iterations count", 0u, &parent.lowb ) );
-    options.push_back( Option("red-max,R", "set high red iterations count", 8192u, &parent.highr ) );
-    options.push_back( Option("green-max,G", "set high green iterations count", 2048u, &parent.highg ) );
-    options.push_back( Option("blue-max,B", "set high blue iterations count", 512u, &parent.highb ) );
-    options.push_back( Option("cre", "set iniatial real center of the image", 0.0, &parent.cre ) );
-    options.push_back( Option("cim", "set iniatial imaginary center of the image", 0.0, &parent.cim ) );
-    options.push_back( Option("scale,s", "set iniatial scale factor of the image", 800.0, &parent.scale ) );
-    options.push_back( Option("lightness,l", "set the lightness of the image", 100, &parent.lightness) );
-    options.push_back( Option("contrast,c", "set the contrast of the image", 75, &parent.contrast) );
-    options.push_back( Option("threads,t", "set the number of parallel threads", std::thread::hardware_concurrency(), &parent.threads) );
-    options.push_back( Option("width,w", "width of the output", 3000, &parent.w) );
-    options.push_back( Option("height,h", "height of the output", 2000, &parent.h) );
-    options.push_back( Option("out,o", "output filename", "output", &parent.outfile) );
-    options.push_back( Option("load,L", "try to load a previously saved state", "", &parent.infile) );
-    options.push_back( Option("help", "produce help message" ) );
-    options.push_back( Option("inverse", "produce the anti-buddhabrot" ) );
-    options.push_back( Option("formula", "specify the formula to evaluate", "z = z * z + c", &parent.formula) );
-
-    for ( uint i = 0; i < options.size(); ++i )
-        options[i].add( desc.add_options() );
+        compile_formula();
+	}
 
 
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
 
+void settings::compile_formula ( ) {
+    ofstream source("/tmp/code.cpp");
 
-    if ( vm.count("help") ) {
-        cout << desc << "\n";
-        exit( 0 );
+    source << "#include <complex.h>\nusing namespace std;\n"
+           << "extern \"C\" void next_point ( complex<double>& z, complex<double>& c ) {\n"
+           << "  " << formula << ";\n"
+           << "}" << endl;
+    source.close();
+
+    system("rm -f /tmp/code.so");
+    system("c++ -O3 -mtune=native -ffast-math -funroll-loops -Wall /tmp/code.cpp -o /tmp/code.so -shared -fPIC -std=c++11");
+
+    char *error;
+    void* handle = dlopen("/tmp/code.so", RTLD_NOW);
+    if (!handle) {
+        BOOST_LOG_TRIVIAL(fatal) << dlerror();
+        exit(EXIT_FAILURE);
     }
 
-    if ( vm.count("inverse") ) {
-        parent.inverse = true;
-    }
-}
+    dlerror();    // Clear any existing error
+    next_point = (void (*)(complex<double>&, complex<double>&)) 
+                 dlsym(handle, "next_point");
 
-settings::settings( const string& filename ) {
-    load( filename );
-}
-
-void settings::save(const string &filename) {
-    ptree pt;
-
-    for ( uint i = 0; i < options.size(); ++i ) {
-        string val = options[i].current_value();
-        if ( val == "" ) continue;
-        pt.put("buddha." + options[i].name(), val );
+    if ((error = dlerror()) != NULL) {
+        BOOST_LOG_TRIVIAL(fatal) << error;
+        exit(EXIT_FAILURE);
     }
 
-    // Write the property tree to the XML file.
-    write_xml(filename, pt);
+    BOOST_LOG_TRIVIAL(debug) << "successfully loaded formula: `" << formula << "'";
 }
 
-void settings::load(const string &filename) {
-    // Create an empty property tree object
-    ptree pt;
 
-    // Load the XML file into the property tree. If reading fails
-    // (cannot open file, parse error), an exception is thrown.
-    read_xml(filename, pt);
-
-    // put the tree on the options
+void settings::dump ( ) const {
+    BOOST_LOG_TRIVIAL(debug) << "lowr: " << lowr << ", highr " << highr;
+    BOOST_LOG_TRIVIAL(debug) << "lowg: " << lowg << ", highg " << highg;
+    BOOST_LOG_TRIVIAL(debug) << "lowb: " << lowb << ", highb " << highb;
+    BOOST_LOG_TRIVIAL(debug) << "cre: " << cre << ", cim " << cim;
+    BOOST_LOG_TRIVIAL(debug) << "maxre: " << maxre << ", maxim " << maxim;
+    BOOST_LOG_TRIVIAL(debug) << "minre: " << minre << ", minim " << minim;
+    BOOST_LOG_TRIVIAL(debug) << "width: " << w << ", height: " << h;
+    BOOST_LOG_TRIVIAL(debug) << "scale: " << scale << ", threads: " << threads;
+    BOOST_LOG_TRIVIAL(debug) << "lightness: " << lightness << ", contrast: " << contrast;
+    BOOST_LOG_TRIVIAL(debug) << "formula: `" << formula << "'";
 }

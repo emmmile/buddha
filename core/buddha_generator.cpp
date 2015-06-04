@@ -44,7 +44,7 @@ buddha_generator::buddha_generator () {
     finish = false;
 }
 
-buddha_generator::buddha_generator (buddha *b) {
+buddha_generator::buddha_generator (settings *b) {
     initialize( b );
 }
 
@@ -53,7 +53,7 @@ buddha_generator::~buddha_generator ( ) {
     //BOOST_LOG_TRIVIAL(debug) << "buddha_generator::~buddha_generator";
 }
 
-void buddha_generator::initialize ( buddha* b ) {
+void buddha_generator::initialize ( settings* b ) {
     this->b = b;
 
     random_device rd;

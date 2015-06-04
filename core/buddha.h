@@ -46,6 +46,7 @@
 #include <thread>
 
 #include "random.h"
+#include "settings.h"
 
 #define BOOST_LOG_DYN_LINK
 #include <boost/log/trivial.hpp>
@@ -65,59 +66,27 @@ class buddha {
     void createImage ( );
 public:
     typedef uint32_t pixel;
-    typedef unsigned long int long_type;
 
-    // since this class is also used as "container" for the various generators
-    // I use directly public variables instead private members and functions like set*()
-    // buddhabrot characteristics
-    double maxre, maxim;
-    double minre, minim;
-    double cre, cim;
-    uint low;
-    uint lowr;
-    uint lowg;
-    uint lowb;
-    uint high;
-    uint highr;
-    uint highg;
-    uint highb;
-    double scale;
 
-    // these can be calculated from the previous but they are useful
-    double rangere, rangeim;
-    uint w;
-    uint h;
-    uint size;
 
+    settings s;
 
     // things for the plot
     vector<pixel> raw;
     vector<uchar> rchannel;
     vector<uchar> gchannel;
     vector<uchar> bchannel;
-    float rmul, gmul, bmul, realContrast, realLightness;
-    uint contrast, lightness;
     uint maxr, minr, maxb, minb, maxg, ming;
-
-    static const uint maxLightness = 200;
-    static const uint maxContrast = 200;
-    //static const uint maxFps = 40;
-    long_type computed;
+    float rmul, gmul, bmul;
+   
+    uint computed;
     double totaltime;
 
-    uint threads;
-    string outfile;
-    string infile;
-    bool inverse;
-
-    string formula;
-    void (*next_point)(complex<double>&, complex<double>&);
 
 
     buddha ();
     ~buddha ( );
 
-    void dump ( );
     void clearBuffers ( );
 
     void reduceStep ( int i, bool check );
@@ -129,9 +98,7 @@ public:
     void startGenerators( );
     void stopGenerators( );
 
-    void indirect_settings( );
-    void compile_formula( );
-    void run( );
+    void run( const settings& s );
 };
 
 
