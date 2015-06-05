@@ -48,6 +48,8 @@
 #include "random.h"
 #include "settings.h"
 
+#include <stxxl/vector>
+
 #define BOOST_LOG_DYN_LINK
 #include <boost/log/trivial.hpp>
 
@@ -70,11 +72,12 @@ public:
     settings s;
 
     // things for the plot
-    vector<pixel> raw;
+    typedef stxxl::VECTOR_GENERATOR<buddha::pixel>::result myvector;
+    myvector raw;
     uint maxr, minr, maxb, minb, maxg, ming;
     float rmul, gmul, bmul;
    
-    uint computed;
+    unsigned long long int computed;
     double totaltime;
 
 

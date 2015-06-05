@@ -68,9 +68,9 @@ void buddha_generator::initialize ( settings* b ) {
     //raw = (buddha::pixel*) realloc( raw, 3 * b->size * sizeof( buddha::pixel ) );
     //memset( raw, 0, 3 * b->size * sizeof( buddha::pixel ) );
     raw.resize( b->size );
-    raw.shrink_to_fit( );
+    //raw.shrink_to_fit( );
     seq.resize( b->high - b->low );
-    raw.shrink_to_fit( );
+    //raw.shrink_to_fit( );
     next_point = b->next_point;
 
     finish = false;
@@ -191,10 +191,11 @@ int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
             }
         }
 
-        next_point( last, begin );
+        //next_point( last, begin );
         // double re = z.real() * z.real() - z.imag() * z.imag() + c.real();
         // double im = 2.0 * z.real() * z.imag() + c.imag();
         // z = complex<double>(re, im);
+        last = last * last + begin;
     }
 
     calculated = b->high;
