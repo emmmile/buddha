@@ -10,6 +10,10 @@
 #include <boost/log/trivial.hpp>
 using namespace std;
 
+
+typedef unsigned char uchar;
+typedef unsigned int uint;
+
 struct settings {
 	// since this class is also used as "container" for the various generators
     // I use directly public variables instead private members and functions like set*()
