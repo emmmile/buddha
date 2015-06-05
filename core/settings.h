@@ -23,8 +23,12 @@ struct settings {
     double cre, cim;
     uint low;
     uint lowr;
+    uint lowg;
+    uint lowb;
     uint high;
     uint highr;
+    uint highg;
+    uint highb;
     double scale;
 
 

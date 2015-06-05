@@ -18,7 +18,7 @@ int main ( int argc, char** argv ) {
     //b.w = b.w / 10;
     //b.h = b.h / 10;
     //b.scale = b.scale / 10;
-    s.high = s.highr = 8192 * 16;
+    s.high = s.highr = s.highg = s.highb = 8192 * 16;
 
     //b.dump();
     vector<buddha_generator::complex_type> starting_points;

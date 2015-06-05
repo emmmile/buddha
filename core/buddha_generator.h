@@ -45,12 +45,9 @@ struct buddha_generator {
 
     // for the raw image and the sequence of points
     vector<complex_type> seq;
+    vector<buddha::pixel> raw;
 
-    typedef stxxl::VECTOR_GENERATOR<buddha::pixel>::result myvector;
-    myvector raw;
-    std::vector<unsigned long long int> rawmem;
-
-    unsigned long long int computed;
+    unsigned long int computed;
     unsigned long int seed;
     Random generator;
     void (*next_point)(complex<double>&, complex<double>&);

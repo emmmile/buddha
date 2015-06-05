@@ -68,9 +68,9 @@ void buddha_generator::initialize ( settings* b ) {
     //raw = (buddha::pixel*) realloc( raw, 3 * b->size * sizeof( buddha::pixel ) );
     //memset( raw, 0, 3 * b->size * sizeof( buddha::pixel ) );
     raw.resize( b->size );
-    //raw.shrink_to_fit( );
+    raw.shrink_to_fit( );
     seq.resize( b->high - b->low );
-    //raw.shrink_to_fit( );
+    raw.shrink_to_fit( );
     next_point = b->next_point;
 
     finish = false;
@@ -99,7 +99,7 @@ void buddha_generator::drawPoint ( complex_type& c ) {
 #define plotIm( c ) \
     if ( c.imag() > b->minim && c.imag() < b->maxim ) { \
     y = ( b->maxim - c.imag() ) * b->scale; \
-    rawmem.push_back( y * b->w + x ); \
+    raw[ y * b->w + x ]++; \
 }
 
     if ( c.real() < b->minre ) return;
@@ -191,11 +191,10 @@ int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
             }
         }
 
-        //next_point( last, begin );
+        next_point( last, begin );
         // double re = z.real() * z.real() - z.imag() * z.imag() + c.real();
         // double im = 2.0 * z.real() * z.imag() + c.imag();
         // z = complex<double>(re, im);
-        last = last * last + begin;
     }
 
     calculated = b->high;
@@ -356,13 +355,6 @@ void buddha_generator::metropolis ( ) {
 
         for ( int h = 0; h <= proposedOrbitMax - (int) b->low && proposedOrbitCount > 0 && h <= b->high - b->low; h++ ) {
             drawPoint( seq[h] );
-        }
-
-        if ( rawmem.size() > 10000000 ) {
-            sort(rawmem.begin(), rawmem.end());
-            BOOST_LOG_TRIVIAL(debug) << "flushing..."; 
-            for ( auto i : rawmem ) raw[i]++;
-            rawmem.clear();
         }
 
         if ( finish ) break;

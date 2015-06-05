@@ -7,6 +7,3 @@
 [submodule "timer"]
 	path = timer
 	url = https://github.com/emmmile/timer.git
-[submodule "stxxl"]
-	path = stxxl
-	url = http://github.com/stxxl/stxxl.git
