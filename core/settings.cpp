@@ -7,8 +7,8 @@ void settings::indirect_settings ( ) {
 	    maxre = cre + rangere * 0.5;
 	    minim = cim - rangeim * 0.5;
 	    maxim = cim + rangeim * 0.5;
-	    high = max( max( highr, highg ), highb );
-	    low = min( min(lowr, lowg), lowb);
+	    high = highr;
+	    low = lowr;
 	    size = w * h;
 
 	    realLightness = (float) lightness / ( maxLightness - lightness + 1 ) * 0.5;
@@ -53,8 +53,6 @@ void settings::compile_formula ( ) {
 
 void settings::dump ( ) const {
     BOOST_LOG_TRIVIAL(debug) << "lowr: " << lowr << ", highr " << highr;
-    BOOST_LOG_TRIVIAL(debug) << "lowg: " << lowg << ", highg " << highg;
-    BOOST_LOG_TRIVIAL(debug) << "lowb: " << lowb << ", highb " << highb;
     BOOST_LOG_TRIVIAL(debug) << "cre: " << cre << ", cim " << cim;
     BOOST_LOG_TRIVIAL(debug) << "maxre: " << maxre << ", maxim " << maxim;
     BOOST_LOG_TRIVIAL(debug) << "minre: " << minre << ", minim " << minim;
