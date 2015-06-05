@@ -99,7 +99,7 @@ void buddha_generator::drawPoint ( complex_type& c ) {
 #define plotIm( c ) \
     if ( c.imag() > b->minim && c.imag() < b->maxim ) { \
     y = ( b->maxim - c.imag() ) * b->scale; \
-    raw[ y * b->w + x ]++; \
+    rawmem.push_back( y * b->w + x ); \
 }
 
     if ( c.real() < b->minre ) return;
@@ -356,6 +356,13 @@ void buddha_generator::metropolis ( ) {
 
         for ( int h = 0; h <= proposedOrbitMax - (int) b->low && proposedOrbitCount > 0 && h <= b->high - b->low; h++ ) {
             drawPoint( seq[h] );
+        }
+
+        if ( rawmem.size() > 10000000 ) {
+            sort(rawmem.begin(), rawmem.end());
+            BOOST_LOG_TRIVIAL(debug) << "flushing..."; 
+            for ( auto i : rawmem ) raw[i]++;
+            rawmem.clear();
         }
 
         if ( finish ) break;

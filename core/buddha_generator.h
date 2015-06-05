@@ -48,6 +48,7 @@ struct buddha_generator {
 
     typedef stxxl::VECTOR_GENERATOR<buddha::pixel>::result myvector;
     myvector raw;
+    std::vector<unsigned long long int> rawmem;
 
     unsigned long long int computed;
     unsigned long int seed;
