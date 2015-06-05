@@ -100,7 +100,8 @@ void buddha::save () {
     f.push(bio::gzip_compressor());
     f.push(oss);
     bar::binary_oarchive oa(f);
-    oa << raw;
+    // oa << raw;
+    for (pixel i : raw) oa << i;
 
     BOOST_LOG_TRIVIAL(info) << "buddha::save(), compression: " << time.elapsed() * 1000 << " ms";
 
@@ -132,6 +133,7 @@ void buddha::save () {
 
 
 void buddha::load ( ) {
+    BOOST_LOG_TRIVIAL(debug) << "buddha::load()";
     timer time;
     // save the raw histogram
     std::ifstream iss( s.infile, ios::in | ios::binary);
@@ -140,14 +142,15 @@ void buddha::load ( ) {
     f.push(bio::gzip_decompressor());
     f.push(iss);
     bar::binary_iarchive ia(f);
-    ia >> raw;
+    // ia >> generators[0]->raw;
+    for ( unsigned long int i = 0; i < s.size; ++i )
+        ia >> generators[0]->raw[i];
 
     BOOST_LOG_TRIVIAL(debug) << "buddha::load(), decompression: " << time.elapsed() * 1000 << " ms";
 }
 
 
 buddha::~buddha ( ) {
-    BOOST_LOG_TRIVIAL(debug) << "buddha::~buddha()";
 }
 
 
