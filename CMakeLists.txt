@@ -38,7 +38,9 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/timer")
 link_directories("${PROJECT_SOURCE_DIR}/core")
 link_directories("${PROJECT_SOURCE_DIR}/timer")
 
-
+SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+SET(BUILD_SHARED_LIBRARIES OFF)
+SET(CMAKE_EXE_LINKER_FLAGS "-static")
 add_executable(buddha++ main.cpp)
 #add_executable(benchmark test/benchmark.cpp)
 #add_executable(test_generators test/test.cpp)
