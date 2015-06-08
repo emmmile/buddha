@@ -40,14 +40,12 @@ link_directories("${PROJECT_SOURCE_DIR}/timer")
 
 
 add_executable(buddha++ main.cpp)
-add_executable(benchmark test/benchmark.cpp)
-add_executable(test_generators test/test.cpp)
-add_executable(merger merger.cpp)
+#add_executable(benchmark test/benchmark.cpp)
+#add_executable(test_generators test/test.cpp)
 
-target_link_libraries(buddha++ core pthread timer dl)
-target_link_libraries(merger core pthread timer dl)
-target_link_libraries(benchmark core pthread timer dl)
-target_link_libraries(test_generators core boost_system boost_unit_test_framework timer dl)
+target_link_libraries(buddha++ core pthread timer dl tiff)
+#target_link_libraries(benchmark core pthread timer dl)
+#target_link_libraries(test_generators core boost_system boost_unit_test_framework timer dl)
 
-enable_testing()
-add_test(test_generators test_generators)
+#enable_testing()
+#add_test(test_generators test_generators)

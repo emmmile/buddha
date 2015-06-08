@@ -60,7 +60,9 @@ BOOST_AUTO_TEST_CASE( start )
         uint contribute;
         uint calculated;
 
-        buddha_generator generator( &b );
+        std::vector<buddha::pixel> v;
+        v.resize(3 * b.size);
+        buddha_generator generator( &b, &v );
         generator.findPoint( begin, centerDistance, contribute, calculated );
 
         if ( contribute != 0 ) ok++;
@@ -88,7 +90,9 @@ BOOST_AUTO_TEST_CASE( evaluate )
         uint contribute;
         uint calculated;
 
-        buddha_generator generator( &b );
+        std::vector<buddha::pixel> v;
+        v.resize(3 * b.size);
+        buddha_generator generator( &b, &v );
         generator.findPoint( begin, centerDistance, contribute, calculated );
 
         if ( contribute != 0 ) ok++;

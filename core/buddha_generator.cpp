@@ -44,8 +44,8 @@ buddha_generator::buddha_generator () {
     finish = false;
 }
 
-buddha_generator::buddha_generator (settings *b) {
-    initialize( b );
+buddha_generator::buddha_generator (settings *b, buddha* bu ) {
+    initialize( b, bu );
 }
 
 
@@ -53,8 +53,9 @@ buddha_generator::~buddha_generator ( ) {
     //BOOST_LOG_TRIVIAL(debug) << "buddha_generator::~buddha_generator";
 }
 
-void buddha_generator::initialize ( settings* b ) {
+void buddha_generator::initialize ( settings* b, buddha* bu ) {
     this->b = b;
+    this->bu = bu;
 
     random_device rd;
     seed = rd();
@@ -67,10 +68,9 @@ void buddha_generator::initialize ( settings* b ) {
 
     //raw = (buddha::pixel*) realloc( raw, 3 * b->size * sizeof( buddha::pixel ) );
     //memset( raw, 0, 3 * b->size * sizeof( buddha::pixel ) );
-    raw.resize( b->size );
-    raw.shrink_to_fit( );
+    //raw.resize( 3 * b->size );
+    //raw.shrink_to_fit( );
     seq.resize( b->high - b->low );
-    raw.shrink_to_fit( );
     next_point = b->next_point;
 
     finish = false;
@@ -92,14 +92,16 @@ void buddha_generator::stop ( ) {
 
 
 
-void buddha_generator::drawPoint ( complex_type& c ) {
+void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool drawb ) {
     uint x;
     uint y;
 
-#define plotIm( c ) \
+#define plotIm( c, drawr, drawg, drawb ) \
     if ( c.imag() > b->minim && c.imag() < b->maxim ) { \
-    y = ( b->maxim - c.imag() ) * b->scale; \
-    raw[ y * b->w + x ]++; \
+    y = ( b->maxim - fabs(c.imag()) ) * b->scale; \
+    if ( drawb )    bu->raw[ y * 3 * b->w + 3 * x + 2 ]++;  \
+    if ( drawr )    bu->raw[ y * 3 * b->w + 3 * x + 0 ]++;  \
+    if ( drawg )    bu->raw[ y * 3 * b->w + 3 * x + 1 ]++;  \
 }
 
     if ( c.real() < b->minre ) return;
@@ -110,11 +112,9 @@ void buddha_generator::drawPoint ( complex_type& c ) {
 
     // the y coordinates are referred to the point (b->minre, b->maxim), and are symetric in
     // respect of the real axis (re = 0). So I draw always also the simmetric point (I try).
-    plotIm( c );
-
-    c = conj( c );
-    plotIm( c );
+    plotIm( c, drawr, drawg, drawb );
 }
+
 
 
 // test if a point is inside the interested area
@@ -195,48 +195,6 @@ int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
         // double re = z.real() * z.real() - z.imag() * z.imag() + c.real();
         // double im = 2.0 * z.real() * z.imag() + c.imag();
         // z = complex<double>(re, im);
-    }
-
-    calculated = b->high;
-    return -1;
-}
-
-
-
-
-int buddha_generator::evaluate_inverse ( complex_type& begin, uint& calculated ) {
-    complex_type last = begin;	// holds the last calculated point
-    uint j = 0;
-
-    for ( uint i = 0; i < b->high; ++i ) {
-        // when low <= i < high the points are saved for drawing
-        if ( i >= b->low ) seq[j++] = last;
-
-        /*// this checks if the last point is inside the screen
-        if ( ( isInside = inside( last ) ) ) {
-            centerDistance = 0.0;
-            ++contribute;
-        }
-
-        // if we didn't passed inside the screen calculate the distance
-        // it will update after the variable centerDistance
-        if ( centerDistance != 0.0 ) {
-            tmp = ( last.real() - b->cre ) * ( last.real() - b->cre ) +
-                    ( last.imag() - b->cim ) * ( last.imag() - b->cim );
-            if ( tmp < centerDistance && last.mod() < 4.0 ) centerDistance = tmp;
-        }*/
-
-        // test the stop condition and eventually continue a little bit
-        if ( norm( last ) > 4.0 ) {
-            if ( !inside( last ) ) {
-                calculated = i;
-                return i - 1;
-            }
-        }
-
-        double re = last.real() * last.real() - last.imag() * last.imag() + begin.real();
-        double im = 2.0 * last.real() * last.imag() + begin.imag();
-        last = complex_type(re, im);
     }
 
     calculated = b->high;
@@ -352,10 +310,14 @@ void buddha_generator::metropolis ( ) {
 
         // draw the points
         lock_guard<mutex> locker( execution );
+        bu->rawmutex.lock();
 
-        for ( int h = 0; h <= proposedOrbitMax - (int) b->low && proposedOrbitCount > 0 && h <= b->high - b->low; h++ ) {
-            drawPoint( seq[h] );
+        for ( int h = 0; h <= proposedOrbitMax - (int) b->low && proposedOrbitCount > 0 && h <= int(b->high - b->low); h++ ) {
+            uint i = h + b->low;
+            drawPoint( seq[h], i < b->highr && i > b->lowr, i < b->highg && i > b->lowg, i < b->highb && i > b->lowb);
         }
+
+        bu->rawmutex.unlock();
 
         if ( finish ) break;
     }
@@ -363,29 +325,24 @@ void buddha_generator::metropolis ( ) {
 
 
 
-// the metropolis algorithm. I don't know very much about the teory under this optimization but I think is
-// implemented quite well.. Maybe a better method for the transition probability can be found but I don't know.
-void buddha_generator::inverse ( ) {
+
+// normal buddhabrot drawing function, no metropolis
+void buddha_generator::normal ( ) {
+    // normal uniform search
     complex_type begin( 0.0, 0.0 );
-    uint calculated;
-    //double radius = 40.0 / b->scale; // 100.0;
-    int j;
+    uint calculated, proposedOrbitCount = 0;
+    uint proposedOrbitMax;
 
-    // starting point, TODO
-    //exponentialMutation( begin, generator.real()al() * radius );
-    gaussianMutation( begin, 0.25 * sqrt( 64.0 ) );
-
-    // calculate the new sequence
-    j = evaluate_inverse( begin, calculated );
+    double distance = 0;
+    // generate a random point
+    gaussianMutation( begin, 2.0 );
+    // calculate the sequence
+    proposedOrbitMax = evaluate( begin, distance, proposedOrbitCount, calculated );
     computed += calculated;
 
-    if ( j != -1 ) return;
-
-    // draw the points
-    lock_guard<mutex> locker( execution );
-
-    for ( uint h = 0; h <= b->high - b->low; h++ ) {
-        drawPoint( seq[h] );
+    for ( int h = 0; h <= proposedOrbitMax - (int) b->low && h <= int(b->high - b->low); h++ ) {
+        uint i = h + b->low;
+        drawPoint( seq[h], i < b->highr && i > b->lowr, i < b->highg && i > b->lowg, i < b->highb && i > b->lowb);
     }
 }
 
@@ -394,10 +351,8 @@ void buddha_generator::run ( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run()";
 
     while ( true ) {
-        if ( ! b->inverse )
-            metropolis( );
-        else
-            inverse( );
+        metropolis( );
+        //normal( );
 
         lock_guard<mutex> locker ( execution );
         if ( finish ) break;

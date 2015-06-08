@@ -46,7 +46,9 @@ int main ( int argc, char** argv ) {
 //    starting_points.emplace_back( -0.749504, -0.0253876 );
 
 
-    buddha_generator benchmark( &s );
+    std::vector<buddha::pixel> v;
+    v.resize(3 * s.size);
+    buddha_generator benchmark( &s, &v );
 
     timer time;
     for ( uint i = 0; i < 1000; ++i ) {

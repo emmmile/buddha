@@ -29,6 +29,7 @@
 
 #include "buddha_generator.h"
 #include "timer.h"
+#include "saver.h"
 
 
 #include <boost/archive/binary_oarchive.hpp>
@@ -41,6 +42,7 @@
 #define png_infopp_NULL (png_infopp)NULL
 #define int_p_NULL (int*)NULL
 #include <boost/gil/extension/io/png_io.hpp>
+#include <boost/gil/extension/io/tiff_io.hpp>
 
 namespace bar = boost::archive;
 namespace bio = boost::iostreams;
@@ -57,40 +59,23 @@ buddha::buddha( ) {
 
 
 
-void buddha::reduceStep ( int i, bool checkValues ) {
-    uint j;
-
-    lock_guard<mutex> lock( generators[i]->execution );
-
-    for ( j = 0; j < s.size; j ++ ) {
-        raw[j+0] += generators[i]->raw[j+0];
-    }
-
-    computed += generators[i]->computed;
-}
-
 
 void buddha::reduce ( ) {
-    swap(raw, generators[0]->raw);
+    //swap(raw, generators[0]->raw);
 
-    computed += generators[0]->computed;
+    for ( auto i : generators )
+        computed += i->computed;
 
     BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), computed " << computed / 1000000.0 << " Mpoints in " << totaltime << " s";
     BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), " << computed / totaltime / 1000000.0 << " Mpoints/s";
 }
 
 
-void buddha::createImage ( ) {
-}
 
-void buddha::toRGB( ) {
-    timer time;
-    reduce();
-    double elapsed = time.elapsed() * 1000;
-}
 
 void buddha::save () {
     //BOOST_LOG_TRIVIAL(debug) << "buddha::save()";
+    reduce();
     timer time;
 
     // save the raw histogram
@@ -103,32 +88,23 @@ void buddha::save () {
     // oa << raw;
     for (pixel i : raw) oa << i;
 
-    BOOST_LOG_TRIVIAL(info) << "buddha::save(), compression: " << time.elapsed() * 1000 << " ms";
-
-    
-    vector<unsigned char> channel;
-    maxr = *max_element(raw.begin(), raw.end());
-    float rmul = maxr > 0 ? log( s.scale ) / (float) powf( maxr, s.realContrast ) * 150.0 * s.realLightness : 0.0;
-    for ( uint i = 0; i < s.size; i+=4 ) {
-        int a = min( powf( raw[i], s.realContrast ) * rmul, 255.0f ) +
-                          min( powf( raw[i+1], s.realContrast ) * rmul, 255.0f ) +
-                          min( powf( raw[i+2], s.realContrast ) * rmul, 255.0f ) +
-                          min( powf( raw[i+3], s.realContrast ) * rmul, 255.0f );
-
-        channel.push_back(a / 4);
-    }
+    BOOST_LOG_TRIVIAL(info) << "buddha::save(), compression: " << time.elapsed() << " s";
 
     time.restart();
 
-    // save the image
-    boost::gil::rgb8c_planar_view_t view = 
-        boost::gil::planar_rgb_view(s.w / 4, s.h / 4, 
-            &channel[0], &channel[0], &channel[0], s.w);
-    boost::gil::png_write_view( s.outfile + ".png", view);
+    typedef rgb_view<rgb16_pixel_t> deref_t;
+    typedef deref_t::point_t         point_t;
+    typedef virtual_2d_locator<deref_t,false> locator_t;
+    typedef image_view<locator_t> my_virt_view_t;
 
-    BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() * 1000 << " ms";
+    boost::function_requires<PixelLocatorConcept<locator_t> >();
+    gil_function_requires<StepIteratorConcept<locator_t::x_iterator> >();
 
+    point_t dims(s.w, s.h);
+    my_virt_view_t view(dims, locator_t(point_t(0,0), point_t(1,1), deref_t(this, &s, dims)));
+    boost::gil::png_write_view( s.outfile + ".png", rotated90cw_view(view));
 
+    BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() << " s";
 }
 
 
@@ -143,10 +119,10 @@ void buddha::load ( ) {
     f.push(iss);
     bar::binary_iarchive ia(f);
     // ia >> generators[0]->raw;
-    for ( unsigned long int i = 0; i < s.size; ++i )
-        ia >> generators[0]->raw[i];
+    for ( unsigned long int i = 0; i < 3 * s.size; ++i )
+        ia >> raw[i];
 
-    BOOST_LOG_TRIVIAL(debug) << "buddha::load(), decompression: " << time.elapsed() * 1000 << " ms";
+    BOOST_LOG_TRIVIAL(debug) << "buddha::load(), decompression: " << time.elapsed() << " s";
 }
 
 
@@ -200,11 +176,16 @@ void buddha::stopGenerators ( ) {
 
 void buddha::run ( const settings& settings ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::run()";
+    BOOST_LOG_TRIVIAL(info) << "sizeof(atomic): " << sizeof(sig_atomic_t);
     s = settings;
     s.dump( );
 
+    raw.resize( 3 * s.size );
+    raw.shrink_to_fit( );
+    fill(raw.begin(),raw.end(), 0);
+
     for ( uint i = 0; i < s.threads; ++i )
-        generators.push_back( new buddha_generator( &s ) );
+        generators.push_back( new buddha_generator( &s, this ) );
 
     clearBuffers();
     if ( s.infile != "" ) load( );
@@ -228,6 +209,5 @@ void buddha::run ( const settings& settings ) {
     stopGenerators( );
     totaltime = time.elapsed();
 
-    toRGB();
     save( );
 }

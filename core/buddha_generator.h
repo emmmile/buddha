@@ -42,12 +42,13 @@ struct buddha_generator {
     thread t;
 
     settings* b;
+    buddha* bu;
 
     // for the raw image and the sequence of points
     vector<complex_type> seq;
-    vector<buddha::pixel> raw;
+    vector<buddha::pixel>* raw;
 
-    unsigned long int computed;
+    unsigned long long int computed;
     unsigned long int seed;
     Random generator;
     void (*next_point)(complex<double>&, complex<double>&);
@@ -60,24 +61,22 @@ struct buddha_generator {
 
 
     buddha_generator( );
-    buddha_generator( settings* b);
+    buddha_generator( settings* b, buddha* );
     ~buddha_generator ( );
 
-    void initialize ( settings* b );
+    void initialize ( settings* b, buddha* );
 
 
     void gaussianMutation ( complex_type& z, double radius );
     void exponentialMutation ( complex_type& z, double radius );
     int inside ( complex_type& c );
 
-    void drawPoint ( complex_type& c );
-    int evaluate ( complex_type& begin, uint& contribute, uint& calculated );
+    void drawPoint ( complex_type& c, bool, bool, bool );
     int evaluate ( complex_type& begin, double& distance, uint& contribute, uint& calculated );
-    int evaluate_inverse ( complex_type& begin, uint& calculated );
 
     int findPoint ( complex_type& begin, double& centerDistance, uint& contribute, uint& calculated );
     void metropolis();
-    void inverse();
+    void normal();
 	
 
     void start ( );

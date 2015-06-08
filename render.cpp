@@ -33,21 +33,9 @@ void precomputation( char** argv, settings& s ) {
     rf.push(riss);
     bar::binary_iarchive ria(rf);
 
-    std::ifstream giss( argv[2], ios::in | ios::binary);
-    bio::filtering_stream<bio::input> gf;
-    gf.push(bio::gzip_decompressor());
-    gf.push(giss);
-    bar::binary_iarchive gia(gf);
-
-    std::ifstream biss( argv[3], ios::in | ios::binary);
-    bio::filtering_stream<bio::input> bf;
-    bf.push(bio::gzip_decompressor());
-    bf.push(biss);
-    bar::binary_iarchive bia(bf);
-
     buddha::pixel r, g, b;
     // ia >> generators[0]->raw;
-    for ( unsigned long int i = 0; i < s.size; ++i ) {
+    for ( unsigned long int i = 0; i < 3 * s.size; ++i ) {
     	ria >> r;
     	gia >> g;
     	bia >> b;

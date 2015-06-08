@@ -28,6 +28,7 @@
 #ifndef BUDDHA_H
 #define BUDDHA_H
 
+#include <atomic>
 #include <cfloat>
 #include <cmath>
 #include <csignal>
@@ -61,9 +62,9 @@ class buddha {
 
     vector<buddha_generator*> generators;
 
-    void createImage ( );
 public:
     typedef uint32_t pixel;
+    //typedef std::atomic_uint_fast32_t pixel;  
 
 
 
@@ -71,10 +72,9 @@ public:
 
     // things for the plot
     vector<pixel> raw;
-    uint maxr, minr, maxb, minb, maxg, ming;
-    float rmul, gmul, bmul;
+    mutex rawmutex;
    
-    uint computed;
+    unsigned long long int computed;
     double totaltime;
 
 
@@ -84,9 +84,7 @@ public:
 
     void clearBuffers ( );
 
-    void reduceStep ( int i, bool check );
     void reduce ( );
-    void toRGB ( );
     void save ( );
     void load ( );
 
