@@ -183,7 +183,7 @@ void buddha::run ( const settings& settings ) {
     raw.shrink_to_fit( );
     fill(raw.begin(),raw.end(), 0);
 
-    for ( uint i = 0; i < 1024; ++i )
+    for ( uint i = 0; i < 4096; ++i )
         rawmutex.emplace_back(new mutex());
 
     for ( uint i = 0; i < s.threads; ++i )
