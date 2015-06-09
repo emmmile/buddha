@@ -54,6 +54,7 @@ namespace bio = boost::iostreams;
 buddha::buddha( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::buddha()";
     computed = 0;
+    blocks = 32;
 }
 
 
@@ -145,7 +146,7 @@ void buddha::startGenerators ( ) {
     sigset_t old_mask;
     pthread_sigmask(SIG_BLOCK, &new_mask, &old_mask);
 
-    for ( uint i = 0; i < s.threads; ++i ) {
+    for ( unsigned int i = 0; i < s.threads; ++i ) {
         generators[i]->start( );
     }
 
@@ -159,12 +160,12 @@ void buddha::startGenerators ( ) {
 // I think this is impossible.
 // If the s.threads were running acquire completely the semaphore.
 void buddha::stopGenerators ( ) {
-    for ( uint i = 0; i < s.threads; ++i ) {
+    for ( unsigned int i = 0; i < s.threads; ++i ) {
         lock_guard<mutex> locker ( generators[i]->execution );
         generators[i]->finish = true;
     }
 
-    for ( uint i = 0; i < s.threads; ++i ) {
+    for ( unsigned int i = 0; i < s.threads; ++i ) {
         generators[i]->t.join();
     }
 
@@ -183,10 +184,10 @@ void buddha::run ( const settings& settings ) {
     raw.shrink_to_fit( );
     fill(raw.begin(),raw.end(), 0);
 
-    for ( uint i = 0; i < 4096; ++i )
+    for ( unsigned int i = 0; i < blocks * blocks; ++i )
         rawmutex.emplace_back(new mutex());
 
-    for ( uint i = 0; i < s.threads; ++i )
+    for ( unsigned int i = 0; i < s.threads; ++i )
         generators.push_back( new buddha_generator( &s, this ) );
 
     clearBuffers();

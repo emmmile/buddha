@@ -37,7 +37,7 @@ using namespace std;
 #endif
 
 
-static constexpr uint step = 32;
+static constexpr unsigned int step = 32;
 
 
 buddha_generator::buddha_generator () {
@@ -93,19 +93,20 @@ void buddha_generator::stop ( ) {
 
 
 void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool drawb ) {
-    uint x;
-    uint y;
+    unsigned int x;
+    unsigned int y;
 
 #define plotIm( c, drawr, drawg, drawb ) \
     if ( c.imag() > b->minim && c.imag() < b->maxim ) { \
     y = ( b->maxim - fabs(c.imag()) ) * b->scale; \
-    uint i = y * 3 * b->w + 3 * x; \
-    uint im = (i >> 1) % 4096; \
-    bu->rawmutex[im]->lock(); \
+    unsigned int i = y * 3 * b->w + 3 * x; \
+    unsigned int xblock = x * bu->blocks / b->w; \
+    unsigned int yblock = y * bu->blocks / b->h; \
+    bu->rawmutex[yblock * bu->blocks + xblock]->lock(); \
     if ( drawr )    bu->raw[ i + 0 ]++;  \
     if ( drawg )    bu->raw[ i + 1 ]++;  \
     if ( drawb )    bu->raw[ i + 2 ]++;  \
-    bu->rawmutex[im]->unlock(); \
+    bu->rawmutex[yblock * bu->blocks + xblock]->unlock(); \
 }
 
     if ( c.real() < b->minre ) return;
@@ -140,17 +141,17 @@ int buddha_generator::inside ( complex_type& c ) {
 
 // this is the main function. Here little modifications impacts a lot on the speed of the program!
 int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
-                                 uint& contribute, uint& calculated ) {
+                                 unsigned int& contribute, unsigned int& calculated ) {
     complex_type last = begin;	// holds the last calculated point
     complex_type critical = last;// for periodicity check
-    uint j = 0, criticalStep = step;
+    unsigned int j = 0, criticalStep = step;
     bool orbit_inside = false;
     centerDistance = 64.0;
     contribute = 0;
 
     // XXX this loop whould benefit a lot of removal of the first if
 
-    for ( uint i = 0; i < b->high; ++i ) {
+    for ( unsigned int i = 0; i < b->high; ++i ) {
         if ( i >= b->low ) seq[j++] = last;
 
         // this checks if the last point is inside the screen
@@ -224,9 +225,9 @@ inline void buddha_generator::exponentialMutation ( complex_type& z, double radi
 // search for a point that falls in the screen, simply moves randomly making moves
 // proportional in size to the distance from the center of the screen.
 // I think can be optimized a lot
-int buddha_generator::findPoint ( complex_type& begin, double& centerDistance, uint& contribute, uint& calculated ) {
+int buddha_generator::findPoint ( complex_type& begin, double& centerDistance, unsigned int& contribute, unsigned int& calculated ) {
     int max, iterations = 0;
-    uint calculatedInThisIteration;
+    unsigned int calculatedInThisIteration;
     double bestDistance = 64.0;
     complex_type tmp = begin;
 
@@ -258,7 +259,7 @@ int buddha_generator::findPoint ( complex_type& begin, double& centerDistance, u
 // implemented quite well.. Maybe a better method for the transition probability can be found but I don't know.
 void buddha_generator::metropolis ( ) {
     complex_type begin( 0.0, 0.0 );
-    uint calculated, selectedOrbitCount = 0, proposedOrbitCount = 0;
+    unsigned int calculated, selectedOrbitCount = 0, proposedOrbitCount = 0;
     int selectedOrbitMax = 0, proposedOrbitMax = 0, j;
     double radius = 40.0 / b->scale; // 100.0;
 
@@ -317,7 +318,7 @@ void buddha_generator::metropolis ( ) {
         lock_guard<mutex> locker( execution );
 
         for ( int h = 0; h <= proposedOrbitMax - (int) b->low && proposedOrbitCount > 0 && h <= int(b->high - b->low); h++ ) {
-            uint i = h + b->low;
+            unsigned int i = h + b->low;
             drawPoint( seq[h], i < b->highr && i > b->lowr, i < b->highg && i > b->lowg, i < b->highb && i > b->lowb);
         }
 
@@ -340,8 +341,8 @@ void buddha_generator::metropolis ( ) {
 void buddha_generator::normal ( ) {
     // normal uniform search
     complex_type begin( 0.0, 0.0 );
-    uint calculated, proposedOrbitCount = 0;
-    uint proposedOrbitMax;
+    unsigned int calculated, proposedOrbitCount = 0;
+    unsigned int proposedOrbitMax;
 
     double distance = 0;
     // generate a random point
@@ -351,7 +352,7 @@ void buddha_generator::normal ( ) {
     computed += calculated;
 
     for ( int h = 0; h <= proposedOrbitMax - (int) b->low && h <= int(b->high - b->low); h++ ) {
-        uint i = h + b->low;
+        unsigned int i = h + b->low;
         drawPoint( seq[h], i < b->highr && i > b->lowr, i < b->highg && i > b->lowg, i < b->highb && i > b->lowb);
     }
 }
