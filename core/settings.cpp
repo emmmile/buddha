@@ -14,7 +14,7 @@ void settings::indirect_settings ( ) {
 	    realLightness = (float) lightness / ( maxLightness - lightness + 1 ) * 0.5;
 	    realContrast = (float) contrast / (maxContrast) * 0.7;
 
-        compile_formula();
+        //compile_formula();
 	}
 
 
@@ -29,7 +29,7 @@ void settings::compile_formula ( ) {
     source.close();
 
     system("rm -f /tmp/code.so");
-    system("c++ -O3 -mtune=native -ffast-math -funroll-loops -Wall /tmp/code.cpp -o /tmp/code.so -shared -fPIC -std=c++11");
+    system("c++ -O3 -mtune=native -ffast-math -funroll-loops -Wall /tmp/code.cpp -o /tmp/code.so -shared -fPIC -std=c++0x");
 
     char *error;
     void* handle = dlopen("/tmp/code.so", RTLD_NOW);
