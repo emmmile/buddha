@@ -99,9 +99,9 @@ void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool
 #define plotIm( c, drawr, drawg, drawb ) \
     if ( c.imag() > b->minim && c.imag() < b->maxim ) { \
     y = ( b->maxim - fabs(c.imag()) ) * b->scale; \
-    if ( drawb )    bu->raw[ y * 3 * b->w + 3 * x + 2 ]++;  \
-    if ( drawr )    bu->raw[ y * 3 * b->w + 3 * x + 0 ]++;  \
-    if ( drawg )    bu->raw[ y * 3 * b->w + 3 * x + 1 ]++;  \
+    if ( drawb )    points.push_back( y * 3 * b->w + 3 * x + 2 );  \
+    if ( drawr )    points.push_back( y * 3 * b->w + 3 * x + 0 );  \
+    if ( drawg )    points.push_back( y * 3 * b->w + 3 * x + 1 );  \
 }
 
     if ( c.real() < b->minre ) return;
@@ -191,7 +191,8 @@ int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
             }
         }
 
-        next_point( last, begin );
+        //next_point( last, begin );
+        last = last * last + begin;
         // double re = z.real() * z.real() - z.imag() * z.imag() + c.real();
         // double im = 2.0 * z.real() * z.imag() + c.imag();
         // z = complex<double>(re, im);
@@ -310,14 +311,19 @@ void buddha_generator::metropolis ( ) {
 
         // draw the points
         lock_guard<mutex> locker( execution );
-        bu->rawmutex.lock();
 
         for ( int h = 0; h <= proposedOrbitMax - (int) b->low && proposedOrbitCount > 0 && h <= int(b->high - b->low); h++ ) {
             uint i = h + b->low;
             drawPoint( seq[h], i < b->highr && i > b->lowr, i < b->highg && i > b->lowg, i < b->highb && i > b->lowb);
         }
 
-        bu->rawmutex.unlock();
+        if ( points.size() > (1 << 24) ) {
+            sort(points.begin(), points.end());
+            bu->rawmutex.lock();
+            for (auto i : points) bu->raw[i]++;
+            bu->rawmutex.unlock();
+            points.clear();
+        }
 
         if ( finish ) break;
     }
