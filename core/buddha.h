@@ -72,7 +72,7 @@ public:
 
     // things for the plot
     vector<pixel> raw;
-    mutex rawmutex;
+    vector<unique_ptr<mutex>> rawmutex;
    
     unsigned long long int computed;
     double totaltime;

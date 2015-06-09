@@ -99,9 +99,13 @@ void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool
 #define plotIm( c, drawr, drawg, drawb ) \
     if ( c.imag() > b->minim && c.imag() < b->maxim ) { \
     y = ( b->maxim - fabs(c.imag()) ) * b->scale; \
-    if ( drawb )    points.push_back( y * 3 * b->w + 3 * x + 2 );  \
-    if ( drawr )    points.push_back( y * 3 * b->w + 3 * x + 0 );  \
-    if ( drawg )    points.push_back( y * 3 * b->w + 3 * x + 1 );  \
+    uint i = y * 3 * b->w + 3 * x; \
+    uint im = (i >> 1) % 256; \
+    bu->rawmutex[im]->lock(); \
+    if ( drawr )    bu->raw[ i + 0 ]++;  \
+    if ( drawg )    bu->raw[ i + 1 ]++;  \
+    if ( drawb )    bu->raw[ i + 2 ]++;  \
+    bu->rawmutex[im]->unlock(); \
 }
 
     if ( c.real() < b->minre ) return;
@@ -317,13 +321,13 @@ void buddha_generator::metropolis ( ) {
             drawPoint( seq[h], i < b->highr && i > b->lowr, i < b->highg && i > b->lowg, i < b->highb && i > b->lowb);
         }
 
-        if ( points.size() > (1 << 24) ) {
+        /*if ( points.size() > (1 << 23) ) {
             sort(points.begin(), points.end());
             bu->rawmutex.lock();
             for (auto i : points) bu->raw[i]++;
             bu->rawmutex.unlock();
             points.clear();
-        }
+        }*/
 
         if ( finish ) break;
     }
