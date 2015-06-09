@@ -176,7 +176,6 @@ void buddha::stopGenerators ( ) {
 
 void buddha::run ( const settings& settings ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::run()";
-    BOOST_LOG_TRIVIAL(info) << "sizeof(atomic): " << sizeof(sig_atomic_t);
     s = settings;
     s.dump( );
 

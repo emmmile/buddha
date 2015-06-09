@@ -140,13 +140,12 @@ int buddha_generator::inside ( complex_type& c ) {
 
 
 // this is the main function. Here little modifications impacts a lot on the speed of the program!
-int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
+int buddha_generator::evaluate ( complex_type& begin,
                                  unsigned int& contribute, unsigned int& calculated ) {
     complex_type last = begin;	// holds the last calculated point
     complex_type critical = last;// for periodicity check
     unsigned int j = 0, criticalStep = step;
     bool orbit_inside = false;
-    centerDistance = 64.0;
     contribute = 0;
 
     // XXX this loop whould benefit a lot of removal of the first if
@@ -156,17 +155,8 @@ int buddha_generator::evaluate ( complex_type& begin, double& centerDistance,
 
         // this checks if the last point is inside the screen
         orbit_inside = orbit_inside || inside(last);
-        if ( inside( last ) ) {
-            
-            centerDistance = 0.0;
+        if ( inside( last ) )
             ++contribute;
-        } else {
-
-            // if we didn't passed inside the screen calculate the distance
-            // it will update after the variable centerDistance
-            double distance = norm( last - complex_type( b->cre, b->cim ) );
-            if ( distance < centerDistance && norm( last ) < 4.0 ) centerDistance = distance;
-        }
 
         // test the stop condition and eventually continue a little bit
         if ( norm( last ) > 8.0 ) {
@@ -225,10 +215,9 @@ inline void buddha_generator::exponentialMutation ( complex_type& z, double radi
 // search for a point that falls in the screen, simply moves randomly making moves
 // proportional in size to the distance from the center of the screen.
 // I think can be optimized a lot
-int buddha_generator::findPoint ( complex_type& begin, double& centerDistance, unsigned int& contribute, unsigned int& calculated ) {
+int buddha_generator::findPoint ( complex_type& begin, unsigned int& contribute, unsigned int& calculated ) {
     int max, iterations = 0;
     unsigned int calculatedInThisIteration;
-    double bestDistance = 64.0;
     complex_type tmp = begin;
 
     // 64 - 512
@@ -237,18 +226,13 @@ int buddha_generator::findPoint ( complex_type& begin, double& centerDistance, u
     calculated = 0;
     do {
         //seq[0].mutate( 0.25 * sqrt(dist), &buf );
-        gaussianMutation( tmp, 0.25 * 0.25 * sqrt( bestDistance ) );
+        gaussianMutation( tmp, 2.0 );
 
-        max = evaluate( tmp, centerDistance, contribute, calculatedInThisIteration );
+        max = evaluate( tmp, contribute, calculatedInThisIteration );
         calculated += calculatedInThisIteration;
 
-        if ( max != -1 && centerDistance < bestDistance ) {
-            bestDistance = centerDistance;
-            begin = tmp;
-        } else {
-            tmp = begin;
-        }
-    } while ( bestDistance != 0.0 && ++iterations < FINDPOINTMAX );
+        begin = tmp;
+    } while ( !contribute && ++iterations < FINDPOINTMAX );
 
 
     return max;
@@ -263,11 +247,8 @@ void buddha_generator::metropolis ( ) {
     int selectedOrbitMax = 0, proposedOrbitMax = 0, j;
     double radius = 40.0 / b->scale; // 100.0;
 
-    //double add = 0.0; // 5.0 / b->scale;
-    double distance;
-
     // search a point that has some contribute in the interested area
-    selectedOrbitMax = findPoint( begin, distance, selectedOrbitCount, calculated );
+    selectedOrbitMax = findPoint( begin, selectedOrbitCount, calculated );
     computed += calculated;
     //cout << selectedOrbitMax << endl;
 
@@ -291,7 +272,7 @@ void buddha_generator::metropolis ( ) {
         exponentialMutation( begin, generator.real() * radius );
 
         // calculate the new sequence
-        proposedOrbitMax = evaluate( begin, distance, proposedOrbitCount, calculated );
+        proposedOrbitMax = evaluate( begin, proposedOrbitCount, calculated );
 
         // the sequence is periodic, I try another mutation
         if ( proposedOrbitMax <= 0 ) continue;
@@ -344,11 +325,10 @@ void buddha_generator::normal ( ) {
     unsigned int calculated, proposedOrbitCount = 0;
     unsigned int proposedOrbitMax;
 
-    double distance = 0;
     // generate a random point
     gaussianMutation( begin, 2.0 );
     // calculate the sequence
-    proposedOrbitMax = evaluate( begin, distance, proposedOrbitCount, calculated );
+    proposedOrbitMax = evaluate( begin, proposedOrbitCount, calculated );
     computed += calculated;
 
     for ( int h = 0; h <= proposedOrbitMax - (int) b->low && h <= int(b->high - b->low); h++ ) {

@@ -72,9 +72,9 @@ struct buddha_generator {
     int inside ( complex_type& c );
 
     void drawPoint ( complex_type& c, bool, bool, bool );
-    int evaluate ( complex_type& begin, double& distance, uint& contribute, uint& calculated );
+    int evaluate ( complex_type& begin, uint& contribute, uint& calculated );
 
-    int findPoint ( complex_type& begin, double& centerDistance, uint& contribute, uint& calculated );
+    int findPoint ( complex_type& begin, uint& contribute, uint& calculated );
     void metropolis();
     void normal();
 	
