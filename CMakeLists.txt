@@ -6,7 +6,7 @@ project(buddha++)
 # http://stackoverflow.com/questions/14446495/cmake-project-structure-with-unit-tests
 
 add_definitions(-std=c++0x)
-set(CMAKE_VERBOSE_MAKEFILE true)
+set(CMAKE_VERBOSE_MAKEFILE false)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -mtune=native -ffast-math -funroll-loops" )
 set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS}")
 
