@@ -54,7 +54,7 @@ namespace bio = boost::iostreams;
 buddha::buddha( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::buddha()";
     computed = 0;
-    blocks = 32;
+    blocks = 64;
 }
 
 
