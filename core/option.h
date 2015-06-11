@@ -26,7 +26,8 @@ class Option {
 	void init( const char* l, const char* d );
 public:
 	Option ( const char* l, const char*  d );
-	Option ( const char* l, const char*  d, uint value, uint *t );
+	Option ( const char* l, const char*  d, uint32_t value, uint32_t *t );
+	Option ( const char* l, const char*  d, uint64_t value, uint64_t *t );
 	Option ( const char* l, const char* d, double value, double* t );
 	Option ( const char* l,  const char* d, int value, int* t );
     Option ( const char* l,  const char* d, const string& value, string* t );

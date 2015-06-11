@@ -12,7 +12,13 @@ Option::Option ( const char* l, const char*  d ) {
     init( l, d );
 }
 
-Option::Option ( const char* l, const char*  d, uint value, uint* t ) {
+Option::Option ( const char* l, const char*  d, uint32_t value, uint32_t* t ) {
+    init( l, d );
+    default_value = value;
+    target_variable = t;
+}
+
+Option::Option ( const char* l, const char*  d, uint64_t value, uint64_t* t ) {
     init( l, d );
     default_value = value;
     target_variable = t;
@@ -37,8 +43,10 @@ string Option::current_value ( ) const {
     // another check could be control the type of target
     if ( default_value.type() == typeid( int ) ) {
         out << *( any_cast<int*>(target_variable) );
-    } else if ( default_value.type() == typeid( uint ) ) {
-        out << *( any_cast<uint*>(target_variable) );
+    } else if ( default_value.type() == typeid( uint32_t ) ) {
+        out << *( any_cast<uint32_t*>(target_variable) );
+    } else if ( default_value.type() == typeid( uint64_t ) ) {
+        out << *( any_cast<uint64_t*>(target_variable) );
     } else if ( default_value.type() == typeid( double ) ) {
         out << *( any_cast<double*>(target_variable) );
     } else if ( default_value.type() == typeid( string ) ) {
@@ -65,8 +73,10 @@ void Option::add ( po::options_description_easy_init desc ) {
 
     if ( default_value.type() == typeid( int ) ) {
         add_option( int );
-    } else if ( default_value.type() == typeid( uint ) ) {
-        add_option( uint );
+    } else if ( default_value.type() == typeid( uint32_t ) ) {
+        add_option( uint32_t );
+    } else if ( default_value.type() == typeid( uint64_t ) ) {
+        add_option( uint64_t );
     } else if ( default_value.type() == typeid( double ) ) {
         add_option( double );
     } else if ( default_value.type() == typeid( string ) ) {
