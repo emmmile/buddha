@@ -92,7 +92,7 @@ void buddha::save () {
 
     BOOST_LOG_TRIVIAL(info) << "buddha::save(), compression: " << time.elapsed() << " s";
 
-    time.restart();
+    /*time.restart();
 
     typedef rgb_view<rgb16_pixel_t> deref_t;
     typedef deref_t::point_t         point_t;
@@ -106,7 +106,7 @@ void buddha::save () {
     my_virt_view_t view(dims, locator_t(point_t(0,0), point_t(1,1), deref_t(this, &s, dims)));
     boost::gil::png_write_view( s.outfile + ".png", rotated90cw_view(view));
 
-    BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() << " s";
+    BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() << " s";*/
 }
 
 
