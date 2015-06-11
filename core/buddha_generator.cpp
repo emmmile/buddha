@@ -99,7 +99,7 @@ void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool
 #define plotIm( c, drawr, drawg, drawb ) \
     if ( c.imag() > b->minim && c.imag() < b->maxim ) { \
     y = ( b->maxim - fabs(c.imag()) ) * b->scale; \
-    unsigned int i = y * 3 * b->w + 3 * x; \
+    uint64_t i = y * 3 * b->w + 3 * x; \
     if ( drawr )    ++(bu->raw[ i + 0 ]);  \
     if ( drawg )    ++(bu->raw[ i + 1 ]);  \
     if ( drawb )    ++(bu->raw[ i + 2 ]);  \

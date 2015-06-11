@@ -121,7 +121,7 @@ void buddha::load ( ) {
     f.push(iss);
     bar::binary_iarchive ia(f);
     // ia >> generators[0]->raw;
-    for ( unsigned long int i = 0; i < 3 * s.size; ++i ) {
+    for ( uint64_t i = 0; i < 3 * s.size; ++i ) {
         pixel current;
         ia >> current;
         raw[i].store(current);
@@ -184,7 +184,7 @@ void buddha::run ( const settings& settings ) {
     s = settings;
     s.dump( );
 
-    for ( unsigned int i = 0; i < 3 * s.size; ++i )
+    for ( uint64_t i = 0; i < 3 * s.size; ++i )
         raw.emplace_back(0);
 
     raw.shrink_to_fit( );
