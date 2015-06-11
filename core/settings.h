@@ -12,7 +12,6 @@ using namespace std;
 
 
 typedef unsigned char uchar;
-typedef unsigned int uint;
 
 struct settings {
 	// since this class is also used as "container" for the various generators
@@ -21,35 +20,35 @@ struct settings {
     double maxre, maxim;
     double minre, minim;
     double cre, cim;
-    uint low;
-    uint lowr;
-    uint lowg;
-    uint lowb;
-    uint high;
-    uint highr;
-    uint highg;
-    uint highb;
+    uint32_t low;
+    uint32_t lowr;
+    uint32_t lowg;
+    uint32_t lowb;
+    uint32_t high;
+    uint32_t highr;
+    uint32_t highg;
+    uint32_t highb;
     double scale;
 
 
     // these can be calculated from the previous but they are useful
     double rangere, rangeim;
-    uint w;
-    uint h;
-    uint size;
+    uint64_t w;
+    uint64_t h;
+    uint64_t size;
 
 
-    uint contrast, lightness;
+    uint32_t contrast, lightness;
  	float realContrast, realLightness;
 
-    static const uint maxLightness = 200;
-    static const uint maxContrast = 200;
+    static const uint32_t maxLightness = 200;
+    static const uint32_t maxContrast = 200;
 
 
 
     string outfile;
     string infile;
-    uint threads;
+    uint32_t threads;
     bool inverse;
 
     string formula;
