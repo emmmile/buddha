@@ -24,9 +24,9 @@ struct rgb_view {
     rgb_view() {}
     rgb_view(buddha* b, settings* s, const point_t& sz) : _img_size(sz), b(b), s(s), maxr(0),maxg(0),maxb(0) {
         for ( size_t j = 0; j < 3 * s->size; j += 3 ) {
-            if ( b->raw[j+0] > maxr ) maxr = b->raw[j+0];
-            if ( b->raw[j+1] > maxg ) maxg = b->raw[j+1];
-            if ( b->raw[j+2] > maxb ) maxb = b->raw[j+2];
+            if ( b->raw[j+0].load() > maxr ) maxr = b->raw[j+0].load();
+            if ( b->raw[j+1].load() > maxg ) maxg = b->raw[j+1].load();
+            if ( b->raw[j+2].load() > maxb ) maxb = b->raw[j+2].load();
         }
 
         BOOST_LOG_TRIVIAL(info) << "maximum red channel:   " << maxr;
@@ -49,9 +49,9 @@ struct rgb_view {
 
         int d = 16; // how to compute bit depth from result type????
 
-        int rr = min( powf( b->raw[i+0], s->realContrast ) * rmul * (1 << (d/2)), (float) (1 << d) - 1 );
-        int gg = min( powf( b->raw[i+1], s->realContrast ) * gmul * (1 << (d/2)), (float) (1 << d) - 1 );
-        int bb = min( powf( b->raw[i+2], s->realContrast ) * bmul * (1 << (d/2)), (float) (1 << d) - 1 );
+        int rr = min( powf( b->raw[i+0].load(), s->realContrast ) * rmul * (1 << (d/2)), (float) (1 << d) - 1 );
+        int gg = min( powf( b->raw[i+1].load(), s->realContrast ) * gmul * (1 << (d/2)), (float) (1 << d) - 1 );
+        int bb = min( powf( b->raw[i+2].load(), s->realContrast ) * bmul * (1 << (d/2)), (float) (1 << d) - 1 );
         //int rr = min( pow(b->raw[i + 0] * rmul, 0.8) * (1 << d) * 2, (double) (1 << d) - 1);
         //int gg = min( pow(b->raw[i + 1] * gmul, 0.8) * (1 << d) * 2, (double) (1 << d) - 1);
         //int bb = min( pow(b->raw[i + 2] * bmul, 0.8) * (1 << d) * 2, (double) (1 << d) - 1);

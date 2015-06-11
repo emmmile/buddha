@@ -54,7 +54,6 @@ namespace bio = boost::iostreams;
 buddha::buddha( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::buddha()";
     computed = 0;
-    blocks = 64;
 }
 
 
@@ -86,7 +85,10 @@ void buddha::save () {
     f.push(oss);
     bar::binary_oarchive oa(f);
     // oa << raw;
-    for (pixel i : raw) oa << i;
+    for (auto i : raw) {
+        pixel current = i.load();
+        oa << current;
+    }
 
     BOOST_LOG_TRIVIAL(info) << "buddha::save(), compression: " << time.elapsed() << " s";
 
@@ -119,8 +121,11 @@ void buddha::load ( ) {
     f.push(iss);
     bar::binary_iarchive ia(f);
     // ia >> generators[0]->raw;
-    for ( unsigned long int i = 0; i < 3 * s.size; ++i )
-        ia >> raw[i];
+    for ( unsigned long int i = 0; i < 3 * s.size; ++i ) {
+        pixel current;
+        ia >> current;
+        raw[i].store(current);
+    }
 
     BOOST_LOG_TRIVIAL(debug) << "buddha::load(), decompression: " << time.elapsed() << " s";
 }
@@ -179,12 +184,10 @@ void buddha::run ( const settings& settings ) {
     s = settings;
     s.dump( );
 
-    raw.resize( 3 * s.size );
-    raw.shrink_to_fit( );
-    fill(raw.begin(),raw.end(), 0);
+    for ( unsigned int i = 0; i < 3 * s.size; ++i )
+        raw.emplace_back(0);
 
-    for ( unsigned int i = 0; i < blocks * blocks; ++i )
-        rawmutex.emplace_back(new mutex());
+    raw.shrink_to_fit( );
 
     for ( unsigned int i = 0; i < s.threads; ++i )
         generators.push_back( new buddha_generator( &s, this ) );

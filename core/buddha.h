@@ -46,6 +46,7 @@
 #include <mutex>
 #include <thread>
 
+#include "atomic_wrapper.h"
 #include "random.h"
 #include "settings.h"
 
@@ -71,9 +72,7 @@ public:
     settings s;
 
     // things for the plot
-    vector<pixel> raw;
-    vector<unique_ptr<mutex>> rawmutex;
-    unsigned int blocks;
+    vector<atomic_wrapper<pixel>> raw;
    
     unsigned long long int computed;
     double totaltime;

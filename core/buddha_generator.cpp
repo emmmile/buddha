@@ -100,13 +100,9 @@ void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool
     if ( c.imag() > b->minim && c.imag() < b->maxim ) { \
     y = ( b->maxim - fabs(c.imag()) ) * b->scale; \
     unsigned int i = y * 3 * b->w + 3 * x; \
-    unsigned int xblock = x * bu->blocks / b->w; \
-    unsigned int yblock = y * bu->blocks / b->h; \
-    bu->rawmutex[yblock * bu->blocks + xblock]->lock(); \
-    if ( drawr )    bu->raw[ i + 0 ]++;  \
-    if ( drawg )    bu->raw[ i + 1 ]++;  \
-    if ( drawb )    bu->raw[ i + 2 ]++;  \
-    bu->rawmutex[yblock * bu->blocks + xblock]->unlock(); \
+    if ( drawr )    ++(bu->raw[ i + 0 ]);  \
+    if ( drawg )    ++(bu->raw[ i + 1 ]);  \
+    if ( drawb )    ++(bu->raw[ i + 2 ]);  \
 }
 
     if ( c.real() < b->minre ) return;
