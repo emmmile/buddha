@@ -1,21 +1,21 @@
 #include <settings.h>
 
 void settings::indirect_settings ( ) {
-	    rangere = w / scale;
-	    rangeim = h / scale;
-	    minre = cre - rangere * 0.5;
-	    maxre = cre + rangere * 0.5;
-	    minim = cim - rangeim * 0.5;
-	    maxim = cim + rangeim * 0.5;
-        high = max( max( highr, highg ), highb );
-        low = min( min(lowr, lowg), lowb);
-	    size = w * h / 2;
+    rangere = w / scale;
+    rangeim = h / scale;
+    minre = cre - rangere * 0.5;
+    maxre = cre + rangere * 0.5;
+    minim = cim - rangeim * 0.5;
+    maxim = cim + rangeim * 0.5;
+    high = max( max( highr, highg ), highb );
+    low = min( min(lowr, lowg), lowb);
+    size = w * h / 2;
 
-	    realLightness = (float) lightness / ( maxLightness - lightness + 1 ) * 0.5;
-	    realContrast = (float) contrast / (maxContrast) * 0.7;
+    realLightness = (float) lightness / ( maxLightness - lightness + 1 ) * 0.5;
+    realContrast = (float) contrast / (maxContrast) * 0.7;
 
-        //compile_formula();
-	}
+    //compile_formula();
+}
 
 
 

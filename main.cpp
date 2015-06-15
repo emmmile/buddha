@@ -4,9 +4,9 @@
 
 
 int main ( int argc, char** argv ) {
-	buddha b;
     settings_parser parser( argc, argv );
-    b.run( parser() );
+    buddha b( parser() );
+    b.run();
 
 
     return 0;

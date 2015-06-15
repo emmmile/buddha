@@ -30,6 +30,7 @@
 #define BUDDHA_GENERATOR_H
 
 #include "buddha.h"
+#include "mandelbrot.h"
 using namespace std;
 
 #ifndef M_PI
@@ -37,19 +38,19 @@ using namespace std;
 #endif
 
 struct buddha_generator {
-    typedef complex<double> complex_type;
-    //typedef simple_complex<double> complex_type;
+    typedef buddha::complex_type complex_type;
+    typedef buddha::pixel pixel;
+    typedef buddha::vector_type vector_type;
     thread t;
-
-    settings* b;
-    buddha* bu;
 
     // for the raw image and the sequence of points
     vector<complex_type> seq;
-    vector<uint32_t> points;
+
+    const mandelbrot<complex_type>& core;
+    vector_type& raw;
+    const settings& s;
 
     unsigned long long int computed;
-    unsigned long int seed;
     Random generator;
     void (*next_point)(complex<double>&, complex<double>&);
 
@@ -60,28 +61,22 @@ struct buddha_generator {
     mutex execution;
 
 
-    buddha_generator( );
-    buddha_generator( settings* b, buddha* );
+    buddha_generator( const mandelbrot<complex_type>& core, vector_type& raw, const settings& s );
     ~buddha_generator ( );
-
-    void initialize ( settings* b, buddha* );
 
 
     void gaussianMutation ( complex_type& z, double radius );
     void exponentialMutation ( complex_type& z, double radius );
-    int inside ( complex_type& c );
 
     void drawPoint ( complex_type& c, bool, bool, bool );
-    int evaluate ( complex_type& begin, uint& contribute, uint& calculated );
 
-    int findPoint ( complex_type& begin, uint& contribute, uint& calculated );
+    int findPoint ( complex_type& begin, unsigned int& contribute, unsigned int& calculated );
     void metropolis();
+
     void normal();
 	
-
     void start ( );
     void stop ( );
-
 	void run ( );	
 };
 

@@ -47,6 +47,7 @@
 #include <thread>
 
 #include "atomic_wrapper.h"
+#include "mandelbrot.h"
 #include "random.h"
 #include "settings.h"
 
@@ -65,21 +66,25 @@ class buddha {
 
 public:
     typedef uint32_t pixel;
+    typedef complex<double> complex_type;
+    typedef vector<atomic_wrapper<pixel>> vector_type;
     //typedef std::atomic_uint_fast32_t pixel;  
 
 
 
+    mandelbrot<complex_type> core;
+
     settings s;
 
-    // things for the plot
-    vector<atomic_wrapper<pixel>> raw;
+    vector_type raw;
+
    
     unsigned long long int computed;
     double totaltime;
 
 
 
-    buddha ();
+    buddha ( const settings& s );
     ~buddha ( );
 
     void clearBuffers ( );
@@ -91,7 +96,7 @@ public:
     void startGenerators( );
     void stopGenerators( );
 
-    void run( const settings& s );
+    void run( );
 };
 
 

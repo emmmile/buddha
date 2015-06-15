@@ -7,6 +7,11 @@
 #define BOOST_LOG_DYN_LINK
 #include <boost/log/trivial.hpp>
 
+
+void test_draw_point ( unsigned int n ) {
+    
+}
+
 int main ( int argc, char** argv ) {
     // uses this only as container for the program parameters
     settings_parser options( argc, argv );
@@ -63,7 +68,7 @@ int main ( int argc, char** argv ) {
     BOOST_LOG_TRIVIAL(info) << "computed " << computed << " points in " << totaltime << " s";
     BOOST_LOG_TRIVIAL(info) << "" << computed / totaltime / 1000000.0 << " Mpoints/s";
 
-    //assert( 786702000 == computed );
+    //assert( 786702000 == computed );*/
 
     return 0;
 }

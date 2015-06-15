@@ -51,9 +51,21 @@ namespace bio = boost::iostreams;
 
 
 
-buddha::buddha( ) {
+buddha::buddha( const settings& s ) : core(s.low, s.high), s(s), computed(0) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::buddha()";
-    computed = 0;
+
+    s.dump( );
+
+    for ( uint64_t i = 0; i < 3 * s.size; ++i )
+        raw.emplace_back(0);
+
+    raw.shrink_to_fit( );
+
+    for ( unsigned int i = 0; i < s.threads; ++i )
+        generators.push_back( new buddha_generator( core, raw, s ) );
+
+    clearBuffers();
+    if ( s.infile != "" ) load( );
 }
 
 
@@ -65,8 +77,13 @@ void buddha::reduce ( ) {
     for ( auto i : generators )
         computed += i->computed;
 
+    unsigned long long int total = 0;
+    for ( auto i : raw ) total += i.load();
+
+    
     BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), computed " << computed / 1000000.0 << " Mpoints in " << totaltime << " s";
-    BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), " << computed / totaltime / 1000000.0 << " Mpoints/s";
+    BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), " << total / 1000000.0 << " Mpoints in the histogram";
+    BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), " << total / totaltime / 1000000.0 << " Mpoints/s";
 }
 
 
@@ -92,7 +109,7 @@ void buddha::save () {
 
     BOOST_LOG_TRIVIAL(info) << "buddha::save(), compression: " << time.elapsed() << " s";
 
-    /*time.restart();
+    time.restart();
 
     typedef rgb_view<rgb16_pixel_t> deref_t;
     typedef deref_t::point_t         point_t;
@@ -106,7 +123,7 @@ void buddha::save () {
     my_virt_view_t view(dims, locator_t(point_t(0,0), point_t(1,1), deref_t(this, &s, dims)));
     boost::gil::png_write_view( s.outfile + ".png", rotated90cw_view(view));
 
-    BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() << " s";*/
+    BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() << " s";
 }
 
 
@@ -178,23 +195,8 @@ void buddha::stopGenerators ( ) {
 }
 
 
-
-void buddha::run ( const settings& settings ) {
+void buddha::run ( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::run()";
-    s = settings;
-    s.dump( );
-
-    for ( uint64_t i = 0; i < 3 * s.size; ++i )
-        raw.emplace_back(0);
-
-    raw.shrink_to_fit( );
-
-    for ( unsigned int i = 0; i < s.threads; ++i )
-        generators.push_back( new buddha_generator( &s, this ) );
-
-    clearBuffers();
-    if ( s.infile != "" ) load( );
-
 
     timer time;
     startGenerators();
