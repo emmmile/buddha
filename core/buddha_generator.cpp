@@ -226,12 +226,18 @@ void buddha_generator::normal ( ) {
     orbitMax = core.evaluate( seq, calculated );
     computed += calculated;
 
-    if ( orbitMax <= 0 ) return;
-
     for ( int h = 0; h <= orbitMax - (int) s.low && h <= int(s.high - s.low); h++ ) {
         unsigned int i = h + s.low;
         drawPoint( seq[h], i < s.highr && i > s.lowr, i < s.highg && i > s.lowg, i < s.highb && i > s.lowb);
     }
+
+    /*for ( unsigned int i = s.low; i <= orbitMax && i < s.high; i++ ) {
+        drawPoint( seq[i], 
+                   i < s.highr && i > s.lowr, 
+                   i < s.highg && i > s.lowg, 
+                   i < s.highb && i > s.lowb
+        );
+    }*/
 }
 
 
@@ -239,8 +245,8 @@ void buddha_generator::run ( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run()";
 
     while ( true ) {
-        metropolis( );
-        //normal( );
+        //metropolis( );
+        normal( );
 
         lock_guard<mutex> locker ( execution );
         if ( finish ) break;

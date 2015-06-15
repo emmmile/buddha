@@ -15,7 +15,7 @@ using namespace boost::gil;
 #include "timer.h"
 using namespace std;
 
-template<class C, unsigned int N = 1024> // complex type
+template<class C, unsigned int N = 16> // complex type
 class mandelbrot {
 public:
 	struct exclusion {
@@ -24,9 +24,6 @@ public:
 			// compute the exclusion map
 			vector<C> seq;
 			seq.resize(core.high + 1);
-
-			seq[0]=C{-1.4, 0};
-			cout << core.evaluate(seq) << endl;
 
     		BOOST_LOG_TRIVIAL(debug) << "generating " << N << "x" << N << " exclusion map";
 
@@ -37,34 +34,64 @@ public:
 
 			for ( int x = 0; x < N; ++x ) {
 				for ( int y = 0; y < N / 2; ++y) {
-					int i = y * N + x;
-					int j = (N - y - 1) * N + x;//y + 2 * (N/2 -y)
+					//int j = (N - y - 1) * N + x;
 					int xx = (x - int(N) / 2);
 					int yy = (y - int(N) / 2);
 
-					seq[0] = C(xx * 4.0 / N, yy * 4.0 / N);
-					if ( yy == 0 )
-						cout << x << " " << y << " " << yy << " " << xx << " -> " << seq[0] << endl;
-					data[i] = core.evaluate(seq) == -1;
-					if ( data[i] ) v(x, y) =v(x, N-y-1) = red;
+
+					// this could be done only on the border!!!
+					double step = 4.0 / N;
+					int total = 0;
+					for ( double dx = 0; dx < step; dx += step / 4 ) {
+						for ( double dy = 0; dy < step; dy += step / 4 ) {
+							seq[0] = C(xx * 4.0 / N + dx, yy * 4.0 / N + dy);
+							total += (core.evaluate(seq) == -1);
+						}
+					}
+
+					data[index(x, y)] = (total == 16);
 				}
 			}
+
+			// even more conservative
+			/*bitset<N * N / 2> newone;
+			for ( int x = 0; x < N; ++x ) {
+				for ( int y = 0; y < N / 2; ++y) {
+					int total = 0;
+					if ( x > 0 ) total += data[index(x-1, y)];
+					if ( y > 0 ) total += data[index(x, y-1)];
+					if ( x < N-1 ) total += data[index(x+1, y)];
+					if ( y < N/2 -1 ) total += data[index(x, y+1)];
+					newone[index(x,y)] = (total == 4);
+
+					if ( newone[index(x, y)] ) v(x, y) = v(x, N-y-1) = red;
+				}
+			}
+			data = newone;*/
 
 			png_write_view("exclusion.png", const_view(img));
 			BOOST_LOG_TRIVIAL(debug) << "generated exclusion map in " << time.elapsed() << " s";
 		}
+
+		unsigned int index ( unsigned int x, unsigned int y ) const {
+			return y * N + x;
+		}
+
 		bool operator()( const C& c) const {
 			int xx = c.real() * N / 4.0 + N / 2.0;
-			int yy = fabs(c.imag()) * N / 4.0 + N / 2.0;
-			if ( xx < 0 || xx >= N || yy < 0 || yy >= N / 2 ) return false;
+			int yy = -fabs(c.imag()) * N / 4.0 + N / 2.0;
+			if ( xx < 0 || xx >= N || yy < 0 || yy >= N/2 ) return false;
 
-			return data[yy * N + xx];
+			return data[index(xx, yy)];
 		}
 	};
 
 	mandelbrot( unsigned int low, unsigned int high ) 
 		: low(low), high(high), map(*this) {
 	}
+
+
+
 
 
 	inline bool inside ( C& c, const settings& s ) const {
@@ -96,6 +123,9 @@ public:
 
         return false;
 	}
+
+
+
 
 
 	inline int evaluate ( vector<C>& seq ) const {
