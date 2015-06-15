@@ -1,6 +1,7 @@
 #include <cmath>
 #include <random>
 #include <thread>
+#include <mutex>
 #include <vector>
 #define BOOST_TEST_DYN_LINK        // this is optional
 #define BOOST_AUTO_TEST_MAIN

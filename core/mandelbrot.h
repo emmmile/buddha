@@ -1,6 +1,7 @@
 #ifndef MANDELBROT_H
 #define MANDELBROT_H
 
+#include <bitset>
 #include <vector>
 #include <iostream>
 
@@ -18,7 +19,7 @@ template<class C, unsigned int N = 1024> // complex type
 class mandelbrot {
 public:
 	struct exclusion {
-		bitset<N * N> data;
+		bitset<N * N / 2> data;
 		exclusion(mandelbrot& core) {
 			// compute the exclusion map
 			vector<C> seq;
@@ -35,9 +36,9 @@ public:
 		    rgb8_image_t::view_t v = view(img);
 
 			for ( int x = 0; x < N; ++x ) {
-				for ( int y = 0; y <= N / 2; ++y) {
+				for ( int y = 0; y < N / 2; ++y) {
 					int i = y * N + x;
-					//int j = (N - y) * N + x;//y + 2 * (N/2 -y)
+					int j = (N - y - 1) * N + x;//y + 2 * (N/2 -y)
 					int xx = (x - int(N) / 2);
 					int yy = (y - int(N) / 2);
 
@@ -45,7 +46,7 @@ public:
 					if ( yy == 0 )
 						cout << x << " " << y << " " << yy << " " << xx << " -> " << seq[0] << endl;
 					data[i] = core.evaluate(seq) == -1;
-					if ( data[i] ) v(x, y) = red;
+					if ( data[i] ) v(x, y) =v(x, N-y-1) = red;
 				}
 			}
 
@@ -54,8 +55,8 @@ public:
 		}
 		bool operator()( const C& c) const {
 			int xx = c.real() * N / 4.0 + N / 2.0;
-			int yy = c.imag() * N / 4.0 + N / 2.0;
-			if ( xx < 0 || xx >= N || yy < 0 || yy >= N ) return false;
+			int yy = fabs(c.imag()) * N / 4.0 + N / 2.0;
+			if ( xx < 0 || xx >= N || yy < 0 || yy >= N / 2 ) return false;
 
 			return data[yy * N + xx];
 		}
