@@ -16,7 +16,7 @@ using namespace boost::gil;
 #include "timer.h"
 using namespace std;
 
-template<class C, unsigned int N = 8192> // complex type
+template<class C, unsigned int N = 8192 * 2> // complex type
 class mandelbrot {
 public:
 	struct exclusion {
