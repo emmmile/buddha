@@ -245,8 +245,8 @@ void buddha_generator::run ( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run()";
 
     while ( true ) {
-        //metropolis( );
-        normal( );
+        metropolis( );
+        //normal( );
 
         lock_guard<mutex> locker ( execution );
         if ( finish ) break;

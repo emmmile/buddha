@@ -3,6 +3,7 @@
 
 #include <bitset>
 #include <vector>
+#include <thread>
 #include <iostream>
 
 #define png_infopp_NULL (png_infopp)NULL
@@ -15,69 +16,83 @@ using namespace boost::gil;
 #include "timer.h"
 using namespace std;
 
-template<class C, unsigned int N = 16> // complex type
+template<class C, unsigned int N = 8192> // complex type
 class mandelbrot {
 public:
 	struct exclusion {
-		bitset<N * N / 2> data;
-		exclusion(mandelbrot& core) {
-			// compute the exclusion map
-			vector<C> seq;
-			seq.resize(core.high + 1);
+		vector<bool> data;
 
+		exclusion( const mandelbrot& core) {
+			data.resize(N * N / 2);
+			// compute the exclusion map
     		BOOST_LOG_TRIVIAL(debug) << "generating " << N << "x" << N << " exclusion map";
 
     		timer time;
     		rgb8_image_t img(N, N);
-		    rgb8_pixel_t red(255, 255, 255);
 		    rgb8_image_t::view_t v = view(img);
 
-			for ( int x = 0; x < N; ++x ) {
-				for ( int y = 0; y < N / 2; ++y) {
-					//int j = (N - y - 1) * N + x;
-					int xx = (x - int(N) / 2);
-					int yy = (y - int(N) / 2);
+		    unsigned blocks = 32;
+		    unsigned int block = N * N / 2 / blocks;
+		    vector<thread> threads;
+		    for ( unsigned int t = 0; t < blocks; ++t )
+		    	threads.emplace_back(&exclusion::compute, this, core, t * block, t * block + block);
 
+		    for ( unsigned int t = 0; t < blocks; ++t )
+		    	threads[t].join();
 
-					// this could be done only on the border!!!
-					double step = 4.0 / N;
+			BOOST_LOG_TRIVIAL(debug) << "generated exclusion map in " << time.elapsed() << " s";
+			time.restart();
+
+			// to be even more conservative remove 1 pixel from the borders
+			vector<bool> newone;
+			newone.resize(N * N / 2);
+		    for ( unsigned int i = 0; i < N * N / 2; ++i ) {
+		    	int x = i % N;
+		    	int y = i / N;
+				int radius = 1;
+
+				if ( x < radius || y < radius || x >= N - radius || y >= N / 2 - radius || !data[i] ) {
+					newone[i] = data[i];
+				} else {
 					int total = 0;
-					for ( double dx = 0; dx < step; dx += step / 4 ) {
-						for ( double dy = 0; dy < step; dy += step / 4 ) {
-							seq[0] = C(xx * 4.0 / N + dx, yy * 4.0 / N + dy);
-							total += (core.evaluate(seq) == -1);
-						}
-					}
-
-					data[index(x, y)] = (total == 16);
+					for ( int dx = -radius; dx <= radius; ++dx )
+						for ( int dy = -radius; dy <= radius; ++dy )
+							total += !data[index(x + dx, y + dy)];
+					
+					newone[i] = (total == 0);
 				}
-			}
 
-			// even more conservative
-			/*bitset<N * N / 2> newone;
-			for ( int x = 0; x < N; ++x ) {
-				for ( int y = 0; y < N / 2; ++y) {
-					int total = 0;
-					if ( x > 0 ) total += data[index(x-1, y)];
-					if ( y > 0 ) total += data[index(x, y-1)];
-					if ( x < N-1 ) total += data[index(x+1, y)];
-					if ( y < N/2 -1 ) total += data[index(x, y+1)];
-					newone[index(x,y)] = (total == 4);
-
-					if ( newone[index(x, y)] ) v(x, y) = v(x, N-y-1) = red;
-				}
+				if ( newone[i] ) v(x, y) = v(x, N-y-1) = rgb8_pixel_t(255,255,255);
+				else v(x,y) = rgb8_pixel_t(0,0,0);
 			}
-			data = newone;*/
+			data = newone;
 
 			png_write_view("exclusion.png", const_view(img));
-			BOOST_LOG_TRIVIAL(debug) << "generated exclusion map in " << time.elapsed() << " s";
+			BOOST_LOG_TRIVIAL(debug) << "stripped additional pixels in " << time.elapsed() << " s";
 		}
 
-		unsigned int index ( unsigned int x, unsigned int y ) const {
+		void compute ( const mandelbrot& core, unsigned int beg, unsigned end ) {
+			vector<C> seq;
+			seq.resize(core.high + 1);
+
+			for ( unsigned int i = beg; i < end; ++i ) {
+		    	seq[0] = point(i);
+				data[i] = (core.evaluate(seq) == -1);
+		    }
+		}
+
+		inline unsigned int index ( unsigned int x, unsigned int y ) const {
 			return y * N + x;
 		}
 
-		bool operator()( const C& c) const {
+		C point ( unsigned int i ) const {
+			int x = i % N - int(N) / 2;
+			int y = i / N - int(N) / 2;
+
+			return C(x * 4.0 / N, y * 4.0 / N);
+		}
+
+		inline bool operator()( const C& c) const {
 			int xx = c.real() * N / 4.0 + N / 2.0;
 			int yy = -fabs(c.imag()) * N / 4.0 + N / 2.0;
 			if ( xx < 0 || xx >= N || yy < 0 || yy >= N/2 ) return false;
@@ -86,20 +101,21 @@ public:
 		}
 	};
 
+
+
+
+
+
+
 	mandelbrot( unsigned int low, unsigned int high ) 
 		: low(low), high(high), map(*this) {
 	}
-
-
-
-
 
 	inline bool inside ( C& c, const settings& s ) const {
 		return  c.real() <= s.maxre && c.real() >= s.minre &&
             ( ( c.imag() <= s.maxim && c.imag() >= s.minim ) ||
               ( -c.imag() <= s.maxim && -c.imag() >= s.minim ) );
 	}
-
 
 	inline bool cyclic( const vector<C>& seq, const unsigned int& i, unsigned int& critical, unsigned int& criticalStep ) const {
 		if ( i > criticalStep ) {
