@@ -124,6 +124,8 @@ void buddha::save () {
     boost::gil::png_write_view( s.outfile + ".png", rotated90cw_view(view));
 
     BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() << " s";
+
+    core.map.save();
 }
 
 

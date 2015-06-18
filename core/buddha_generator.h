@@ -46,7 +46,7 @@ struct buddha_generator {
     // for the raw image and the sequence of points
     vector<complex_type> seq;
 
-    const mandelbrot<complex_type>& core;
+    mandelbrot<complex_type>& core;
     vector_type& raw;
     const settings& s;
 
@@ -61,7 +61,7 @@ struct buddha_generator {
     mutex execution;
 
 
-    buddha_generator( const mandelbrot<complex_type>& core, vector_type& raw, const settings& s );
+    buddha_generator( mandelbrot<complex_type>& core, vector_type& raw, const settings& s );
     ~buddha_generator ( );
 
 
@@ -77,7 +77,9 @@ struct buddha_generator {
 	
     void start ( );
     void stop ( );
-	void run ( );	
+	void run ( );
+
+    void test_exclusion ();	
 };
 
 #endif

@@ -24,9 +24,9 @@ add_executable(test_concurrency test/concurrency.cpp)
 #add_executable(benchmark test/benchmark.cpp)
 #add_executable(test_generators test/test.cpp)
 
-target_link_libraries(buddha++ core pthread timer dl)
+target_link_libraries(buddha++ core pthread timer dl boost_system boost_filesystem)
 #target_link_libraries(benchmark core pthread timer dl)
-#target_link_libraries(test_generators core boost_system boost_unit_test_framework timer dl)
+#target_link_libraries(test_generators core boost_system boost_filesystem boost_unit_test_framework timer dl)
 target_link_libraries(test_random core boost_system boost_unit_test_framework timer dl)
 target_link_libraries(test_concurrency core boost_system boost_unit_test_framework timer dl)
 

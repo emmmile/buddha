@@ -43,7 +43,7 @@ buddha_generator::~buddha_generator ( ) {
     //BOOST_LOG_TRIVIAL(debug) << "buddha_generator::~buddha_generator";
 }
 
-buddha_generator::buddha_generator ( const mandelbrot<complex_type>& core, vector_type& raw, const settings& s ) 
+buddha_generator::buddha_generator ( mandelbrot<complex_type>& core, vector_type& raw, const settings& s ) 
     : core(core), raw(raw), s(s) {
     random_device rd;
     unsigned int seed = rd();
@@ -241,12 +241,31 @@ void buddha_generator::normal ( ) {
 }
 
 
+void buddha_generator::test_exclusion ( ) {
+    static unsigned int samples = 0;
+    static unsigned int errors = 0;
+    unsigned int calculated;
+
+    for ( unsigned int i = 0; i < 1000000; i++ ) {
+        seq[0] = complex_type( generator.real2negative() * 2, generator.real2negative() * 2 );
+        if (core.evaluate(seq, calculated ) == -1 && core.evaluate(seq) != -1) {
+            errors++;
+            core.map.data[core.map.index(seq[0])] = false;
+        }
+    }
+
+    samples += 1000000;
+    BOOST_LOG_TRIVIAL(info) << errors << " errors on " << samples << " samples (" << double(errors) / samples << ")";
+}
+
+
 void buddha_generator::run ( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run()";
 
     while ( true ) {
-        metropolis( );
+        //metropolis( );
         //normal( );
+        test_exclusion( );
 
         lock_guard<mutex> locker ( execution );
         if ( finish ) break;
