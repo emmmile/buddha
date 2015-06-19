@@ -197,7 +197,7 @@ void buddha_generator::metropolis ( ) {
         // draw the points
         lock_guard<mutex> locker( execution );
 
-        for ( unsigned int i = s.low; i <= proposedOrbitMax && proposedOrbitCount > 0 && i < s.high; i++ ) {
+        for ( unsigned int i = s.low; int(i) <= proposedOrbitMax && proposedOrbitCount > 0 && i < s.high; i++ ) {
             drawPoint( seq[i], 
                        i < s.highr && i > s.lowr, 
                        i < s.highg && i > s.lowg, 
@@ -250,7 +250,7 @@ void buddha_generator::test_exclusion ( ) {
         seq[0] = complex_type( generator.real2negative() * 2, generator.real2negative() * 2 );
         if (core.evaluate(seq, calculated ) == -1 && core.evaluate(seq) != -1) {
             errors++;
-            core.map.data[core.map.index(seq[0])] = false;
+            core.data[core.index(seq[0])] = false;
         }
     }
 

@@ -125,7 +125,7 @@ void buddha::save () {
 
     BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() << " s";
 
-    core.map.save();
+    core.save();
 }
 
 

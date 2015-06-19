@@ -43,7 +43,7 @@ struct rgb_view {
 
     result_type operator()(const point_t& p) const {
         uint x = p.x;
-        uint y = p.y < (s->h / 2) ? p.y : (s->h - p.y - 1);
+        uint y = p.y < int(s->h / 2) ? p.y : (s->h - p.y - 1);
         uint i = y * 3 * s->w + 3 * x + 0;
 
 
