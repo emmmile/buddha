@@ -23,7 +23,7 @@ using namespace std;
 
 
 
-template<class C, unsigned int N = 4096>
+template<class C, unsigned int N = 1024>
 struct mandelbrot : public mandelbrot_base<C> {
 	const string filename;
 	vector<bool> data;
@@ -39,8 +39,6 @@ struct mandelbrot : public mandelbrot_base<C> {
     		BOOST_LOG_TRIVIAL(debug) << "generating " << N << "x" << N << " exclusion map";
 
     		timer time;
-			// rgb8_image_t img(N, N);
-			// rgb8_image_t::view_t v = view(img);
 
 		    unsigned blocks = 16;
 		    unsigned int block = N * N / 2 / blocks;
@@ -78,15 +76,6 @@ struct mandelbrot : public mandelbrot_base<C> {
 			}
 			data = newone;*/
 
-
-			// for ( unsigned int i = 0; i < N * N / 2; ++i ) {
-			// 	int x = i % N;
-			// 	int y = i / N;
-			// 	if ( data[i] ) v(x, y) = v(x, N-y-1) = rgb8_pixel_t(255,255,255);
-			// 	else v(x,y) = rgb8_pixel_t(0,0,0);
-			// }
-
-			// png_write_view("exclusion.png", const_view(img));
 			BOOST_LOG_TRIVIAL(debug) << "stripped additional pixels in " << time.elapsed() << " s";
 		}
 	}
@@ -154,6 +143,21 @@ struct mandelbrot : public mandelbrot_base<C> {
     	unsigned int size = N * N / 2;
     	oa << size;
 		oa << data;
+
+
+		rgb8_image_t img(N, N);
+		rgb8_image_t::view_t v = view(img);
+
+		for ( unsigned int i = 0; i < N * N / 2; ++i ) {
+			int x = i % N;
+			int y = i / N;
+			if ( data[i] ) v(x, y) = v(x, N-y-1) = rgb8_pixel_t(255,255,255);
+			else v(x,y) = rgb8_pixel_t(0,0,0);
+		}
+
+		png_write_view("exclusion.png", const_view(img));
+
+
     	BOOST_LOG_TRIVIAL(debug) << "saved exclusion map in " << time.elapsed() << " s";
 	}
 
