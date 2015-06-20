@@ -52,6 +52,8 @@ struct settings {
     bool inverse;
 
     string formula;
+    string exclusion;
+    uint64_t exclusion_size;
 
 
     void (*next_point)(complex<double>&, complex<double>&);

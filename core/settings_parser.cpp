@@ -32,6 +32,8 @@ settings_parser::settings_parser( int argc, char** argv ) {
     options.push_back( Option("load,L", "try to load a previously saved state", "", &s.infile) );
     options.push_back( Option("help", "produce help message" ) );
     options.push_back( Option("formula", "specify the formula to evaluate", "z = z * z + c", &s.formula) );
+    options.push_back( Option("exclusion-map,e", "specify the name of the exclusion map", "exclusion.map", &s.exclusion) );
+    options.push_back( Option("exclusion-size", "specify the size of the exclusion map", 4096, &s.exclusion_size) );
 
     for ( uint i = 0; i < options.size(); ++i )
         options[i].add( desc.add_options() );

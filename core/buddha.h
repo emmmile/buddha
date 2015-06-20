@@ -48,7 +48,6 @@
 
 #include "atomic_wrapper.h"
 #include "mandelbrot.h"
-#include "random.h"
 #include "settings.h"
 
 #define BOOST_LOG_DYN_LINK
@@ -68,6 +67,7 @@ public:
     typedef uint32_t pixel;
     typedef complex<double> complex_type;
     typedef vector<atomic_wrapper<pixel>> vector_type;
+    typedef mt19937_64 random_engine;
     //typedef std::atomic_uint_fast32_t pixel;  
 
 

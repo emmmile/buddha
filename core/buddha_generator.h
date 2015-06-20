@@ -41,6 +41,7 @@ struct buddha_generator {
     typedef buddha::complex_type complex_type;
     typedef buddha::pixel pixel;
     typedef buddha::vector_type vector_type;
+    typedef buddha::random_engine random_engine;
     thread t;
 
     // for the raw image and the sequence of points
@@ -51,7 +52,12 @@ struct buddha_generator {
     const settings& s;
 
     unsigned long long int computed;
-    Random generator;
+    random_engine generator;
+
+    std::uniform_real_distribution<double> uniform;
+    std::normal_distribution<double> normal;
+    std::exponential_distribution<double> exponential;
+
     void (*next_point)(complex<double>&, complex<double>&);
 
 
@@ -73,13 +79,11 @@ struct buddha_generator {
     int findPoint ( complex_type& begin, unsigned int& contribute, unsigned int& calculated );
     void metropolis();
 
-    void normal();
+    void naive();
 	
     void start ( );
     void stop ( );
 	void run ( );
-
-    void test_exclusion ();	
 };
 
 #endif

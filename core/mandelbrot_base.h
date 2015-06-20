@@ -7,17 +7,16 @@
 #include <iostream>
 
 #include "settings.h"
-#include "timer.h"
 using namespace std;
 
 template<class C> // complex type
 class mandelbrot_base {
 public:
-	mandelbrot_base( unsigned int low, unsigned int high ) 
-		: low(low), high(high) {
+	mandelbrot_base( const settings& s ) 
+		: s(s) {
 	}
 
-	inline bool inside ( C& c, const settings& s ) const {
+	inline bool inside ( C& c ) const {
 		return  c.real() <= s.maxre && c.real() >= s.minre &&
             ( ( c.imag() <= s.maxim && c.imag() >= s.minim ) ||
               ( -c.imag() <= s.maxim && -c.imag() >= s.minim ) );
@@ -54,11 +53,7 @@ public:
 	    unsigned int criticalStep = 8;
 	    unsigned int critical = criticalStep;
 
-	   	//if ( map(seq[0]) )
-	    //	return -1;
-
-
-	    for ( unsigned int i = 0; i < high; ++i ) {
+	    for ( unsigned int i = 0; i < s.high; ++i ) {
 	        // test the stop condition and eventually continue a little bit
 	        if ( norm( seq[i] ) > 8.0 )
 	            return i - 1;
@@ -78,8 +73,7 @@ public:
 	    unsigned int criticalStep = 8;
 	    unsigned int critical = criticalStep;
 
-
-	    for ( unsigned int i = 0; i < high; ++i ) {
+	    for ( unsigned int i = 0; i < s.high; ++i ) {
 	        // test the stop condition and eventually continue a little bit
 	        if ( norm( seq[i] ) > 8.0 ) {
 	            calculated = i;
@@ -95,23 +89,23 @@ public:
 	        seq[i+1] = seq[i] * seq[i] + seq[0];
 	    }
 
-	    calculated = high;
+	    calculated = s.high;
 	    return -1;
 	}
 
 
 	// this is the main function. Here little modifications impacts a lot on the speed of the program!
-	inline int evaluate ( vector<C>& seq, unsigned int& contribute, unsigned int& calculated, const settings& s ) const {
+	inline int evaluate ( vector<C>& seq, unsigned int& contribute, unsigned int& calculated ) const {
 	    unsigned int criticalStep = 8;
 	    unsigned int critical = criticalStep;
 	    contribute = 0;
 
-	    for ( unsigned int i = 0; i < high; ++i ) {
+	    for ( unsigned int i = 0; i < s.high; ++i ) {
 	        //cout << i << " " << seq[i] << endl;
 	        //getchar();
 
 	        // this checks if the seq[i] point is inside the screen
-	        if ( inside( seq[i], s ) )
+	        if ( inside( seq[i] ) )
 	            ++contribute;
 
 	        // test the stop condition and eventually continue a little bit
@@ -129,12 +123,11 @@ public:
 	        seq[i+1] = seq[i] * seq[i] + seq[0];
 	    }
 
-	    calculated = high;
+	    calculated = s.high;
 	    return -1;
 	}
 
-	unsigned int low;
-	unsigned int high;
+	const settings& s;
 };
 
 #endif

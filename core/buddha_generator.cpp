@@ -27,15 +27,9 @@
 
 #include <random>
 #include "buddha_generator.h"
-#include "timer.h"
 #define METTHD		16000
 
 using namespace std;
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
 
 
 
@@ -44,7 +38,7 @@ buddha_generator::~buddha_generator ( ) {
 }
 
 buddha_generator::buddha_generator ( mandelbrot<complex_type>& core, vector_type& raw, const settings& s ) 
-    : core(core), raw(raw), s(s) {
+    : core(core), raw(raw), s(s), uniform(0,1), normal(0,1), exponential(2) {
     random_device rd;
     unsigned int seed = rd();
     generator.seed( seed );
@@ -98,15 +92,17 @@ void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool
 
 
 inline void buddha_generator::gaussianMutation ( complex_type& z, double radius ) {
-    double redev, imdev;
-    generator.gaussian( redev, imdev, radius );
-    z = z + complex_type( redev, imdev );
+    double amplitude = fabs(normal(generator)) * radius;
+    double phase = uniform(generator) * 2 * M_PI;
+
+    z += std::polar(amplitude, phase);
 }
 
 inline void buddha_generator::exponentialMutation ( complex_type& z, double radius ) {
-    double redev, imdev;
-    generator.exponential( redev, imdev, radius );
-    z = z + complex_type( redev, imdev );
+    double amplitude = fabs(exponential(generator)) * radius;
+    double phase = uniform(generator) * 2 * M_PI;
+
+    z += std::polar(amplitude, phase);
 }
 
 
@@ -118,6 +114,7 @@ int buddha_generator::findPoint ( complex_type& begin, unsigned int& contribute,
     unsigned int calculatedInThisIteration;
     complex_type tmp = begin;
 
+
     // 64 - 512
 #define FINDPOINTMAX 	256
 
@@ -126,7 +123,7 @@ int buddha_generator::findPoint ( complex_type& begin, unsigned int& contribute,
         gaussianMutation( tmp, 1.0 );
         seq[0] = tmp;
 
-        max = core.evaluate( seq, contribute, calculatedInThisIteration, s );
+        max = core.evaluate( seq, contribute, calculatedInThisIteration );
         calculated += calculatedInThisIteration;
 
         begin = tmp;
@@ -143,7 +140,8 @@ void buddha_generator::metropolis ( ) {
     complex_type begin( 0.0, 0.0 );
     unsigned int calculated, selectedOrbitCount = 0, proposedOrbitCount = 0;
     int selectedOrbitMax = 0, proposedOrbitMax = 0, j;
-    double radius = 40.0 / s.scale; // 100.0;
+    double radius = 20.0 / s.scale; // 100.0;
+
 
     // search a point that has some contribute in the interested area
     selectedOrbitMax = findPoint( begin, selectedOrbitCount, calculated );
@@ -167,11 +165,11 @@ void buddha_generator::metropolis ( ) {
         // explained above.
 
         //seq[0].mutate( random( &buf ) * radius /* + add */, &buf );
-        exponentialMutation( begin, generator.real() * radius );
+        exponentialMutation( begin, uniform(generator) * radius );
         seq[0] = begin;
 
         // calculate the new sequence
-        proposedOrbitMax = core.evaluate( seq, proposedOrbitCount, calculated, s );
+        proposedOrbitMax = core.evaluate( seq, proposedOrbitCount, calculated );
 
         // the sequence is periodic, I try another mutation
         if ( proposedOrbitMax <= 0 ) continue;
@@ -186,7 +184,7 @@ void buddha_generator::metropolis ( ) {
                 double( selectedOrbitMax * selectedOrbitMax * selectedOrbitCount );
 
 
-        if ( alpha > generator.real() ) {
+        if ( alpha > uniform(generator) ) {
             ok = begin;
             selectedOrbitCount = proposedOrbitCount;
             selectedOrbitMax = proposedOrbitMax;
@@ -213,9 +211,9 @@ void buddha_generator::metropolis ( ) {
 
 
 // normal buddhabrot drawing function, no metropolis
-void buddha_generator::normal ( ) {
+void buddha_generator::naive ( ) {
     // normal uniform search
-    seq[0] = complex_type( generator.real2negative() * 2, generator.real2negative() * 2 );
+    seq[0] = complex_type( uniform(generator) * 4 - 2.0, uniform(generator) * 4 - 2.0 );
     unsigned int calculated;
     int orbitMax;
 
@@ -241,31 +239,12 @@ void buddha_generator::normal ( ) {
 }
 
 
-void buddha_generator::test_exclusion ( ) {
-    static unsigned int samples = 0;
-    static unsigned int errors = 0;
-    unsigned int calculated;
-
-    for ( unsigned int i = 0; i < 1000000; i++ ) {
-        seq[0] = complex_type( generator.real2negative() * 2, generator.real2negative() * 2 );
-        if (core.evaluate(seq, calculated ) == -1 && core.evaluate(seq) != -1) {
-            errors++;
-            core.data[core.index(seq[0])] = false;
-        }
-    }
-
-    samples += 1000000;
-    BOOST_LOG_TRIVIAL(info) << errors << " errors on " << samples << " samples (" << double(errors) / samples << ")";
-}
-
-
 void buddha_generator::run ( ) {
     BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run()";
 
     while ( true ) {
-        //metropolis( );
+        metropolis( );
         //normal( );
-        test_exclusion( );
 
         lock_guard<mutex> locker ( execution );
         if ( finish ) break;

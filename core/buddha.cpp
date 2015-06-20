@@ -28,7 +28,6 @@
 
 
 #include "buddha_generator.h"
-#include "timer.h"
 #include "saver.h"
 
 
@@ -38,6 +37,7 @@
 //#include <boost/iostreams/filter/bzip2.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/serialization/vector.hpp>
+#include "timer.h"
 
 #define png_infopp_NULL (png_infopp)NULL
 #define int_p_NULL (int*)NULL
@@ -50,8 +50,7 @@ namespace bio = boost::iostreams;
 
 
 
-
-buddha::buddha( const settings& s ) : core(s.low, s.high), s(s), computed(0) {
+buddha::buddha( const settings& s ) : core(s), s(s), computed(0) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::buddha()";
 
     s.dump( );
@@ -65,6 +64,7 @@ buddha::buddha( const settings& s ) : core(s.low, s.high), s(s), computed(0) {
         generators.push_back( new buddha_generator( core, raw, s ) );
 
     clearBuffers();
+    if ( s.exclusion != "" ) core.load();
     if ( s.infile != "" ) load( );
 }
 
@@ -81,9 +81,11 @@ void buddha::reduce ( ) {
     for ( auto i : raw ) total += i.load();
 
     
-    BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), computed " << computed / 1000000.0 << " Mpoints in " << totaltime << " s";
-    BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), " << total / 1000000.0 << " Mpoints in the histogram";
-    BOOST_LOG_TRIVIAL(info) << "buddha::reduce(), " << total / totaltime / 1000000.0 << " Mpoints/s";
+    BOOST_LOG_TRIVIAL(info) << "computed " << computed / 1000000.0 << " Mpoints in " 
+                            << totaltime << " s (" << computed / totaltime / 1000000.0 << " Mpoints/s)";
+
+    BOOST_LOG_TRIVIAL(info) << total / 1000000.0 << " Mpoints in the histogram ("
+                            << total / totaltime / 1000000.0 << " Mpoints/s)";
 }
 
 
@@ -124,8 +126,6 @@ void buddha::save () {
     boost::gil::png_write_view( s.outfile + ".png", rotated90cw_view(view));
 
     BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() << " s";
-
-    core.save();
 }
 
 
