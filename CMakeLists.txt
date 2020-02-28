@@ -1,15 +1,17 @@
 cmake_minimum_required(VERSION 2.8)
-#set(CMAKE_CXX_COMPILER g++-4.9)
+set(CMAKE_C_COMPILER "gcc")
+set(CMAKE_CXX_COMPILER "g++")
 project(buddha++)
 
 # also look at
 # http://stackoverflow.com/questions/14446495/cmake-project-structure-with-unit-tests
 
-add_definitions(-std=c++0x)
+add_definitions(-std=c++11)
 set(CMAKE_VERBOSE_MAKEFILE false)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Ofast -march=native -funroll-loops" )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Ofast -march=native -funroll-loops -std=c++11" )
 set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS}")
-
+include_directories("/usr/local/include")
+link_directories("/usr/local/lib")
 
 include_directories("${PROJECT_SOURCE_DIR}/timer")
 add_subdirectory("${PROJECT_SOURCE_DIR}/timer")

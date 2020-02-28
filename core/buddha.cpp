@@ -41,7 +41,7 @@
 
 #define png_infopp_NULL (png_infopp)NULL
 #define int_p_NULL (int*)NULL
-#include <boost/gil/extension/io/png_io.hpp>
+#include <boost/gil/extension/io/png/old.hpp>
 
 namespace bar = boost::archive;
 namespace bio = boost::iostreams;

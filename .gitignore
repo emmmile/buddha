@@ -9,5 +9,6 @@ moc_*.cpp
 buddha.run
 Makefile
 /build/
+.vscode
 
 #opencl/

@@ -2,6 +2,7 @@
 #define MANDELBROT_H
 
 
+#include <random>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
@@ -13,8 +14,8 @@
 
 #define png_infopp_NULL (png_infopp)NULL
 #define int_p_NULL (int*)NULL
-#include <boost/gil/gil_all.hpp>
-#include <boost/gil/extension/io/png_dynamic_io.hpp>
+#include <boost/gil.hpp>
+#include <boost/gil/extension/io/png/old.hpp>
 
 #include "mandelbrot_base.h"
 using namespace boost::gil;
