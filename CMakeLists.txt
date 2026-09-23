@@ -8,6 +8,16 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options(-Wall -O3 -ffast-math -march=native -funroll-loops)
 
+# LTO improves the hot orbit-generation loop on Apple Silicon.  Keep it to
+# Release builds and gracefully fall back when a toolchain cannot provide it.
+include(CheckIPOSupported)
+check_ipo_supported(RESULT BUDDHA_IPO_SUPPORTED OUTPUT BUDDHA_IPO_ERROR LANGUAGES CXX)
+if(BUDDHA_IPO_SUPPORTED)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+else()
+    message(STATUS "Release LTO unavailable: ${BUDDHA_IPO_ERROR}")
+endif()
+
 find_package(Boost REQUIRED COMPONENTS program_options log log_setup serialization iostreams filesystem)
 find_package(PNG REQUIRED)
 find_package(ZLIB REQUIRED)
