@@ -59,6 +59,7 @@ void settings::dump ( ) const {
     BOOST_LOG_TRIVIAL(debug) << "width: " << w << ", height: " << h;
     BOOST_LOG_TRIVIAL(debug) << "scale: " << scale << ", threads: " << threads;
     BOOST_LOG_TRIVIAL(debug) << "lightness: " << lightness << ", contrast: " << contrast;
+    BOOST_LOG_TRIVIAL(debug) << "output name: " << outfile;
     BOOST_LOG_TRIVIAL(debug) << "output format: " << output_format;
     BOOST_LOG_TRIVIAL(debug) << "legacy metropolis: " << legacy_metropolis;
     BOOST_LOG_TRIVIAL(debug) << "formula: `" << formula << "'";

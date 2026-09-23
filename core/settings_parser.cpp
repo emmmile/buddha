@@ -30,7 +30,7 @@ settings_parser::settings_parser( int argc, char** argv ) {
     options.push_back( Option("threads,t", "set the number of parallel threads", std::thread::hardware_concurrency(), &s.threads) );
     options.push_back( Option("width,w", "width of the output", 3000, &s.w) );
     options.push_back( Option("height,h", "height of the output", 2000, &s.h) );
-    options.push_back( Option("out,o", "output filename", "output", &s.outfile) );
+    options.push_back( Option("out,o", "output filename (defaults to the loaded checkpoint stem)", "output", &s.outfile) );
     options.push_back( Option("format", "output format: png or tiff (BigTIFF is selected automatically when needed)", "png", &s.output_format) );
     options.push_back( Option("load,L", "try to load a previously saved state", "", &s.infile) );
     options.push_back( Option("help", "produce help message" ) );
@@ -50,6 +50,17 @@ settings_parser::settings_parser( int argc, char** argv ) {
     if ( vm.count("help") ) {
         cout << desc << "\n";
         exit( 0 );
+    }
+
+    // A resumed render normally advances the same checkpoint.  Supplying
+    // --out still creates a fork, but without it `--load image.gz` writes
+    // image.gz back on the next save rather than creating output.gz.
+    if (s.infile != "" && vm["out"].defaulted()) {
+        s.outfile = s.infile;
+        const string suffix = ".gz";
+        if (s.outfile.size() >= suffix.size() &&
+            s.outfile.compare(s.outfile.size() - suffix.size(), suffix.size(), suffix) == 0)
+            s.outfile.erase(s.outfile.size() - suffix.size());
     }
 
     s.indirect_settings();

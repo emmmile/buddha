@@ -125,17 +125,27 @@ void buddha::save () {
     reduce();
     timer time;
 
-    // save the raw histogram
-    std::ofstream oss( s.outfile + ".gz", std::ios::binary);
-
-    bio::filtering_stream<bio::output> f;
-    f.push(bio::gzip_compressor());
-    f.push(oss);
-    bar::binary_oarchive oa(f);
-    // oa << raw;
-    for (auto i : raw) {
-        pixel current = i.load();
-        oa << current;
+    // Save to a sibling temporary file, then atomically replace the checkpoint
+    // once compression has completed.  This makes in-place --load resumes safe
+    // against an interrupted or failed checkpoint write.
+    const string checkpoint = s.outfile + ".gz";
+    const string checkpoint_tmp = checkpoint + ".tmp";
+    {
+        std::ofstream oss(checkpoint_tmp, std::ios::binary | std::ios::trunc);
+        if (!oss) throw runtime_error("unable to open checkpoint output: " + checkpoint_tmp);
+        {
+            bio::filtering_stream<bio::output> f;
+            f.push(bio::gzip_compressor());
+            f.push(oss);
+            bar::binary_oarchive oa(f);
+            for (auto i : raw) {
+                pixel current = i.load();
+                oa << current;
+            }
+        }
+    }
+    if (std::rename(checkpoint_tmp.c_str(), checkpoint.c_str()) != 0) {
+        throw runtime_error("unable to replace checkpoint output: " + checkpoint);
     }
 
     BOOST_LOG_TRIVIAL(info) << "buddha::save(), compression: " << time.elapsed() << " s";
