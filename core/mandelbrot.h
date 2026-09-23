@@ -6,19 +6,12 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
-#include <boost/iostreams/filter/bzip2.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
+#include <boost/iostreams/filter/zstd.hpp>
 #include <boost/serialization/vector.hpp>
 #include <boost/filesystem.hpp>
 #include "timer.h"
 
-#define png_infopp_NULL (png_infopp)NULL
-#define int_p_NULL (int*)NULL
-#include <boost/gil.hpp>
-#include <boost/gil/extension/io/png/old.hpp>
-
 #include "mandelbrot_base.h"
-using namespace boost::gil;
 namespace bar = boost::archive;
 namespace bio = boost::iostreams;
 using namespace std;
@@ -153,7 +146,7 @@ struct mandelbrot : public mandelbrot_base<C> {
 
 		std::ifstream iss( this->s.exclusion, ios::in | ios::binary);
 		bio::filtering_stream<bio::input> f;
-		f.push(bio::gzip_decompressor());
+		f.push(bio::zstd_decompressor());
 		f.push(iss);
 		bar::binary_iarchive ia(f);
 		
@@ -177,7 +170,7 @@ struct mandelbrot : public mandelbrot_base<C> {
 
 		std::ofstream oss( this->s.exclusion, std::ios::binary);
 		bio::filtering_stream<bio::output> f;
-		f.push(bio::gzip_compressor());
+		f.push(bio::zstd_compressor());
 		f.push(oss);
 		bar::binary_oarchive oa(f);
 
@@ -187,21 +180,7 @@ struct mandelbrot : public mandelbrot_base<C> {
     	oa << saved;
 		oa << data;
 
-
-		rgb8_image_t img(size, size);
-		rgb8_image_t::view_t v = view(img);
-
-		/*for ( uint64_t i = 0; i < size * size / 2; ++i ) {
-			int x = i % size;
-			int y = i / size;
-			if ( data[i] ) v(x, y) = v(x, size-y-1) = rgb8_pixel_t(255,255,255);
-			else v(x,y) = v(x, size-y-1) = rgb8_pixel_t(0,0,0);
-		}
-
-		png_write_view("exclusion.png", const_view(img));*/
-
-
-    	BOOST_LOG_TRIVIAL(debug) << "successfully saved exclusion map in " << time.elapsed() << " s";
+		BOOST_LOG_TRIVIAL(debug) << "successfully saved exclusion map in " << time.elapsed() << " s";
 	}
 
 	inline bool excluded( const C& c ) const {

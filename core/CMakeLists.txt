@@ -12,9 +12,9 @@ target_link_libraries(core
         Boost::serialization
         Boost::iostreams
         Boost::filesystem
-        PNG::PNG
         TIFF::TIFF
         ZLIB::ZLIB
+        zstd::libzstd
         Threads::Threads
         ${CMAKE_DL_LIBS}
 )

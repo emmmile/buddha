@@ -19,9 +19,9 @@ else()
 endif()
 
 find_package(Boost REQUIRED COMPONENTS program_options log log_setup serialization iostreams filesystem)
-find_package(PNG REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(ZLIB REQUIRED)
+find_package(zstd CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
 add_library(timer timer/timer.cpp)
@@ -34,3 +34,6 @@ target_link_libraries(buddha++ PRIVATE core timer Threads::Threads ${CMAKE_DL_LI
 
 add_executable(exclusion exclusion.cpp)
 target_link_libraries(exclusion PRIVATE core timer Threads::Threads ${CMAKE_DL_LIBS})
+
+add_executable(exclusion-convert exclusion_convert.cpp)
+target_link_libraries(exclusion-convert PRIVATE Boost::serialization Boost::iostreams zstd::libzstd)

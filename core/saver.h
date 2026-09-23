@@ -83,8 +83,7 @@ inline void write_tiff(buddha* b, settings* s, const string& filename) {
     TIFF* out = TIFFOpen(filename.c_str(), bigtiff ? "w8" : "w");
     if (!out) throw runtime_error("unable to open TIFF output: " + filename);
 
-    // The PNG exporter writes a 90-degree clockwise view; retain that layout
-    // for TIFF so either format has identical orientation.
+    // Preserve the established 90-degree clockwise output orientation.
     uint32_t width = static_cast<uint32_t>(s->h);
     uint32_t height = static_cast<uint32_t>(s->w);
     bool configured =

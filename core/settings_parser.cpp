@@ -26,12 +26,11 @@ settings_parser::settings_parser( int argc, char** argv ) {
     options.push_back( Option("lightness,l", "set the lightness of the image", 100, &s.lightness) );
     options.push_back( Option("contrast,c", "set the contrast of the image", 100, &s.contrast) );
     options.push_back( Option("seed", "set deterministic base seed (0 uses random_device)", uint64_t(0), &s.seed) );
-    options.push_back( Option("legacy-metropolis", "emulate the historical overflow-prone Metropolis acceptance rule", false, &s.legacy_metropolis) );
     options.push_back( Option("threads,t", "set the number of parallel threads", std::thread::hardware_concurrency(), &s.threads) );
     options.push_back( Option("width,w", "width of the output", 3000, &s.w) );
     options.push_back( Option("height,h", "height of the output", 2000, &s.h) );
     options.push_back( Option("out,o", "output filename (defaults to the loaded checkpoint stem)", "output", &s.outfile) );
-    options.push_back( Option("format", "output format: png or tiff (BigTIFF is selected automatically when needed)", "png", &s.output_format) );
+    options.push_back( Option("no-image", "save the checkpoint but skip TIFF output", false, &s.no_image) );
     options.push_back( Option("load,L", "try to load a previously saved state", "", &s.infile) );
     options.push_back( Option("help", "produce help message" ) );
     options.push_back( Option("formula", "specify the formula to evaluate", "z = z * z + c", &s.formula) );
@@ -53,14 +52,14 @@ settings_parser::settings_parser( int argc, char** argv ) {
     }
 
     // A resumed render normally advances the same checkpoint.  Supplying
-    // --out still creates a fork, but without it `--load image.gz` writes
-    // image.gz back on the next save rather than creating output.gz.
+    // --out still creates a fork, but without it `--load image.zst` writes
+    // image.zst back on the next save rather than creating output.zst.
     if (s.infile != "" && vm["out"].defaulted()) {
         s.outfile = s.infile;
-        const string suffix = ".gz";
-        if (s.outfile.size() >= suffix.size() &&
-            s.outfile.compare(s.outfile.size() - suffix.size(), suffix.size(), suffix) == 0)
-            s.outfile.erase(s.outfile.size() - suffix.size());
+        const string zstd_suffix = ".zst";
+        if (s.outfile.size() >= zstd_suffix.size() &&
+            s.outfile.compare(s.outfile.size() - zstd_suffix.size(), zstd_suffix.size(), zstd_suffix) == 0)
+            s.outfile.erase(s.outfile.size() - zstd_suffix.size());
     }
 
     s.indirect_settings();
