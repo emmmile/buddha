@@ -6,7 +6,9 @@
 #include <dlfcn.h>
 #include <fstream>
 #include <string>
+#ifndef BOOST_LOG_DYN_LINK
 #define BOOST_LOG_DYN_LINK
+#endif
 #include <boost/log/trivial.hpp>
 using namespace std;
 

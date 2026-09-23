@@ -218,5 +218,10 @@ void buddha::run ( ) {
     stopGenerators( );
     totaltime = time.elapsed();
 
+    if ( getenv("BUDDHA_BENCHMARK_NO_SAVE") ) {
+        reduce();
+        return;
+    }
+
     save( );
 }

@@ -2,7 +2,9 @@
 #define OPTION_H
 
 #include <string>
+#ifndef BOOST_LOG_DYN_LINK
 #define BOOST_LOG_DYN_LINK
+#endif
 #include <boost/any.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/program_options.hpp>

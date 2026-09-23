@@ -51,7 +51,9 @@
 #include "mandelbrot.h"
 #include "settings.h"
 
+#ifndef BOOST_LOG_DYN_LINK
 #define BOOST_LOG_DYN_LINK
+#endif
 #include <boost/log/trivial.hpp>
 
 using namespace std;
@@ -102,4 +104,3 @@ public:
 
 
 #endif
-

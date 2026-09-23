@@ -1,41 +1,25 @@
-cmake_minimum_required(VERSION 2.8)
-set(CMAKE_C_COMPILER "gcc")
-set(CMAKE_CXX_COMPILER "g++")
-project(buddha++)
+cmake_minimum_required(VERSION 3.16)
+project(buddha++ LANGUAGES CXX)
 
 # also look at
 # http://stackoverflow.com/questions/14446495/cmake-project-structure-with-unit-tests
 
-add_definitions(-std=c++11)
-set(CMAKE_VERBOSE_MAKEFILE false)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Ofast -march=native -funroll-loops -std=c++11" )
-set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS}")
-include_directories("/usr/local/include")
-link_directories("/usr/local/lib")
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_compile_options(-Wall -O3 -ffast-math -march=native -funroll-loops)
 
-include_directories("${PROJECT_SOURCE_DIR}/timer")
-add_subdirectory("${PROJECT_SOURCE_DIR}/timer")
-link_directories("${PROJECT_SOURCE_DIR}/timer")
+find_package(Boost REQUIRED COMPONENTS program_options log log_setup serialization iostreams filesystem)
+find_package(PNG REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(Threads REQUIRED)
 
-include_directories("${PROJECT_SOURCE_DIR}/core")
+add_library(timer timer/timer.cpp)
+target_include_directories(timer PUBLIC ${PROJECT_SOURCE_DIR}/timer)
+
 add_subdirectory("${PROJECT_SOURCE_DIR}/core")
-link_directories("${PROJECT_SOURCE_DIR}/core")
 
 add_executable(buddha++ main.cpp)
+target_link_libraries(buddha++ PRIVATE core timer Threads::Threads ${CMAKE_DL_LIBS})
+
 add_executable(exclusion exclusion.cpp)
-#add_executable(test_random test/random.cpp)
-add_executable(test_concurrency test/concurrency.cpp)
-add_executable(benchmark test/benchmark.cpp)
-#add_executable(test_generators test/test.cpp)
-
-target_link_libraries(buddha++ core pthread dl boost_system boost_filesystem timer)
-target_link_libraries(exclusion core pthread dl boost_system boost_filesystem timer)
-target_link_libraries(benchmark core pthread dl boost_system boost_filesystem timer)
-#target_link_libraries(test_generators core boost_system boost_filesystem boost_unit_test_framework dl)
-#target_link_libraries(test_random core boost_system boost_unit_test_framework dl)
-target_link_libraries(test_concurrency core boost_system boost_unit_test_framework dl)
-
-enable_testing()
-#add_test(test_generators test_generators)
-#add_test(test_random test_random)
-add_test(test_concurrency test_concurrency)
+target_link_libraries(exclusion PRIVATE core timer Threads::Threads ${CMAKE_DL_LIBS})
