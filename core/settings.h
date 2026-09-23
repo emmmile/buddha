@@ -52,6 +52,7 @@ struct settings {
     string outfile;
     string infile;
     uint64_t seed;
+    bool legacy_metropolis;
     uint32_t threads;
     bool inverse;
 

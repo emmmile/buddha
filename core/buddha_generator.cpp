@@ -180,8 +180,22 @@ void buddha_generator::metropolis ( ) {
 
         // calculus of the transitional probability. One point is more probable of being
         // chose if generates a lot of points in the window
-        double alpha =  (double(proposedOrbitMax) * proposedOrbitMax * proposedOrbitCount) /
-                (double(selectedOrbitMax) * selectedOrbitMax * selectedOrbitCount);
+        double alpha;
+        if (s.legacy_metropolis) {
+            // The historical code performed these products in 32-bit integer
+            // arithmetic before converting to double.  Spell out its usual
+            // two's-complement wraparound behavior without signed overflow.
+            uint32_t proposedWeight = static_cast<uint32_t>(proposedOrbitMax);
+            proposedWeight *= static_cast<uint32_t>(proposedOrbitMax);
+            proposedWeight *= proposedOrbitCount;
+            uint32_t selectedWeight = static_cast<uint32_t>(selectedOrbitMax);
+            selectedWeight *= static_cast<uint32_t>(selectedOrbitMax);
+            selectedWeight *= selectedOrbitCount;
+            alpha = double(proposedWeight) / double(selectedWeight);
+        } else {
+            alpha = (double(proposedOrbitMax) * proposedOrbitMax * proposedOrbitCount) /
+                    (double(selectedOrbitMax) * selectedOrbitMax * selectedOrbitCount);
+        }
 
 
         if ( alpha > uniform(generator) ) {

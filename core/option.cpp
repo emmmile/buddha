@@ -24,6 +24,12 @@ Option::Option ( const char* l, const char*  d, uint64_t value, uint64_t* t ) {
     target_variable = t;
 }
 
+Option::Option ( const char* l, const char* d, bool value, bool* t ) {
+    init( l, d );
+    default_value = value;
+    target_variable = t;
+}
+
 Option::Option ( const char* l, const char* d, double value, double* t ) {
     init( l, d );
     default_value = value;
@@ -47,6 +53,8 @@ string Option::current_value ( ) const {
         out << *( any_cast<uint32_t*>(target_variable) );
     } else if ( default_value.type() == typeid( uint64_t ) ) {
         out << *( any_cast<uint64_t*>(target_variable) );
+    } else if ( default_value.type() == typeid( bool ) ) {
+        out << *( any_cast<bool*>(target_variable) );
     } else if ( default_value.type() == typeid( double ) ) {
         out << *( any_cast<double*>(target_variable) );
     } else if ( default_value.type() == typeid( string ) ) {
@@ -77,6 +85,9 @@ void Option::add ( po::options_description_easy_init desc ) {
         add_option( uint32_t );
     } else if ( default_value.type() == typeid( uint64_t ) ) {
         add_option( uint64_t );
+    } else if ( default_value.type() == typeid( bool ) ) {
+        desc( option, po::bool_switch( any_cast<bool*>( target_variable ) )->
+             default_value( any_cast<bool>( default_value ) ), description );
     } else if ( default_value.type() == typeid( double ) ) {
         add_option( double );
     } else if ( default_value.type() == typeid( string ) ) {
