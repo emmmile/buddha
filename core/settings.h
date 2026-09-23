@@ -3,6 +3,7 @@
 
 
 #include <complex>
+#include <cstdint>
 #include <dlfcn.h>
 #include <fstream>
 #include <string>
@@ -50,6 +51,7 @@ struct settings {
 
     string outfile;
     string infile;
+    uint64_t seed;
     uint32_t threads;
     bool inverse;
 

@@ -25,6 +25,7 @@ settings_parser::settings_parser( int argc, char** argv ) {
     options.push_back( Option("scale,s", "set iniatial scale factor of the image", 800.0, &s.scale ) );
     options.push_back( Option("lightness,l", "set the lightness of the image", 100, &s.lightness) );
     options.push_back( Option("contrast,c", "set the contrast of the image", 100, &s.contrast) );
+    options.push_back( Option("seed", "set deterministic base seed (0 uses random_device)", uint64_t(0), &s.seed) );
     options.push_back( Option("threads,t", "set the number of parallel threads", std::thread::hardware_concurrency(), &s.threads) );
     options.push_back( Option("width,w", "width of the output", 3000, &s.w) );
     options.push_back( Option("height,h", "height of the output", 2000, &s.h) );

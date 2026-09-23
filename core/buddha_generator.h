@@ -52,6 +52,10 @@ struct buddha_generator {
     const settings& s;
 
     unsigned long long int computed;
+    unsigned long long int find_attempts;
+    unsigned long long int proposals;
+    unsigned long long int accepted;
+    unsigned long long int drawn_orbits;
     random_engine generator;
 
     std::uniform_real_distribution<double> uniform;
@@ -67,7 +71,7 @@ struct buddha_generator {
     mutex execution;
 
 
-    buddha_generator( mandelbrot<complex_type>& core, vector_type& raw, const settings& s );
+    buddha_generator( mandelbrot<complex_type>& core, vector_type& raw, const settings& s, uint64_t seed );
     ~buddha_generator ( );
 
 
@@ -87,5 +91,4 @@ struct buddha_generator {
 };
 
 #endif
-
 

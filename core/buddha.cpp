@@ -46,6 +46,22 @@
 namespace bar = boost::archive;
 namespace bio = boost::iostreams;
 
+namespace {
+uint64_t splitmix64(uint64_t value) {
+    value += 0x9e3779b97f4a7c15ULL;
+    value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    value = (value ^ (value >> 27)) * 0x94d049bb133111ebULL;
+    return value ^ (value >> 31);
+}
+
+uint64_t generator_seed(uint64_t base_seed, uint64_t stream) {
+    if (base_seed != 0)
+        return splitmix64(base_seed + stream);
+
+    random_device random;
+    return (uint64_t(random()) << 32) | random();
+}
+}
 
 
 
@@ -55,13 +71,12 @@ buddha::buddha( const settings& s ) : core(s), s(s), computed(0) {
 
     s.dump( );
 
+    raw.reserve(3 * s.size);
     for ( uint64_t i = 0; i < 3 * s.size; ++i )
         raw.emplace_back(0);
 
-    raw.shrink_to_fit( );
-
     for ( unsigned int i = 0; i < s.threads; ++i )
-        generators.push_back( new buddha_generator( core, raw, s ) );
+        generators.push_back( new buddha_generator( core, raw, s, generator_seed(s.seed, i) ) );
 
     clearBuffers();
     if ( s.exclusion != "" ) core.load();
@@ -74,8 +89,17 @@ buddha::buddha( const settings& s ) : core(s), s(s), computed(0) {
 void buddha::reduce ( ) {
     //swap(raw, generators[0]->raw);
 
-    for ( auto i : generators )
+    unsigned long long find_attempts = 0;
+    unsigned long long proposals = 0;
+    unsigned long long accepted = 0;
+    unsigned long long drawn_orbits = 0;
+    for ( auto i : generators ) {
         computed += i->computed;
+        find_attempts += i->find_attempts;
+        proposals += i->proposals;
+        accepted += i->accepted;
+        drawn_orbits += i->drawn_orbits;
+    }
 
     unsigned long long int total = 0;
     for ( auto i : raw ) total += i.load();
@@ -86,6 +110,11 @@ void buddha::reduce ( ) {
 
     BOOST_LOG_TRIVIAL(info) << total / 1000000.0 << " Mpoints in the histogram ("
                             << total / totaltime / 1000000.0 << " Mpoints/s)";
+    BOOST_LOG_TRIVIAL(info) << "find attempts: " << find_attempts
+                            << ", proposals: " << proposals
+                            << ", accepted: " << accepted
+                            << " (" << (proposals ? double(accepted) / proposals : 0.0) << ")"
+                            << ", drawn orbits: " << drawn_orbits;
 }
 
 

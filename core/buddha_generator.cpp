@@ -37,10 +37,9 @@ buddha_generator::~buddha_generator ( ) {
     //BOOST_LOG_TRIVIAL(debug) << "buddha_generator::~buddha_generator";
 }
 
-buddha_generator::buddha_generator ( mandelbrot<complex_type>& core, vector_type& raw, const settings& s ) 
-    : core(core), raw(raw), s(s), uniform(0,1), normal(0,1), exponential(2) {
-    random_device rd;
-    unsigned int seed = rd();
+buddha_generator::buddha_generator ( mandelbrot<complex_type>& core, vector_type& raw, const settings& s, uint64_t seed )
+    : core(core), raw(raw), s(s), computed(0), find_attempts(0), proposals(0),
+      accepted(0), drawn_orbits(0), generator(), uniform(0,1), normal(0,1), exponential(2) {
     generator.seed( seed );
 
     BOOST_LOG_TRIVIAL(debug) << "buddha_generator::initialize() with seed " << seed;
@@ -49,7 +48,6 @@ buddha_generator::buddha_generator ( mandelbrot<complex_type>& core, vector_type
     next_point = s.next_point;
 
     finish = false;
-    computed = 0;
 }
 
 void buddha_generator::start ( ) {
@@ -120,6 +118,7 @@ int buddha_generator::findPoint ( complex_type& begin, unsigned int& contribute,
 
     calculated = 0;
     do {
+        ++find_attempts;
         gaussianMutation( tmp, 1.0 );
         seq[0] = tmp;
 
@@ -169,6 +168,7 @@ void buddha_generator::metropolis ( ) {
         seq[0] = begin;
 
         // calculate the new sequence
+        ++proposals;
         proposedOrbitMax = core.evaluate( seq, proposedOrbitCount, calculated );
 
         // the sequence is periodic, I try another mutation
@@ -180,20 +180,22 @@ void buddha_generator::metropolis ( ) {
 
         // calculus of the transitional probability. One point is more probable of being
         // chose if generates a lot of points in the window
-        double alpha =  proposedOrbitMax * proposedOrbitMax * proposedOrbitCount /
-                double( selectedOrbitMax * selectedOrbitMax * selectedOrbitCount );
+        double alpha =  (double(proposedOrbitMax) * proposedOrbitMax * proposedOrbitCount) /
+                (double(selectedOrbitMax) * selectedOrbitMax * selectedOrbitCount);
 
 
         if ( alpha > uniform(generator) ) {
             ok = begin;
             selectedOrbitCount = proposedOrbitCount;
             selectedOrbitMax = proposedOrbitMax;
+            ++accepted;
         }
 
         computed += calculated;
 
         // draw the points
         lock_guard<mutex> locker( execution );
+        ++drawn_orbits;
 
         for ( unsigned int i = s.low; int(i) <= proposedOrbitMax && proposedOrbitCount > 0 && i < s.high; i++ ) {
             drawPoint( seq[i], 
