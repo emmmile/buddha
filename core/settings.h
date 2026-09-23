@@ -51,6 +51,7 @@ struct settings {
 
     string outfile;
     string infile;
+    string output_format;
     uint64_t seed;
     bool legacy_metropolis;
     uint32_t threads;

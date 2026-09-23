@@ -142,19 +142,25 @@ void buddha::save () {
 
     time.restart();
 
-    typedef rgb_view<rgb16_pixel_t> deref_t;
-    typedef deref_t::point_t         point_t;
-    typedef virtual_2d_locator<deref_t,false> locator_t;
-    typedef image_view<locator_t> my_virt_view_t;
+    if (s.output_format == "png") {
+        typedef rgb_view<rgb16_pixel_t> deref_t;
+        typedef deref_t::point_t         point_t;
+        typedef virtual_2d_locator<deref_t,false> locator_t;
+        typedef image_view<locator_t> my_virt_view_t;
 
-    boost::function_requires<PixelLocatorConcept<locator_t> >();
-    gil_function_requires<StepIteratorConcept<locator_t::x_iterator> >();
+        boost::function_requires<PixelLocatorConcept<locator_t> >();
+        gil_function_requires<StepIteratorConcept<locator_t::x_iterator> >();
 
-    point_t dims(s.w, s.h);
-    my_virt_view_t view(dims, locator_t(point_t(0,0), point_t(1,1), deref_t(this, &s, dims)));
-    boost::gil::png_write_view( s.outfile + ".png", rotated90cw_view(view));
+        point_t dims(s.w, s.h);
+        my_virt_view_t view(dims, locator_t(point_t(0,0), point_t(1,1), deref_t(this, &s, dims)));
+        boost::gil::png_write_view( s.outfile + ".png", rotated90cw_view(view));
+    } else if (s.output_format == "tiff") {
+        write_tiff(this, &s, s.outfile + ".tiff");
+    } else {
+        throw runtime_error("unknown output format: " + s.output_format);
+    }
 
-    BOOST_LOG_TRIVIAL(info) << "buddha::save(), PNG: " << time.elapsed() << " s";
+    BOOST_LOG_TRIVIAL(info) << "buddha::save(), " << s.output_format << ": " << time.elapsed() << " s";
 }
 
 

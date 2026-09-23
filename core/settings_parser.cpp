@@ -31,6 +31,7 @@ settings_parser::settings_parser( int argc, char** argv ) {
     options.push_back( Option("width,w", "width of the output", 3000, &s.w) );
     options.push_back( Option("height,h", "height of the output", 2000, &s.h) );
     options.push_back( Option("out,o", "output filename", "output", &s.outfile) );
+    options.push_back( Option("format", "output format: png or tiff (BigTIFF is selected automatically when needed)", "png", &s.output_format) );
     options.push_back( Option("load,L", "try to load a previously saved state", "", &s.infile) );
     options.push_back( Option("help", "produce help message" ) );
     options.push_back( Option("formula", "specify the formula to evaluate", "z = z * z + c", &s.formula) );

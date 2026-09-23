@@ -20,6 +20,7 @@ endif()
 
 find_package(Boost REQUIRED COMPONENTS program_options log log_setup serialization iostreams filesystem)
 find_package(PNG REQUIRED)
+find_package(TIFF REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(Threads REQUIRED)
 

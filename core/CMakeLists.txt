@@ -13,6 +13,7 @@ target_link_libraries(core
         Boost::iostreams
         Boost::filesystem
         PNG::PNG
+        TIFF::TIFF
         ZLIB::ZLIB
         Threads::Threads
         ${CMAKE_DL_LIBS}

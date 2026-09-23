@@ -4,6 +4,8 @@
 
 #include <boost/gil/image.hpp>
 #include <boost/gil/typedefs.hpp>
+#include <tiffio.h>
+#include <vector>
 using namespace boost::gil;
 
 
@@ -69,3 +71,52 @@ private:
     float bmul;
     float gmul;
 };
+
+inline void write_tiff(buddha* b, settings* s, const string& filename) {
+    typedef rgb_view<rgb16_pixel_t> deref_t;
+    typedef deref_t::point_t point_t;
+
+    // A 16-bit RGB raster takes six bytes per output pixel.  Choose BigTIFF
+    // before the classic TIFF 4 GiB offset limit can be reached.
+    uint64_t uncompressed_size = s->w * s->h * 3 * sizeof(uint16_t);
+    bool bigtiff = uncompressed_size > uint64_t(UINT32_MAX);
+    TIFF* out = TIFFOpen(filename.c_str(), bigtiff ? "w8" : "w");
+    if (!out) throw runtime_error("unable to open TIFF output: " + filename);
+
+    // The PNG exporter writes a 90-degree clockwise view; retain that layout
+    // for TIFF so either format has identical orientation.
+    uint32_t width = static_cast<uint32_t>(s->h);
+    uint32_t height = static_cast<uint32_t>(s->w);
+    bool configured =
+        TIFFSetField(out, TIFFTAG_IMAGEWIDTH, width) &&
+        TIFFSetField(out, TIFFTAG_IMAGELENGTH, height) &&
+        TIFFSetField(out, TIFFTAG_SAMPLESPERPIXEL, 3) &&
+        TIFFSetField(out, TIFFTAG_BITSPERSAMPLE, 16) &&
+        TIFFSetField(out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB) &&
+        TIFFSetField(out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG) &&
+        TIFFSetField(out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT) &&
+        TIFFSetField(out, TIFFTAG_COMPRESSION, COMPRESSION_ADOBE_DEFLATE) &&
+        TIFFSetField(out, TIFFTAG_PREDICTOR, PREDICTOR_HORIZONTAL) &&
+        TIFFSetField(out, TIFFTAG_ZIPQUALITY, 1) &&
+        TIFFSetField(out, TIFFTAG_ROWSPERSTRIP, 32);
+    if (!configured) {
+        TIFFClose(out);
+        throw runtime_error("unable to configure TIFF output: " + filename);
+    }
+
+    deref_t renderer(b, s, point_t(s->w, s->h));
+    vector<uint16_t> row(size_t(width) * 3);
+    for (uint32_t y = 0; y < height; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
+            rgb16_pixel_t pixel = renderer(point_t(y, s->h - x - 1));
+            row[3 * x + 0] = at_c<0>(pixel);
+            row[3 * x + 1] = at_c<1>(pixel);
+            row[3 * x + 2] = at_c<2>(pixel);
+        }
+        if (TIFFWriteScanline(out, row.data(), y, 0) < 0) {
+            TIFFClose(out);
+            throw runtime_error("unable to write TIFF output: " + filename);
+        }
+    }
+    TIFFClose(out);
+}
