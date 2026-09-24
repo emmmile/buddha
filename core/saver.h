@@ -46,7 +46,7 @@ struct rgb_view {
     result_type operator()(const point_t& p) const {
         uint x = p.x;
         uint y = p.y < int(s->h / 2) ? p.y : (s->h - p.y - 1);
-        uint i = y * 3 * s->w + 3 * x + 0;
+        uint64_t i = y * 3 * s->w + 3 * x + 0;
 
 
         int d = 16; // how to compute bit depth from result type????

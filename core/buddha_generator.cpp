@@ -65,12 +65,14 @@ void buddha_generator::stop ( ) {
 
 
 void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool drawb ) {
-    unsigned int x;
-    unsigned int y;
+    uint64_t x;
+    uint64_t y;
 
 #define plotIm( c, drawr, drawg, drawb ) \
     if ( c.imag() > s.minim && c.imag() < s.maxim ) { \
-    y = ( s.maxim - fabs(c.imag()) ) * s.scale; \
+    const double image_y = ( s.maxim - fabs(c.imag()) ) * s.scale; \
+    if (!(image_y >= 0.0 && image_y < s.h / 2)) return; \
+    y = static_cast<uint64_t>(image_y); \
     uint64_t i = y * 3 * s.w + 3 * x; \
     if ( drawr )    ++(raw[ i + 0 ]);  \
     if ( drawg )    ++(raw[ i + 1 ]);  \
@@ -80,8 +82,9 @@ void buddha_generator::drawPoint ( complex_type& c, bool drawr, bool drawg, bool
     if ( c.real() < s.minre ) return;
     if ( c.real() > s.maxre ) return;
 
-    x = ( c.real() - s.minre ) * s.scale;
-    //if ( x >= s.w ) return; // activate in case of problems
+    const double image_x = ( c.real() - s.minre ) * s.scale;
+    if (!(image_x >= 0.0 && image_x < s.w)) return;
+    x = static_cast<uint64_t>(image_x);
 
     // the y coordinates are referred to the point (s.minre, s.maxim), and are symetric in
     // respect of the real axis (re = 0). So I draw always also the simmetric point (I try).
