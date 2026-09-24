@@ -28,7 +28,6 @@ The project uses CMake, Boost, libtiff, zlib, Zstandard, and pthreads.
 On macOS, install the dependencies with your preferred package manager, then:
 
 ```sh
-git submodule update --init --recursive
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
