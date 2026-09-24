@@ -1,5 +1,9 @@
 # Buddha++
 
+<p align="center">
+  <img src="assets/readme-header.avif" alt="Buddhabrot render" width="100%">
+</p>
+
 Buddha++ is a command-line, multi-threaded Buddhabrot renderer. It samples
 complex orbits into a three-channel histogram, resumes long renders from Zstd
 checkpoints, and writes a 16-bit TIFF image when the render stops.
