@@ -9,6 +9,7 @@ moc_*.cpp
 buddha.run
 Makefile
 /build/
+/renders/
 .vscode
 
 #opencl/
