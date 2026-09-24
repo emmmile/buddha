@@ -26,84 +26,69 @@
 */
 
 
-#ifndef BuddhaGenerator_H
-#define BuddhaGenerator_H
+#ifndef BUDDHA_GENERATOR_H
+#define BUDDHA_GENERATOR_H
 
-#include <string>
-#include <vector>
-#include <cmath>
-#include <cfloat>
-#include <stdlib.h>
-#include <QThread>
-#include <QMutex>
-#include <QWaitCondition>
-#include <QSemaphore>
-#include <QImage>
-#include <cstdio>
-#include <iostream>
 #include "buddha.h"
-#include "random.h"
+#include "mandelbrot.h"
 using namespace std;
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
+struct buddha_generator {
+    typedef buddha::complex_type complex_type;
+    typedef buddha::pixel pixel;
+    typedef buddha::vector_type vector_type;
+    typedef buddha::random_engine random_engine;
+    thread t;
+
+    // for the raw image and the sequence of points
+    vector<complex_type> seq;
+
+    mandelbrot<complex_type>& core;
+    vector_type& raw;
+    const settings& s;
+
+    unsigned long long int computed;
+    unsigned long long int find_attempts;
+    unsigned long long int proposals;
+    unsigned long long int accepted;
+    unsigned long long int drawn_orbits;
+    random_engine generator;
+
+    std::uniform_real_distribution<double> uniform;
+    std::normal_distribution<double> normal;
+    std::exponential_distribution<double> exponential;
+
+    void (*next_point)(complex<double>&, complex<double>&);
 
 
-class BuddhaGenerator : public QThread {
-public:	
-	// general data and utility functions
-	Buddha* b;
-	BuddhaGenerator( ) {
-		raw = NULL;
-	}
-	~BuddhaGenerator ( ) {
-		delete[] raw;
-	}
-	void initialize ( Buddha* b );
+    bool finish;
+
+    // for the synchronization and for controlling the execution
+    mutex execution;
 
 
-	// for the raw image and the sequence of points
-	vector<buddha::complex> seq;
-	unsigned int* raw;
-	
-	void drawPoint ( buddha::complex& c, bool r, bool g, bool b );
-	int inside ( buddha::complex& c );
-	int evaluate ( buddha::complex& begin, double& distance, unsigned int& contribute, unsigned int& calculated );
+    buddha_generator( mandelbrot<complex_type>& core, vector_type& raw, const settings& s, uint64_t seed );
+    ~buddha_generator ( );
 
-	int findPoint ( buddha::complex& begin, double& centerDistance, unsigned int& contribute, unsigned int& calculated );
 
-	//int normal();
-	int metropolis();
+    void gaussianMutation ( complex_type& z, double radius );
+    void exponentialMutation ( complex_type& z, double radius );
+
+    void drawPoint ( complex_type& c, bool, bool, bool );
+
+    int findPoint ( complex_type& begin, unsigned int& contribute, unsigned int& calculated );
+    void metropolis();
+
+    void naive();
 	
-	
-	
-	
-	
-	// things for the random stuff
-	//struct random_data buf;
-	//char statebuf [256];
-	unsigned long int seed;
-	Random generator;
-	
-	void gaussianMutation ( buddha::complex& z, double radius );
-	void exponentialMutation ( buddha::complex& z, double radius );
-	
-	
-	
-	// for the synchronization and for controlling the execution
-	QMutex mutex;
-	QWaitCondition resumeCondition;		// this is to stop the Worker and wait for the resume signal
-	CurrentStatus status;
-	
-	void pause ( );
-	void stop ( );
-	void resume ( );
-	bool flow ( );				// test if we have to stop, pause or whatever
-	void run ( );	
+    void start ( );
+    void stop ( );
+	void run ( );
 };
 
 #endif
-
 

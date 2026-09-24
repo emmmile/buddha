@@ -25,143 +25,82 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-
 #ifndef BUDDHA_H
 #define BUDDHA_H
 
+#include <atomic>
+#include <cfloat>
+#include <cmath>
+#include <csignal>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
-#define TEST		0
-
+#include <complex>
+#include <fstream>
+#include <memory>
+#include <random>
 #include <string>
 #include <vector>
-#include <cmath>
-#include <stdlib.h>
-#include <QThread>
-#include <QMutex>
-#include <QSemaphore>
-#include <QImage>
-#include <cstdio>
-#include <QDebug>
-#include "complex.h"
-#include "staticStuff.h"
 
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
+#include "atomic_wrapper.h"
+#include "mandelbrot.h"
+#include "settings.h"
+
+#ifndef BOOST_LOG_DYN_LINK
 #define BOOST_LOG_DYN_LINK
+#endif
 #include <boost/log/trivial.hpp>
-
-#ifdef _WIN32
-#define QTOPENCL	0
-#else
-#define QTOPENCL	0
-#endif
-
-
-#if QTOPENCL
-#include "qclcontext.h"
-#endif
 
 using namespace std;
 
 
+struct buddha_generator;
 
-enum CurrentStatus { PAUSE, STOP, RUN };
-
-class BuddhaGenerator;
-
+class buddha {
 
 
+    vector<buddha_generator*> generators;
 
-
-class Buddha : public QThread {
-    Q_OBJECT
-
-
-#if QTOPENCL
-    QCLContext context;
-    QCLProgram program;
-    QCLKernel convert;
-    QCLImage2D srcImageBuffer;
-    QCLImage2D dstImageBuffer;
-#endif
-
-    int threads;
-    vector<BuddhaGenerator*> generators;
-    CurrentStatus generatorsStatus;
-
-    //void preprocessImage ( );
-    void createImage ( );
-public:	
-    // for the communication with the GUI XXX maibe it can be removed
-    QMutex mutex;
-
-    // for waiting that a BuddhaGenerator has been stopped
-    QSemaphore semaphore;
-
-    // since this class is also used as "container" for the various generators
-    // I use directly public variables instead private members and functions like set*()
-    // buddhabrot characteristics
-    double maxre, maxim;
-    double minre, minim;
-    double cre, cim;
-    unsigned int low;
-    unsigned int lowr;
-    unsigned int lowg;
-    unsigned int lowb;
-    unsigned int high;
-    unsigned int highr;
-    unsigned int highg;
-    unsigned int highb;
-    double scale;
-
-    // these can be calculated from the previous but they are useful
-    double rangere, rangeim;
-    unsigned int w;
-    unsigned int h;
-    unsigned int size;
-
-
-    // things for the plot
-    unsigned int* raw;		// i want to avoid this in the future XXX
-    unsigned int* RGBImage;		// here will be built the QImage
-    float rmul, gmul, bmul, realContrast, realLightness;
-    int contrast, lightness;
-    unsigned int maxr, minr, maxb, minb, maxg, ming;
+public:
+    typedef uint32_t pixel;
+    typedef complex<double> complex_type;
+    typedef vector<atomic_wrapper<pixel>> vector_type;
+    typedef mt19937_64 random_engine;
+    //typedef std::atomic_uint_fast32_t pixel;  
 
 
 
+    mandelbrot<complex_type> core;
+
+    settings s;
+
+    vector_type raw;
+
+   
+    unsigned long long int computed;
+    double totaltime;
 
 
 
+    buddha ( const settings& s );
+    ~buddha ( );
 
+    void clearBuffers ( );
 
-    Buddha ( QObject *parent = 0 );
-    ~Buddha ( );
-
-    void reduceStep ( int i, bool check );
     void reduce ( );
-    void run( );
-signals:
-    void imageCreated( );
-    void stoppedGenerators( bool);
-    void startedGenerators( bool);
-    void settedValues( );
-public slots:
-    // never call directly these functions from the GUI!!!
+    void save ( );
+    void load ( );
+
     void startGenerators( );
     void stopGenerators( );
-    void updateRGBImage( );
-    void pauseGenerators( );
-    void resumeGenerators( );
-    void set( double cre, double cim, double scale, uint lr, uint lg, uint lb, uint hr, uint hg, uint hb, QSize wsize, bool pause );
-    void clearBuffers ( );
-    void resizeBuffers ( );
-    void resizeSequences ( );
-    void changeThreadNumber( int threads );
-    void saveScreenshot ( QString fileName );
-    void setContrast( int value );
-    void setLightness( int value );
+
+    void run( );
 };
 
 
 #endif
-

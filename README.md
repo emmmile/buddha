@@ -1,15 +1,80 @@
 # Buddha++
-## A Qt-based, multi-threaded BuddhaBrot navigator
 
-The program as a number of features:
-* It's possible to set various parameters to change the characteristics of the rendered image, 
-like the iteration depth on the 3 color channels, brightness and contrast ([preview of the control window](https://raw.github.com/emmmile/buddha/master/resources/gui.png)).
-* The program deal particularly well with high iteration depths, thanks to a big optimization in the points calculation.
-I later found that this is a variation of the [Brent's method](http://en.wikipedia.org/wiki/Cycle_detection#Brent.27s_algorithm).
-* Saving the image and (work in progress) save and reload all the calculation parameters.
-* Dinamically change the number of threads calculating the fractal and adjust the number of frames drawn every second.
-* Makes use of OpenCL for the histogram -> image conversion, i.e. the color calculation (where contrast and brightness apply). It can be easily disabled at compile time.
+Buddha++ is a command-line, multi-threaded Buddhabrot renderer. It samples
+complex orbits into a three-channel histogram, resumes long renders from Zstd
+checkpoints, and writes a 16-bit TIFF image when the render stops.
 
+The current renderer is deliberately headless. It is intended for long,
+repeatable command-line jobs, including very large images on Apple Silicon.
 
-## Update (January 2014)
-* I created a version that runs basically with the only dependency of Boost libraries, without a gui (branch `no-gui`).
+## Features
+
+- Multi-threaded Metropolis orbit sampling with configurable RGB iteration
+  ranges.
+- Deterministic runs with `--seed`, or randomized seeds by default.
+- Zstd-compressed checkpoints that can safely replace the loaded checkpoint
+  when a render is resumed.
+- 16-bit RGB TIFF output, including BigTIFF for images larger than 4 GiB.
+- `--no-image` for frequent checkpoint-only saves during a long render.
+- A Release build that enables LTO when the local toolchain supports it.
+
+## Build
+
+The project uses CMake, Boost, libtiff, zlib, Zstandard, and pthreads.
+On macOS, install the dependencies with your preferred package manager, then:
+
+```sh
+git submodule update --init --recursive
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
+
+The resulting executable is `build/buddha++`.
+
+## Run
+
+Start a render with explicit geometry, scale, output stem, and seed:
+
+```sh
+./build/buddha++ \
+  --width 8192 --height 8192 --scale 2048 \
+  --threads 10 --seed 42 --out render
+```
+
+Press `Ctrl-C` to stop the generators and save `render.zst`; unless
+`--no-image` was supplied, it also writes `render.tiff`. Use `--help` for all
+options.
+
+To resume a checkpoint, use the same image geometry and rendering parameters:
+
+```sh
+./build/buddha++ \
+  --load render.zst \
+  --width 8192 --height 8192 --scale 2048 \
+  --threads 10
+```
+
+When `--out` is omitted on a resumed render, the checkpoint stem is reused and
+the completed checkpoint atomically replaces the previous one. Supplying a
+different `--out` creates a new checkpoint instead.
+
+## Historical Qt GUI
+
+The original interactive Qt navigator is preserved on the
+[`legacy-qt-gui`](https://github.com/emmmile/buddha/tree/legacy-qt-gui) branch,
+anchored at commit
+[`4996093`](https://github.com/emmmile/buddha/tree/4996093a5bea1caf35c517cd50c55e5d8c1cd376).
+It remains a historical reference and is not built by this command-line
+renderer.
+
+## Future work
+
+The preferred successor to the Qt GUI is a browser-based interface: interactive
+navigation and render controls in the browser, with progressive previews and
+checkpoint-aware long-running jobs. A WebGPU/WebAssembly implementation would
+also make GPU experimentation portable while retaining the reproducible
+renderer configuration described above.
+
+The separate `prototype/metal-orbit-benchmark` branch contains only an
+Apple-silicon CPU-versus-Metal orbit-loop benchmark. It is intentionally not
+part of this renderer or its modernization pull request.

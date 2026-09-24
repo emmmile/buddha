@@ -1,8 +1,14 @@
+*.dblite
+.scons*
+.svn/
 *.pro.user
+*.creator.user
 *.o
 *~
 moc_*.cpp
 buddha.run
 Makefile
+/build/
+.vscode
 
 #opencl/

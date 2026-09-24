@@ -1,0 +1,20 @@
+
+	
+
+SConscript( '../../commons/SConstruct' )
+
+
+#'-march=athlon-xp', '-msse', '-mfpmath=sse', '-fomit-frame-pointer', '-pipe'
+
+env = Environment( 
+		   #CC = 'gcc-4.9',
+		   CCFLAGS = ['-O2', '-pipe'], 
+		   LIBS=['m', 'png', 'cpng', 'commons', 'z'],
+		   LIBPATH=['../../commons', '/usr/lib'],
+		   CPPPATH='../../commons',
+		   CPPDEFINES=['-D_GNU_SOURCE', '-D__DEBUG'],
+		   LINKFLAGS=['-s'] )
+
+
+env.Program( "buddha", ['buddha.c', 'buddha-lib.c', 'buddha-com.c', 'buddha-parser.c'] )
+env.Program( "buddha-server", ['buddha-server.c', 'buddha-lib.c', 'buddha-com.c'] )
