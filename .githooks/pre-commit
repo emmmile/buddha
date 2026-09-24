@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""Check staged whitespace and formatting of changed C++ lines."""
+
+import re
+import shutil
+import subprocess
+import sys
+
+
+def git(*args):
+    return subprocess.run(["git", *args], capture_output=True, check=True)
+
+
+def main():
+    whitespace = subprocess.run(["git", "diff", "--cached", "--check"])
+    if whitespace.returncode:
+        return whitespace.returncode
+
+    paths = git("diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR").stdout
+    sources = [
+        path.decode("utf-8", "surrogateescape")
+        for path in paths.split(b"\0")
+        if path
+        and not path.startswith(b"legacy/")
+        and path.lower().endswith((b".cc", b".cpp", b".cxx", b".h", b".hh", b".hpp", b".hxx"))
+    ]
+    if not sources:
+        return 0
+
+    formatter = shutil.which("clang-format")
+    if not formatter:
+        lookup = subprocess.run(["xcrun", "--find", "clang-format"], capture_output=True, text=True) if shutil.which("xcrun") else None
+        if lookup and lookup.returncode == 0:
+            formatter = lookup.stdout.strip()
+    if not formatter:
+        print("clang-format is required to commit C++ files", file=sys.stderr)
+        return 1
+
+    failed = False
+    for path in sources:
+        patch = git("diff", "--cached", "--unified=0", "--", path).stdout.decode("utf-8", "replace")
+        ranges = []
+        for start, count in re.findall(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", patch, re.MULTILINE):
+            first, length = int(start), int(count or 1)
+            if length:
+                ranges.append(f"--lines={first}:{first + length - 1}")
+        if not ranges:
+            continue
+        staged = git("show", f":{path}").stdout
+        result = subprocess.run(
+            [formatter, "--dry-run", "--Werror", "--style=file", f"--assume-filename={path}", *ranges],
+            input=staged,
+            capture_output=True,
+        )
+        if result.returncode:
+            print(f"Format changed lines in {path} with clang-format, then stage them again:", file=sys.stderr)
+            sys.stderr.buffer.write(result.stderr)
+            failed = True
+    return int(failed)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
