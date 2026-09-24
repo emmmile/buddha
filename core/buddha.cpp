@@ -37,11 +37,29 @@
 #include <zstd.h>
 #include "timer.h"
 
+#include <iomanip>
+#include <sstream>
 #include <streambuf>
 
 namespace bar = boost::archive;
 
 namespace {
+string format_points(double points) {
+    const char *unit = "Mpoints";
+    double scale = 1e6;
+    if (points >= 1e12) {
+        unit = "Tpoints";
+        scale = 1e12;
+    } else if (points >= 1e9) {
+        unit = "Gpoints";
+        scale = 1e9;
+    }
+
+    std::ostringstream result;
+    result << std::fixed << std::setprecision(3) << points / scale << ' ' << unit;
+    return result.str();
+}
+
 void check_zstd(size_t result, const string& action) {
     if (ZSTD_isError(result))
         throw runtime_error(action + ": " + ZSTD_getErrorName(result));
@@ -270,15 +288,14 @@ void buddha::reduce ( ) {
     unsigned long long int total = 0;
     for ( auto i : raw ) total += i.load();
 
-    
-    BOOST_LOG_TRIVIAL(info) << "computed " << computed / 1000000.0 << " Mpoints in " 
-                            << totaltime << " s (" << computed / totaltime / 1000000.0 << " Mpoints/s)";
+    BOOST_LOG_TRIVIAL(info) << "computed " << format_points(computed) << " in " << totaltime
+                            << " s (" << format_points(computed / totaltime) << "/s)";
 
     if (s.infile.empty())
-        BOOST_LOG_TRIVIAL(info) << total / 1000000.0 << " Mpoints in the histogram ("
-                                << total / totaltime / 1000000.0 << " Mpoints/s)";
+        BOOST_LOG_TRIVIAL(info) << format_points(total) << " in the histogram ("
+                                << format_points(total / totaltime) << "/s)";
     else
-        BOOST_LOG_TRIVIAL(info) << total / 1000000.0 << " Mpoints in the histogram";
+        BOOST_LOG_TRIVIAL(info) << format_points(total) << " in the histogram";
     BOOST_LOG_TRIVIAL(info) << "find attempts: " << find_attempts
                             << ", proposals: " << proposals
                             << ", accepted: " << accepted
