@@ -24,16 +24,10 @@ find_package(ZLIB REQUIRED)
 find_package(zstd CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
-add_library(timer timer/timer.cpp)
-target_include_directories(timer PUBLIC ${PROJECT_SOURCE_DIR}/timer)
-
 add_subdirectory("${PROJECT_SOURCE_DIR}/core")
 
 add_executable(buddha++ main.cpp)
-target_link_libraries(buddha++ PRIVATE core timer Threads::Threads ${CMAKE_DL_LIBS})
+target_link_libraries(buddha++ PRIVATE core Threads::Threads ${CMAKE_DL_LIBS})
 
 add_executable(exclusion exclusion.cpp)
-target_link_libraries(exclusion PRIVATE core timer Threads::Threads ${CMAKE_DL_LIBS})
-
-add_executable(exclusion-convert exclusion_convert.cpp)
-target_link_libraries(exclusion-convert PRIVATE Boost::serialization Boost::iostreams zstd::libzstd)
+target_link_libraries(exclusion PRIVATE core Threads::Threads ${CMAKE_DL_LIBS})

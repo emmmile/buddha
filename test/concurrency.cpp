@@ -9,8 +9,8 @@
 #include <boost/test/unit_test.hpp>
 #define BOOST_LOG_DYN_LINK
 #include <boost/log/trivial.hpp>
-#include <boost/timer.hpp>
 #include "atomic_wrapper.h"
+#include "timer.h"
 using namespace std;
 
 
@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_CASE( no_syncronization ) {
 	data.resize(size);
 	fill(data.begin(), data.end(), 0);
 
-	boost::timer time;
+	timer time;
 	vector<thread> test;
 	test.resize(threads);
 	for ( unsigned int t = 0; t < threads; ++t )
@@ -71,7 +71,7 @@ BOOST_AUTO_TEST_CASE( mutex_syncronization ) {
 	data.resize(size);
 	fill(data.begin(), data.end(), 0);
 
-	boost::timer time;
+	timer time;
 	vector<thread> test;
 	test.resize(threads);
 	for ( unsigned int t = 0; t < threads; ++t )
@@ -106,7 +106,7 @@ BOOST_AUTO_TEST_CASE( mutex_syncronization ) {
 
 
 BOOST_AUTO_TEST_CASE( mutex_syncronization_many ) {
-	boost::timer time;
+	timer time;
 	data.resize(size);
 	fill(data.begin(), data.end(), 0);
 
@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE( mutexes_syncronization ) {
 	for ( unsigned int m = 0; m < blocks; ++m )
 		mutexes.emplace_back(new mutex());
 
-	boost::timer time;
+	timer time;
 	for ( unsigned int t = 0; t < threads; ++t )
 		test[t] = thread(&mutexes_add);
 
@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE( atomic_syncronization ) {
 	for ( unsigned int i = 0; i < size; ++i)
 		atomicdata.emplace_back(0);
 
-	boost::timer time;
+	timer time;
 	vector<thread> test;
 	test.resize(threads);
 	for ( unsigned int t = 0; t < threads; ++t )
@@ -211,7 +211,5 @@ BOOST_AUTO_TEST_CASE( atomic_syncronization ) {
 	BOOST_LOG_TRIVIAL(info) << "time: " << time.elapsed() << " s";
     BOOST_CHECK( total == threads * points );
 }
-
-
 
 
