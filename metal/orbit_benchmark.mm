@@ -1,7 +1,9 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
+#include <mach/mach.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -25,6 +27,70 @@ struct config {
 struct totals {
     uint64_t iterations = 0;
     uint64_t escaped = 0;
+};
+
+struct memory_sample {
+    uint64_t resident = 0;
+    uint64_t footprint = 0;
+    uint64_t metal_allocated = 0;
+};
+
+struct memory_stats {
+    memory_sample before;
+    memory_sample peak;
+    memory_sample after;
+};
+
+memory_sample read_memory(id<MTLDevice> device = nil) {
+    task_vm_info_data_t info = {};
+    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+    if (task_info(mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>(&info), &count) != KERN_SUCCESS)
+        throw std::runtime_error("unable to read process memory usage");
+    return {info.resident_size, info.phys_footprint,
+            device == nil ? 0 : static_cast<uint64_t>(device.currentAllocatedSize)};
+}
+
+class memory_sampler {
+public:
+    memory_sampler(memory_stats& stats, id<MTLDevice> device = nil)
+        : stats_(stats), device_(device) {
+        stats_.before = read_memory(device_);
+        stats_.peak = stats_.before;
+        worker_ = std::thread([this] {
+            while (!stop_.load(std::memory_order_relaxed)) {
+                sample();
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            }
+        });
+    }
+
+    ~memory_sampler() { finish(); }
+
+    void finish() {
+        if (!worker_.joinable()) return;
+        stop_.store(true, std::memory_order_relaxed);
+        worker_.join();
+        stats_.after = read_memory(device_);
+        update_peak(stats_.after);
+    }
+
+private:
+    void sample() {
+        // The worker must not throw across a thread boundary. A failed sample
+        // leaves the last successful values intact; finish() checks again.
+        try { update_peak(read_memory(device_)); } catch (const std::exception&) {}
+    }
+
+    void update_peak(const memory_sample& value) {
+        stats_.peak.resident = std::max(stats_.peak.resident, value.resident);
+        stats_.peak.footprint = std::max(stats_.peak.footprint, value.footprint);
+        stats_.peak.metal_allocated = std::max(stats_.peak.metal_allocated, value.metal_allocated);
+    }
+
+    memory_stats& stats_;
+    id<MTLDevice> device_;
+    std::atomic<bool> stop_{false};
+    std::thread worker_;
 };
 
 struct parameters {
@@ -68,12 +134,13 @@ totals run_cpu_range(uint32_t first, uint32_t last, const config& cfg) {
     return result;
 }
 
-totals run_cpu(const config& cfg, double& seconds) {
+totals run_cpu(const config& cfg, double& seconds, memory_stats& memory) {
     const uint32_t thread_count = std::min(cfg.threads, cfg.orbits);
     std::vector<totals> partial(thread_count);
     std::vector<std::thread> workers;
     workers.reserve(thread_count);
 
+    memory_sampler sampler(memory);
     const auto begin = std::chrono::steady_clock::now();
     for (uint32_t thread = 0; thread < thread_count; ++thread) {
         const uint32_t first = static_cast<uint64_t>(cfg.orbits) * thread / thread_count;
@@ -83,6 +150,7 @@ totals run_cpu(const config& cfg, double& seconds) {
     for (auto& worker : workers)
         worker.join();
     seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
+    sampler.finish();
 
     totals result;
     for (const totals& part : partial) {
@@ -184,10 +252,11 @@ config parse_arguments(int argc, char** argv) {
     return cfg;
 }
 
-totals run_gpu(const config& cfg, double& seconds) {
+totals run_gpu(const config& cfg, double& seconds, memory_stats& memory) {
     id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     if (device == nil)
         throw std::runtime_error("no Metal device is available");
+    memory_sampler sampler(memory, device);
 
     NSError* error = nil;
     NSString* source = [NSString stringWithUTF8String:metal_source];
@@ -248,6 +317,7 @@ totals run_gpu(const config& cfg, double& seconds) {
         throw std::runtime_error(std::string("Metal benchmark failed: ") + command.error.localizedDescription.UTF8String);
     const double wall_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - wall_begin).count();
     seconds = command.GPUEndTime > command.GPUStartTime ? command.GPUEndTime - command.GPUStartTime : wall_seconds;
+    sampler.finish();
 
     const uint32_t* values = static_cast<const uint32_t*>(result_buffer.contents);
     totals result;
@@ -264,6 +334,20 @@ void print_result(const char* label, const totals& result, double seconds) {
               << ", " << result.escaped << " escaped, " << seconds << " s\n";
 }
 
+void print_memory(const char* label, const memory_stats& memory, bool metal) {
+    const auto mib = [](uint64_t bytes) { return bytes / 1048576.0; };
+    std::cout << std::fixed << std::setprecision(2)
+              << label << " memory (MiB, before / sampled peak / after): resident "
+              << mib(memory.before.resident) << " / " << mib(memory.peak.resident) << " / "
+              << mib(memory.after.resident) << ", footprint "
+              << mib(memory.before.footprint) << " / " << mib(memory.peak.footprint) << " / "
+              << mib(memory.after.footprint);
+    if (metal)
+        std::cout << ", Metal allocated " << mib(memory.before.metal_allocated) << " / "
+                  << mib(memory.peak.metal_allocated) << " / " << mib(memory.after.metal_allocated);
+    std::cout << '\n';
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -274,12 +358,16 @@ int main(int argc, char** argv) {
                       << cfg.iterations << " maximum iterations, seed " << cfg.seed
                       << ", " << cfg.threads << " CPU threads\n";
             double cpu_seconds = 0.0;
-            const totals cpu = run_cpu(cfg, cpu_seconds);
+            memory_stats cpu_memory;
+            const totals cpu = run_cpu(cfg, cpu_seconds, cpu_memory);
             print_result("CPU", cpu, cpu_seconds);
+            print_memory("CPU", cpu_memory, false);
 
             double gpu_seconds = 0.0;
-            const totals gpu = run_gpu(cfg, gpu_seconds);
+            memory_stats gpu_memory;
+            const totals gpu = run_gpu(cfg, gpu_seconds, gpu_memory);
             print_result("Metal", gpu, gpu_seconds);
+            print_memory("Metal", gpu_memory, true);
             std::cout << "diagnostic totals: CPU " << cpu.iterations << '/' << cpu.escaped
                       << ", Metal " << gpu.iterations << '/' << gpu.escaped << '\n';
         } catch (const std::exception& error) {
