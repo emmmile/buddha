@@ -32,3 +32,10 @@ target_link_libraries(buddha++ PRIVATE core Threads::Threads ${CMAKE_DL_LIBS})
 
 add_executable(exclusion exclusion.cpp)
 target_link_libraries(exclusion PRIVATE core Threads::Threads ${CMAKE_DL_LIBS})
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(render-regression test/render_regression.cpp)
+    target_link_libraries(render-regression PRIVATE core)
+    add_test(NAME render-regression COMMAND render-regression)
+endif()

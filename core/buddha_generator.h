@@ -23,8 +23,7 @@
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
-
+ */
 
 #ifndef BUDDHA_GENERATOR_H
 #define BUDDHA_GENERATOR_H
@@ -47,9 +46,9 @@ struct buddha_generator {
     // for the raw image and the sequence of points
     vector<complex_type> seq;
 
-    mandelbrot<complex_type>& core;
-    vector_type& raw;
-    const settings& s;
+    mandelbrot<complex_type> &core;
+    vector_type &raw;
+    const settings &s;
 
     unsigned long long int computed;
     unsigned long long int find_attempts;
@@ -62,33 +61,28 @@ struct buddha_generator {
     std::normal_distribution<double> normal;
     std::exponential_distribution<double> exponential;
 
-    void (*next_point)(complex<double>&, complex<double>&);
-
-
     bool finish;
 
     // for the synchronization and for controlling the execution
     mutex execution;
 
+    buddha_generator(mandelbrot<complex_type> &core, vector_type &raw, const settings &s,
+                     uint64_t seed);
+    ~buddha_generator();
 
-    buddha_generator( mandelbrot<complex_type>& core, vector_type& raw, const settings& s, uint64_t seed );
-    ~buddha_generator ( );
+    void gaussianMutation(complex_type &z, double radius);
+    void exponentialMutation(complex_type &z, double radius);
 
+    void drawPoint(complex_type &c, bool, bool, bool);
 
-    void gaussianMutation ( complex_type& z, double radius );
-    void exponentialMutation ( complex_type& z, double radius );
-
-    void drawPoint ( complex_type& c, bool, bool, bool );
-
-    int findPoint ( complex_type& begin, unsigned int& contribute, unsigned int& calculated );
+    int findPoint(complex_type &begin, unsigned int &contribute, unsigned int &calculated);
     void metropolis();
 
     void naive();
-	
-    void start ( );
-    void stop ( );
-	void run ( );
+
+    void start();
+    void stop();
+    void run();
 };
 
 #endif
-

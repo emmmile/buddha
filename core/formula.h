@@ -4,12 +4,11 @@
 // is actually called):
 //   original: ~180 Mpoints/s
 //   dynamic:  ~125 Mpoints/s
-// I think the difference is due to the impossibility to inline the code in the 
+// I think the difference is due to the impossibility to inline the code in the
 // dynamic case.
-
 
 #include <complex.h>
 using namespace std;
-extern "C" void foo ( complex<double>& z, complex<double>& c ) {
-  // formula goes here
+extern "C" void foo(complex<double> &z, complex<double> &c) {
+    // formula goes here
 }

@@ -7,16 +7,16 @@
 using namespace std;
 
 class settings_parser {
-	settings s;
-	vector<Option> options;
-public:
-    settings_parser( int argc, char **argv );
-    settings_parser( const string& filename );
+    settings s{};
+    vector<Option> options;
 
-    settings operator() ( );
-	void load ( const string& filename );
-	void save ( const string& filename );
+  public:
+    settings_parser(int argc, char **argv);
+    settings_parser(const string &filename);
+
+    settings operator()();
+    void load(const string &filename);
+    void save(const string &filename);
 };
-
 
 #endif // SETTINGS_PARSER_H

@@ -1,25 +1,25 @@
 #include <settings.h>
 
-void settings::indirect_settings ( ) {
+void settings::indirect_settings() {
     rangere = w / scale;
     rangeim = h / scale;
     minre = cre - rangere * 0.5;
     maxre = cre + rangere * 0.5;
     minim = cim - rangeim * 0.5;
     maxim = cim + rangeim * 0.5;
-    high = max( max( highr, highg ), highb );
-    low = min( min(lowr, lowg), lowb);
-    size = w * h / 2;
+    high = max(max(highr, highg), highb);
+    low = min(min(lowr, lowg), lowb);
+    symmetric_image = (cim == 0.0);
+    histogram_height = symmetric_image ? h / 2 + h % 2 : h;
+    size = w * histogram_height;
 
-    realLightness = (float) lightness / ( maxLightness - lightness + 1 ) * 0.5;
-    realContrast = (float) contrast / (maxContrast) * 0.7;
+    realLightness = (float)lightness / (maxLightness - lightness + 1) * 0.5;
+    realContrast = (float)contrast / (maxContrast) * 0.7;
 
-    //compile_formula();
+    // compile_formula();
 }
 
-
-
-void settings::compile_formula ( ) {
+void settings::compile_formula() {
     ofstream source("/tmp/code.cpp");
 
     source << "#include <complex>\nusing namespace std;\n"
@@ -33,15 +33,14 @@ void settings::compile_formula ( ) {
            "-shared -fPIC -std=c++23");
 
     char *error;
-    void* handle = dlopen("/tmp/code.so", RTLD_NOW);
+    void *handle = dlopen("/tmp/code.so", RTLD_NOW);
     if (!handle) {
         BOOST_LOG_TRIVIAL(fatal) << dlerror();
         exit(EXIT_FAILURE);
     }
 
-    dlerror();    // Clear any existing error
-    next_point = (void (*)(complex<double>&, complex<double>&)) 
-                 dlsym(handle, "next_point");
+    dlerror(); // Clear any existing error
+    next_point = (void (*)(complex<double> &, complex<double> &))dlsym(handle, "next_point");
 
     if ((error = dlerror()) != NULL) {
         BOOST_LOG_TRIVIAL(fatal) << error;
@@ -51,8 +50,7 @@ void settings::compile_formula ( ) {
     BOOST_LOG_TRIVIAL(debug) << "successfully loaded formula: `" << formula << "'";
 }
 
-
-void settings::dump ( ) const {
+void settings::dump() const {
     BOOST_LOG_TRIVIAL(debug) << "low: " << low << ", high " << high;
     BOOST_LOG_TRIVIAL(debug) << "cre: " << cre << ", cim " << cim;
     BOOST_LOG_TRIVIAL(debug) << "maxre: " << maxre << ", maxim " << maxim;

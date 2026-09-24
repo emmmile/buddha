@@ -4,28 +4,26 @@
 #include <thread>
 using namespace std;
 
-
 typedef complex<double> complex_type;
 std::default_random_engine generator;
-std::uniform_real_distribution<double> uniform(0,1);
+std::uniform_real_distribution<double> uniform(0, 1);
 
 volatile int finish = 0;
 
+unsigned int loop(settings &s, mandelbrot<complex_type> &core, vector<unsigned int> &border,
+                  unsigned int samples) {
+    vector<complex_type> seq;
+    seq.resize(s.high + 1);
+    unsigned int errors = 0;
+    unsigned int calculated;
 
-unsigned int loop ( settings& s, mandelbrot<complex_type>& core, vector<unsigned int>& border, unsigned int samples ) {
-	vector<complex_type> seq;
-	seq.resize(s.high + 1);
-	unsigned int errors = 0;
-	unsigned int calculated;
-
-	for ( unsigned int i = 0; i < samples && !finish; ++i ) {
-        complex_type z ( uniform(generator) * core.radius(), 
-                         uniform(generator) * core.radius() );
+    for (unsigned int i = 0; i < samples && !finish; ++i) {
+        complex_type z(uniform(generator) * core.radius(), uniform(generator) * core.radius());
 
         unsigned int j = uniform(generator) * border.size();
         seq[0] = core.point(border[j]) + z;
 
-        if (core.evaluate(seq, calculated ) == -1 && core.evaluate(seq) != -1) {
+        if (core.evaluate(seq, calculated) == -1 && core.evaluate(seq) != -1) {
             errors++;
             core.data[core.index(seq[0])] = false;
             border[j] = border.back();
@@ -36,36 +34,30 @@ unsigned int loop ( settings& s, mandelbrot<complex_type>& core, vector<unsigned
     return errors;
 }
 
-void refine ( mandelbrot<complex_type>& core, settings& s ) {
-	unsigned int total = 0;
-	unsigned int errors = 0;
+void refine(mandelbrot<complex_type> &core, settings &s) {
+    unsigned int total = 0;
+    unsigned int errors = 0;
     unsigned int samples = 100000;
 
-
-    while ( !finish ) {
-    	vector<unsigned int> border = core.border();
-    	unsigned int bordersize = border.size();
-    	errors += loop( s, core, border, samples );
-    	total += samples;
-    	BOOST_LOG_TRIVIAL(info) << errors << " errors on " << total << " samples (" 
-    							<< double(errors) / total << "%, border size " << bordersize <<")";
+    while (!finish) {
+        vector<unsigned int> border = core.border();
+        unsigned int bordersize = border.size();
+        errors += loop(s, core, border, samples);
+        total += samples;
+        BOOST_LOG_TRIVIAL(info) << errors << " errors on " << total << " samples ("
+                                << double(errors) / total << "%, border size " << bordersize << ")";
     }
 }
 
-
-
-int main ( int argc, char** argv ) {
-    settings_parser parser( argc, argv );
+int main(int argc, char **argv) {
+    settings_parser parser(argc, argv);
     settings s = parser();
-    mandelbrot<complex_type> core( s );
+    mandelbrot<complex_type> core(s);
 
-    if ( !core.load()) 
-   		core.exclusion();
-
+    if (!core.load())
+        core.exclusion();
 
     std::thread t(refine, std::ref(core), std::ref(s));
-
-
 
     // Wait for signal indicating time to shut down.
     sigset_t wait_mask;
@@ -82,7 +74,6 @@ int main ( int argc, char** argv ) {
     t.join();
 
     core.save();
-
 
     return 0;
 }
