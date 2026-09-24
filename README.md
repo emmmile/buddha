@@ -24,7 +24,8 @@ repeatable command-line jobs, including very large images on Apple Silicon.
 
 ## Build
 
-The project uses CMake, Boost, libtiff, zlib, Zstandard, and pthreads.
+The project uses CMake 3.20 or newer, a C++23 compiler, Boost, libtiff, zlib,
+Zstandard, and pthreads.
 On macOS, install the dependencies with your preferred package manager, then:
 
 ```sh
@@ -33,6 +34,19 @@ cmake --build build --parallel
 ```
 
 The resulting executable is `build/buddha++`.
+
+## Commit checks
+
+Install the repository's pre-commit hook once per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The hook runs `git diff --cached --check` for whitespace errors and requires
+`clang-format` for staged C++ files. It checks only changed C++ lines against
+`.clang-format`. The historical `legacy/` directory is excluded. Format any
+reported lines and stage them again before committing.
 
 ## Run
 

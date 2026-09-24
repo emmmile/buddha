@@ -1,11 +1,12 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
 project(buddha++ LANGUAGES CXX)
 
 # also look at
 # http://stackoverflow.com/questions/14446495/cmake-project-structure-with-unit-tests
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options(-Wall -O3 -ffast-math -march=native -funroll-loops)
 
 # LTO improves the hot orbit-generation loop on Apple Silicon.  Keep it to

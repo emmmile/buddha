@@ -22,14 +22,15 @@ void settings::indirect_settings ( ) {
 void settings::compile_formula ( ) {
     ofstream source("/tmp/code.cpp");
 
-    source << "#include <complex.h>\nusing namespace std;\n"
+    source << "#include <complex>\nusing namespace std;\n"
            << "extern \"C\" void next_point ( complex<double>& z, complex<double>& c ) {\n"
            << "  " << formula << ";\n"
            << "}" << endl;
     source.close();
 
     system("rm -f /tmp/code.so");
-    system("c++ -O3 -mtune=native -ffast-math -funroll-loops -Wall /tmp/code.cpp -o /tmp/code.so -shared -fPIC -std=c++11");
+    system("c++ -O3 -mtune=native -ffast-math -funroll-loops -Wall /tmp/code.cpp -o /tmp/code.so "
+           "-shared -fPIC -std=c++23");
 
     char *error;
     void* handle = dlopen("/tmp/code.so", RTLD_NOW);
