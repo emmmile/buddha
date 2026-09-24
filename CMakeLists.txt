@@ -37,3 +37,11 @@ target_link_libraries(exclusion PRIVATE core timer Threads::Threads ${CMAKE_DL_L
 
 add_executable(exclusion-convert exclusion_convert.cpp)
 target_link_libraries(exclusion-convert PRIVATE Boost::serialization Boost::iostreams zstd::libzstd)
+
+if(APPLE)
+    enable_language(OBJCXX)
+    add_executable(metal-orbit-benchmark metal/orbit_benchmark.mm)
+    target_compile_features(metal-orbit-benchmark PRIVATE cxx_std_17)
+    target_compile_options(metal-orbit-benchmark PRIVATE -fno-fast-math)
+    target_link_libraries(metal-orbit-benchmark PRIVATE "-framework Metal" "-framework Foundation")
+endif()
