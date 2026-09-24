@@ -51,6 +51,7 @@
 #include "mandelbrot.h"
 #include "settings.h"
 
+#include <boost/random/xoshiro.hpp>
 #ifndef BOOST_LOG_DYN_LINK
 #define BOOST_LOG_DYN_LINK
 #endif
@@ -65,7 +66,7 @@ class buddha {
     typedef uint32_t pixel;
     typedef complex<double> complex_type;
     typedef vector<atomic_wrapper<pixel>> vector_type;
-    typedef mt19937_64 random_engine;
+    typedef boost::random::xoshiro256pp random_engine;
     // typedef std::atomic_uint_fast32_t pixel;
 
     settings s;
