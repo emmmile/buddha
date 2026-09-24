@@ -68,12 +68,16 @@ void buddha_generator::drawPoint(complex_type &c, bool drawr, bool drawg, bool d
     const uint64_t x = static_cast<uint64_t>(image_x);
     const uint64_t y = static_cast<uint64_t>(image_y);
     const uint64_t i = (y * s.w + x) * 3;
+    // The unmirrored middle row covers one strip; other rows accumulate both
+    // halves of the orbit. Match their expected density before tone mapping.
+    const pixel weight =
+        s.symmetric_image && (s.h % 2 != 0) && (y + 1 == s.histogram_height) ? 2 : 1;
     if (drawr)
-        ++raw[i];
+        raw[i].add(weight);
     if (drawg)
-        ++raw[i + 1];
+        raw[i + 1].add(weight);
     if (drawb)
-        ++raw[i + 2];
+        raw[i + 2].add(weight);
 }
 
 inline void buddha_generator::gaussianMutation(complex_type &z, double radius) {

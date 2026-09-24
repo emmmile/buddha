@@ -52,11 +52,17 @@ void geometry_test() {
     require(image.raw.size() == 4 * 2 * 3, "odd-height histogram allocation");
 
     buddha::complex_type center(0.25, 0.0);
+    buddha::complex_type upper(0.25, 0.5);
+    buddha::complex_type lower_half(0.25, -0.5);
     generator.drawPoint(center, true, false, false);
-    require(image.raw[(1 * 4 + 2) * 3].load() == 1, "odd-height center row");
+    generator.drawPoint(upper, true, false, false);
+    generator.drawPoint(lower_half, true, false, false);
+    require(image.raw[(1 * 4 + 2) * 3].load() == 2, "odd-height center row weight");
+    require(image.raw[(0 * 4 + 2) * 3].load() == 2, "odd-height mirrored row weight");
 
     rgb_view<boost::gil::rgb16_pixel_t> view(&image, &image.s, {4, 3});
-    require(boost::gil::at_c<0>(view({2, 1})) > 0, "odd-height image lookup");
+    require(boost::gil::at_c<0>(view({2, 1})) == boost::gil::at_c<0>(view({2, 0})),
+            "odd-height center and mirrored rows should have equal brightness");
     write_tiff(&image, &image.s, image_path.string());
     {
         TIFF *file = TIFFOpen(image_path.c_str(), "r");
@@ -64,7 +70,7 @@ void geometry_test() {
         uint16_t row[3 * 3]{};
         for (uint32_t y = 0; y <= 2; ++y)
             require(TIFFReadScanline(file, row, y) == 1, "odd-height TIFF read");
-        require(row[3] > 0, "odd-height TIFF center row");
+        require(row[3] > 0 && row[3] == row[6], "odd-height TIFF center brightness");
         TIFFClose(file);
     }
 

@@ -21,5 +21,7 @@ template <typename T> struct atomic_wrapper {
 
     void store(T desired) { _a.store(desired, memory_order_relaxed); }
 
+    void add(T value) { _a.fetch_add(value, memory_order_relaxed); }
+
     T operator++() { return _a.fetch_add(1, memory_order_relaxed) + 1; }
 };
