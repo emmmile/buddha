@@ -64,7 +64,13 @@ public:
         });
     }
 
-    ~memory_sampler() { finish(); }
+    ~memory_sampler() {
+        // Exceptions during Metal setup still need to stop the sampling thread.
+        if (worker_.joinable()) {
+            stop_.store(true, std::memory_order_relaxed);
+            worker_.join();
+        }
+    }
 
     void finish() {
         if (!worker_.joinable()) return;
