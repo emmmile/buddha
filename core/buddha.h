@@ -23,7 +23,7 @@
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ */
 
 #ifndef BUDDHA_H
 #define BUDDHA_H
@@ -58,49 +58,41 @@
 
 using namespace std;
 
-
 struct buddha_generator;
 
 class buddha {
-
-
-    vector<buddha_generator*> generators;
-
-public:
+  public:
     typedef uint32_t pixel;
     typedef complex<double> complex_type;
     typedef vector<atomic_wrapper<pixel>> vector_type;
     typedef mt19937_64 random_engine;
-    //typedef std::atomic_uint_fast32_t pixel;  
-
-
-
-    mandelbrot<complex_type> core;
+    // typedef std::atomic_uint_fast32_t pixel;
 
     settings s;
+    mandelbrot<complex_type> core;
 
     vector_type raw;
 
-   
+  private:
+    vector<unique_ptr<buddha_generator>> generators;
+
+  public:
     unsigned long long int computed;
     double totaltime;
 
+    buddha(const settings &s);
+    ~buddha();
 
+    void clearBuffers();
 
-    buddha ( const settings& s );
-    ~buddha ( );
+    void reduce();
+    void save();
+    void load();
 
-    void clearBuffers ( );
+    void startGenerators();
+    void stopGenerators();
 
-    void reduce ( );
-    void save ( );
-    void load ( );
-
-    void startGenerators( );
-    void stopGenerators( );
-
-    void run( );
+    void run();
 };
-
 
 #endif

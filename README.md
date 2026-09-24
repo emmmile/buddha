@@ -15,7 +15,7 @@ repeatable command-line jobs, including very large images on Apple Silicon.
 
 - Multi-threaded Metropolis orbit sampling with configurable RGB iteration
   ranges.
-- Deterministic runs with `--seed`, or randomized seeds by default.
+- Independent randomized generator streams for each render session.
 - Zstd-compressed checkpoints that can safely replace the loaded checkpoint
   when a render is resumed.
 - 16-bit RGB TIFF output, including BigTIFF for images larger than 4 GiB.
@@ -50,12 +50,12 @@ reported lines and stage them again before committing.
 
 ## Run
 
-Start a render with explicit geometry, scale, output stem, and seed:
+Start a render with explicit geometry, scale, and output stem:
 
 ```sh
 ./build/buddha++ \
   --width 8192 --height 8192 --scale 2048 \
-  --threads 10 --seed 42 --out render
+  --threads 10 --out render
 ```
 
 Press `Ctrl-C` to stop the generators and save `render.zst`; unless
@@ -74,6 +74,16 @@ To resume a checkpoint, use the same image geometry and rendering parameters:
 When `--out` is omitted on a resumed render, the checkpoint stem is reused and
 the completed checkpoint atomically replaces the previous one. Supplying a
 different `--out` creates a new checkpoint instead.
+
+New checkpoints record image geometry and iteration ranges and refuse to load
+with different rendering settings. Checkpoints written by older versions lack
+this metadata. After verifying their settings yourself, pass
+`--allow-legacy-checkpoint` once to load and rewrite one in the new format.
+Legacy checkpoints can only be imported for even-height windows centered on
+the real axis, which retain the old histogram layout.
+
+Windows centered on the real axis use a mirrored histogram to save memory.
+An off-axis window (`--cim` other than zero) uses a full-height histogram.
 
 ## Historical Qt GUI
 

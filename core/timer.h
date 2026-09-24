@@ -8,9 +8,7 @@ struct timer {
 
     timer() : start(clock::now()) {}
 
-    double elapsed() const {
-        return std::chrono::duration<double>(clock::now() - start).count();
-    }
+    double elapsed() const { return std::chrono::duration<double>(clock::now() - start).count(); }
 
     double restart() {
         const auto end = clock::now();
@@ -19,7 +17,7 @@ struct timer {
         return seconds;
     }
 
-private:
+  private:
     clock::time_point start;
 };
 
