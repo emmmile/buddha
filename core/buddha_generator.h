@@ -30,6 +30,7 @@
 
 #include "buddha.h"
 #include "mandelbrot.h"
+#include <limits>
 using namespace std;
 
 #ifndef M_PI
@@ -76,7 +77,8 @@ struct buddha_generator {
     void drawPoint(complex_type &c, bool, bool, bool);
 
     int findPoint(complex_type &begin, unsigned int &contribute, unsigned int &calculated);
-    void metropolis();
+    // A finite limit lets benchmarks run a bounded, reproducible chain segment.
+    void metropolis(unsigned int proposal_limit = std::numeric_limits<unsigned int>::max());
 
     void naive();
 

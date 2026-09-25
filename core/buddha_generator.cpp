@@ -125,7 +125,7 @@ int buddha_generator::findPoint(complex_type &begin, unsigned int &contribute,
 // the metropolis algorithm. I don't know very much about the teory under this optimization but I
 // think is implemented quite well.. Maybe a better method for the transition probability can be
 // found but I don't know.
-void buddha_generator::metropolis() {
+void buddha_generator::metropolis(unsigned int proposal_limit) {
     complex_type begin(0.0, 0.0);
     unsigned int calculated, selectedOrbitCount = 0, proposedOrbitCount = 0;
     int selectedOrbitMax = 0, proposedOrbitMax = 0, j;
@@ -146,7 +146,9 @@ void buddha_generator::metropolis() {
     // space is not sampled well. I tried values between 512 and 8192 and they works well. Over
     // 80000 it becames strange. Now i'm using something proportional on "how much the point is
     // important".. For example how long the sequence is and how many points falls on the window.
-    for (j = 0; j < max((int)selectedOrbitCount * 256, selectedOrbitMax * 2); j++) {
+    for (j = 0; j < max((int)selectedOrbitCount * 256, selectedOrbitMax * 2) &&
+                static_cast<unsigned int>(j) < proposal_limit;
+         j++) {
         begin = ok;
         // the radius of the mutations influences a lot the quality of the rendering AND the speed.
         // I think that choose a random radius is the best way otherwise I noticed some geometric
@@ -160,6 +162,8 @@ void buddha_generator::metropolis() {
         // calculate the new sequence
         ++proposals;
         proposedOrbitMax = core.evaluate(seq, proposedOrbitCount, calculated);
+        // Count every evaluation, including periodic and out-of-window proposals.
+        computed += calculated;
 
         // the sequence is periodic, I try another mutation
         if (proposedOrbitMax <= 0)
@@ -180,8 +184,6 @@ void buddha_generator::metropolis() {
             selectedOrbitMax = proposedOrbitMax;
             ++accepted;
         }
-
-        computed += calculated;
 
         // draw the points
         lock_guard<mutex> locker(execution);

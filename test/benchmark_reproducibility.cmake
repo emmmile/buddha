@@ -1,0 +1,50 @@
+function(signature output seed)
+    execute_process(COMMAND "${BENCHMARK}" --chains 4 --samples 64 --rounds 1
+                    --proposal-limit 128 --repeats 1 --width 32 --height 32 --scale 8
+                    --seed ${seed} ${ARGN}
+                    RESULT_VARIABLE status OUTPUT_VARIABLE result ERROR_VARIABLE error)
+    if(NOT status EQUAL 0)
+        message(FATAL_ERROR "Benchmark failed: ${error}\n${result}")
+    endif()
+    string(REGEX MATCH "warmup [^\n]+" value "${result}")
+    if(NOT value)
+        message(FATAL_ERROR "Benchmark did not report a work signature")
+    endif()
+    set(${output} "${value}" PARENT_SCOPE)
+endfunction()
+
+foreach(mode orbit histogram generator)
+    signature(serial 17 --mode ${mode} --threads 1)
+    signature(parallel 17 --mode ${mode} --threads 3)
+    if(NOT serial STREQUAL parallel)
+        message(FATAL_ERROR "${mode} work changed with thread count:\n${serial}\n${parallel}")
+    endif()
+endforeach()
+signature(different_seed 19 --mode generator --threads 1)
+if(serial STREQUAL different_seed)
+    message(FATAL_ERROR "Changing the benchmark seed did not change the generator workload")
+endif()
+signature(production 17 --mode orbit --kernel production)
+signature(reference 17 --mode orbit --kernel reference)
+if(NOT production STREQUAL reference)
+    message(FATAL_ERROR "Production orbit result differs from reference")
+endif()
+
+foreach(scale 0 -1 nan inf)
+    execute_process(COMMAND "${BENCHMARK}" --scale ${scale} RESULT_VARIABLE status
+                    OUTPUT_QUIET ERROR_QUIET)
+    if(status EQUAL 0)
+        message(FATAL_ERROR "Benchmark accepted invalid scale ${scale}")
+    endif()
+endforeach()
+
+execute_process(COMMAND "${RENDERER}" --help RESULT_VARIABLE status OUTPUT_VARIABLE help)
+if(NOT status EQUAL 0 OR help MATCHES "--seed")
+    message(FATAL_ERROR "Renderer help failed or exposes a seed option")
+endif()
+
+execute_process(COMMAND "${BENCHMARK}" --threads 0 RESULT_VARIABLE status
+                OUTPUT_QUIET ERROR_QUIET)
+if(status EQUAL 0)
+    message(FATAL_ERROR "Benchmark accepted a zero thread count")
+endif()

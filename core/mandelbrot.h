@@ -231,6 +231,7 @@ template <class C> struct mandelbrot : public mandelbrot_base<C> {
 
     int evaluate(vector<C> &seq, unsigned int &contribute, unsigned int &calculated) const {
         if (excluded(seq[0])) {
+            contribute = 0;
             calculated = 0;
             return -1;
         }

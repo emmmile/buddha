@@ -33,9 +33,29 @@ target_link_libraries(buddha++ PRIVATE core Threads::Threads ${CMAKE_DL_LIBS})
 add_executable(exclusion exclusion.cpp)
 target_link_libraries(exclusion PRIVATE core Threads::Threads ${CMAKE_DL_LIBS})
 
+add_executable(buddha-benchmark test/benchmark.cpp)
+target_link_libraries(buddha-benchmark PRIVATE core)
+# Keep the frozen complex-arithmetic reference from acquiring fused operations
+# when instantiated outside the renderer. The optimized loop also avoids fusion.
+target_compile_options(buddha-benchmark PRIVATE -ffp-contract=off)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(buddha-benchmark PRIVATE -Wno-overriding-option)
+endif()
+
 include(CTest)
 if(BUILD_TESTING)
     add_executable(render-regression test/render_regression.cpp)
     target_link_libraries(render-regression PRIVATE core)
     add_test(NAME render-regression COMMAND render-regression)
+    add_executable(orbit-regression test/orbit_regression.cpp)
+    target_link_libraries(orbit-regression PRIVATE core)
+    target_compile_options(orbit-regression PRIVATE -ffp-contract=off)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(orbit-regression PRIVATE -Wno-overriding-option)
+    endif()
+    add_test(NAME orbit-regression COMMAND orbit-regression)
+    add_test(NAME benchmark-reproducibility
+        COMMAND ${CMAKE_COMMAND} -DBENCHMARK=$<TARGET_FILE:buddha-benchmark>
+                -DRENDERER=$<TARGET_FILE:buddha++>
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/test/benchmark_reproducibility.cmake)
 endif()
