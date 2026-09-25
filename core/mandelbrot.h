@@ -2,6 +2,7 @@
 #define MANDELBROT_H
 
 #include <random>
+#include <boost/random/xoshiro.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
@@ -66,7 +67,7 @@ template <class C> struct mandelbrot : public mandelbrot_base<C> {
     void refine_range(const vector<uint8_t> &initial, size_t beg, size_t end, size_t worker_id) {
         vector<C> seq(this->s.high + 1);
         std::random_device random;
-        std::mt19937_64 generator((uint64_t(random()) << 32) ^ random() ^ worker_id);
+        boost::random::xoshiro256pp generator((uint64_t(random()) << 32) ^ random() ^ worker_id);
         std::uniform_real_distribution<double> uniform(0, 4.0 / size);
         unsigned int refined = 0;
         for (size_t i = beg; i < end; ++i) {
@@ -78,7 +79,8 @@ template <class C> struct mandelbrot : public mandelbrot_base<C> {
         BOOST_LOG_TRIVIAL(debug) << "refined " << refined << " border points";
     }
 
-    void refine(vector<C> &seq, size_t i, unsigned int &refined, std::mt19937_64 &generator,
+    void refine(vector<C> &seq, size_t i, unsigned int &refined,
+                boost::random::xoshiro256pp &generator,
                 std::uniform_real_distribution<double> &uniform) {
         unsigned int samples = 64;
         for (unsigned int j = 0; j < samples; j++) {

@@ -19,7 +19,7 @@ else()
     message(STATUS "Release LTO unavailable: ${BUDDHA_IPO_ERROR}")
 endif()
 
-find_package(Boost REQUIRED COMPONENTS program_options log log_setup serialization iostreams filesystem)
+find_package(Boost 1.88 REQUIRED COMPONENTS program_options log log_setup serialization iostreams filesystem)
 find_package(TIFF REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(zstd CONFIG REQUIRED)
