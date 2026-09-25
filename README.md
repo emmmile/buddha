@@ -35,6 +35,22 @@ cmake --build build --parallel
 
 The resulting executable is `build/buddha++`.
 
+## Performance benchmarks
+
+`buddha-benchmark` is a separate fixed-work benchmark target. Its `--seed`
+option controls repeatable benchmark streams; the renderer continues to use
+randomized streams and has no seed option.
+
+```sh
+cmake --build build --target buddha-benchmark --parallel
+./build/buddha-benchmark --mode orbit --seed 1
+./build/buddha-benchmark --mode generator --seed 1 --threads 8
+ctest --test-dir build --output-on-failure
+```
+
+See [the performance guide](docs/PERFORMANCE.md) for reference comparisons,
+histogram replay, thread scaling, measurement boundaries, and results.
+
 ## Commit checks
 
 Install the repository's pre-commit hook once per clone:

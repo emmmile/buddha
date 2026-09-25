@@ -87,25 +87,28 @@ class mandelbrot_base {
         return -1;
     }
 
-    // this is the main function. Here little modifications impacts a lot on the speed of the
-    // program!
+    // Keep the recurrence in scalar registers and reuse the squares for the
+    // escape test and next real coordinate.
     inline int evaluate(vector<C> &seq, unsigned int &contribute, unsigned int &calculated) const {
+#if defined(__clang__)
+        // Match the separate multiply/add emitted for the original renderer.
+        // Fusing them changes rounding and can alter an entire seeded chain.
+#pragma clang fp contract(off)
+#endif
         unsigned int criticalStep = 8;
         unsigned int critical = criticalStep;
+        const double cr = seq[0].real(), ci = seq[0].imag();
+        double re = cr, im = ci;
         contribute = 0;
 
         for (unsigned int i = 0; i < s.high; ++i) {
-            // cout << i << " " << seq[i] << endl;
-            // getchar();
-
-            // this checks if the seq[i] point is inside the screen
             if (inside(seq[i]))
                 ++contribute;
 
-            // test the stop condition and eventually continue a little bit
-            if (norm(seq[i]) > 8.0) {
+            const double rr = re * re, ii = im * im;
+            if (rr + ii > 8.0) {
                 calculated = i;
-                return i - 1;
+                return static_cast<int>(i) - 1;
             }
 
             if (cyclic(seq, i, critical, criticalStep)) {
@@ -113,8 +116,10 @@ class mandelbrot_base {
                 return -1;
             }
 
-            // next_point( seq[i], begin );
-            seq[i + 1] = seq[i] * seq[i] + seq[0];
+            const double next_im = (re * im + im * re) + ci;
+            re = (rr - ii) + cr;
+            im = next_im;
+            seq[i + 1] = C(re, im);
         }
 
         calculated = s.high;
