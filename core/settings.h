@@ -10,6 +10,8 @@
 #define BOOST_LOG_DYN_LINK
 #endif
 #include <boost/log/trivial.hpp>
+
+#include "buddha_kernel.h"
 using namespace std;
 
 typedef unsigned char uchar;
@@ -61,6 +63,19 @@ struct settings {
     void indirect_settings();
     void compile_formula();
     void dump() const;
+
+    // Histogram window, as drawn by both renderers.
+    buddha_kernel::geometry<double> histogram_geometry() const {
+        buddha_kernel::geometry<double> g;
+        g.minre = minre;
+        g.maxim = maxim;
+        g.scale = scale;
+        g.width = uint32_t(w);
+        g.height = uint32_t(histogram_height);
+        g.symmetric = symmetric_image;
+        g.odd_center = symmetric_image && h % 2 != 0;
+        return g;
+    }
 };
 
 #endif

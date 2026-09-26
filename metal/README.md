@@ -6,11 +6,9 @@ macOS.
 
 ## buddha-metal
 
-`buddha-metal` renders a naive Buddhabrot on the GPU: starting points `c` are
-sampled uniformly over `[-2, 2]²`, points inside the exclusion map are
-skipped, and every escaping orbit is drawn with the renderer's colour ranges.
-It uses `buddha++`'s option parser, exclusion map, checkpoint format and TIFF
-writer, so the command line is the same:
+`buddha-metal` is `buddha++` with a GPU generator. Options, exclusion map,
+checkpoints and TIFF output all go through the same `buddha` object, so the
+command line and files are the same:
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -19,41 +17,82 @@ cmake --build build --target buddha-metal --parallel
 ./build/buddha-metal --width 8192 --height 8192 --scale 2048 --load render.zst   # resume
 ```
 
-Press `Ctrl-C` (or send `SIGTERM`) to stop and save. If the exclusion map
-file does not exist it is generated with the renderer's code and saved; an
-existing file that cannot be loaded (for example another `--exclusion-size`)
-is never overwritten. `--threads` sets only the checkpoint compression
-threads.
+Press `Ctrl-C` (or send `SIGTERM`) to stop and save. The exclusion map is
+loaded exactly as `buddha++` loads it (create one with the `exclusion` tool);
+`--threads` sets only the checkpoint compression threads.
 
 How it differs from `buddha++`:
 
-- **Sampler.** Uniform sampling, not Metropolis chains, so the image looks
-  different (short orbits weigh more), and zoomed-in views waste most samples
-  on orbits that never reach the window. Checkpoints validate geometry and
-  iteration ranges, not the sampler: do not mix `buddha++` and `buddha-metal`
-  checkpoints.
-- **Precision.** Apple GPUs have no hardware double precision, so orbits,
-  periodicity checks and pixel mapping use `float`. At full view this is
-  visually identical to double (see the benchmark below); deep zooms are
-  untested.
+- **Sampler.** Starting points are sampled uniformly over `[-2, 2]²` (naive
+  Buddhabrot), not with Metropolis chains, so the image looks different
+  (short orbits weigh more). Like any naive sampler, zoomed-in views waste
+  most samples on orbits that never reach the window, which is what Metropolis
+  was added for. Checkpoints validate geometry and iteration ranges, not the
+  sampler: do not mix `buddha++` and `buddha-metal` checkpoints.
+- **Precision.** Apple GPUs have no hardware double precision, so orbits use
+  `float`. At full view this is visually identical to double (see the
+  benchmark below); deep zooms are untested.
 - **Formula.** Only `z = z * z + c`.
-- **Memory.** The histogram lives in a shared Metal buffer and is copied into
-  the renderer's histogram to save, so it needs about twice the histogram size
-  in memory (768 MiB at 8192²). Indices are 32-bit, which allows up to about
-  53,500² for windows on the real axis (mirrored histogram) or 37,800²
-  off-axis.
+- **Size.** Histogram indices are 32-bit: up to about 53,500² for windows on
+  the real axis (mirrored histogram) or 37,800² off-axis.
 
-The kernel is in `render_kernel.h` and its host side in
-`persistent_renderer.h`. Each dispatch uses a fresh random key: sample `n`
-takes `c = (hash(2n ^ key0), hash(2n + 1 ^ key1))`. Pass 1 applies the
-renderer's escape and periodicity rules; orbits are not stored, so pass 2
-re-iterates escaping orbits to draw points `low..orbitMax` with atomic adds,
-using the same mapping and odd-height centre-row weight as
-`buddha_generator::drawPoint`. It runs as persistent threads (see below).
+The GPU renders straight into the renderer's histogram. `buddha::raw` is
+allocated in whole, page-aligned pages (`core/page_allocator.h`), which lets
+Metal wrap that memory without a copy (`newBufferWithBytesNoCopy`); on Apple
+silicon CPU and GPU share it. Loading a checkpoint, rendering and saving all
+use the one histogram, so memory use matches `buddha++` (706 MB peak versus
+655 MB for `buddha++` at 8192², including TIFF output and the Metal runtime).
 
-On an M5 Pro, a 30-second 8192² render filled the histogram at 1.5 G points/s
-(936 M samples/s), compared with about 0.35 G points/s for the CPU renderer
-path in the benchmark.
+## Shared kernel
+
+`core/buddha_kernel.h` compiles as both C++ and Metal Shading Language. It
+holds the rendering rules, used by `buddha++` too (`mandelbrot_base`,
+`mandelbrot::excluded`, `buddha_generator::drawPoint`):
+
+- the escape test and the periodicity schedule;
+- the exclusion-map cell and lookup;
+- pixel mapping, mirroring and the odd-height centre-row weight;
+- colour-channel iteration ranges;
+
+and the naive sampler: kernel parameters, the counter-based random stream, and
+the sampling lane. The build inlines the header into `metal/render.metal` and
+embeds the result, which Metal compiles at run time (Xcode is not needed); the
+combined source is also written to `build/generated/buddha.metal`.
+
+The lane is a state machine that advances one orbit step per call. GPUs run
+32-thread SIMD groups in lockstep, so a kernel that gives each thread one
+sample makes every group wait for its longest orbit. Each GPU thread instead
+runs one lane over many samples and loads its next starting point as soon as
+an orbit ends. Pass 1 applies the escape and periodicity rules; orbits are not
+stored on the GPU, so pass 2 re-iterates escaping orbits to draw steps
+`low..orbitMax`, as the CPU renderer draws a stored orbit. Each dispatch uses
+a fresh random key.
+
+Shared arithmetic rounds every operation separately (`BUDDHA_EXACT`, and
+`#pragma clang fp contract(off)` in `render.metal`), whatever the including
+code's flags. The lane's two passes then follow the same orbit, and the CPU
+and GPU compute bit-identical results. The CPU renderer keeps its own
+`std::complex` recurrence and stored orbit.
+
+Two tests catch drift, and CI runs both (`.github/workflows/ci.yml`):
+
+- `kernel-consistency` runs identical samples through `buddha++`'s own loop
+  and `drawPoint` and through the shared lane in double precision, and
+  requires identical classifications, step counts and histograms. It also
+  checks that the three `mandelbrot_base::evaluate` overloads agree.
+- `metal-consistency` runs the lane in float on the CPU and the Metal kernel
+  on the GPU, and requires identical counters and histograms. It reports
+  itself skipped without a Metal device; CI then still compiles the Metal
+  source ahead of time.
+
+Refactoring `buddha++` onto the shared rules does not change what it
+computes: built with strict IEEE arithmetic, the old and new code give
+identical Metropolis chains, naive orbits, exclusion lookups and maps. With
+the project's `-ffast-math`, the compiler may round differently than before,
+so a chain can diverge from an older binary's after a last-bit difference.
+Renders are randomly seeded, so no two runs matched anyway. On an M5 Pro the
+single-thread Metropolis loop got about 30% faster (77 versus 59 M steps/s),
+probably because the periodicity checkpoint now stays in registers.
 
 ## Orbit-only benchmark
 
@@ -99,22 +138,20 @@ Metropolis) Buddhabrot workload: the renderer's exclusion map, its periodicity
 check, and RGB histogram writes into a full-size histogram. Every
 implementation evaluates the same counter-hashed sample points:
 
-- **CPU double (renderer path)** uses the renderer's own code: `mandelbrot`
-  exclusion lookup, the double-precision periodicity loop into a stored orbit,
-  and `buddha_generator::drawPoint` into the shared atomic histogram. It is
-  built with the project flags, like `buddha++`.
-- **CPU float (GPU algorithm)** runs the Metal kernel's algorithm on the CPU,
-  for a like-for-like hardware comparison.
-- **Metal float** cannot store an orbit per thread, so pass 1 tests escape and
-  periodicity and pass 2 re-iterates escaping orbits to draw them with device
-  atomics. Apple GPUs have no hardware double precision.
+- **CPU double (renderer code)** uses the renderer's own code: `mandelbrot`
+  exclusion lookup, the double-precision loop into a stored orbit, and
+  `buddha_generator::drawPoint` into the shared atomic histogram. It is built
+  with the project flags, like `buddha++`.
+- **CPU float (shared lane)** runs the shared lane on CPU threads, for a
+  like-for-like hardware comparison.
+- **Metal float** is the kernel `buddha-metal` renders with.
 
 ```sh
 cmake --build build-metal --target metal-render-benchmark --parallel
 ./build-metal/metal-render-benchmark --samples 1000000000 --exclusion-map exclusion.map
 ```
 
-A missing map is generated with the renderer's code and saved to that path;
+Unlike the renderers, the benchmark generates a missing map and saves it;
 `--exclusion-map none` disables it. Defaults match the renderer's colour
 ranges (red 512–8192, green 128–2048, blue 32–512) at 8192×8192, scale 2048.
 Histograms are compared per bin and on 16×16 pixel blocks; per-bin differences
@@ -122,18 +159,28 @@ are expected because long orbits are chaotic in either precision.
 
 ### Results
 
-Apple M5 Pro, 15 CPU threads, 1e9 samples, 4096 exclusion map, two runs
-agreeing within 2%:
+Apple M5 Pro, 15 CPU threads, 1e9 samples, 4096 exclusion map:
 
 | Path | Time | Samples/s | Histogram increments/s |
 | --- | ---: | ---: | ---: |
-| CPU double (renderer path) | 4.60 s | 217 M | 349 M |
-| CPU float (GPU algorithm) | 4.59 s | 218 M | 350 M |
-| Metal float, one sample per thread | 2.49 s | 402 M | 646 M |
-| Metal float, persistent threads | **1.07 s** | 936 M | 1,502 M |
+| CPU double (renderer code) | 4.72 s | 212 M | 340 M |
+| CPU float (shared lane) | 4.83 s | 207 M | 333 M |
+| Metal float | **1.12 s** | 892 M | 1,434 M |
 
-All images agree on 16×16 blocks (correlation 0.99993, under 1% relative L1),
-so float precision does not visibly change a naive render at this scale.
+The CPU float and Metal histograms are bit-identical. The double and float
+images agree on 16×16 blocks (correlation 0.99993, under 1% relative L1), so
+float precision does not visibly change a naive render at this scale;
+individual bins differ because long orbits are chaotic in either precision.
+
+The measurements below were taken while developing the kernel, before exact
+rounding (which costs the GPU about 3%) and with an earlier one-sample-per-
+thread kernel that is no longer built:
+
+| Path | Time |
+| --- | ---: |
+| CPU double (renderer code) | 4.60 s |
+| Metal float, one sample per thread | 2.49 s |
+| Metal float, persistent threads | 1.07 s |
 
 #### Why one sample per thread is slow
 
@@ -152,13 +199,9 @@ divergence, not atomics, limits that kernel.
 
 #### Persistent threads
 
-`render_persistent` gives each thread many samples. It runs as a state machine
-advancing one orbit step per loop iteration: a lane whose orbit escapes or
-turns periodic loads its next sample in the same iteration, and a lane in the
-redraw pass keeps drawing. Divergence is limited to the short load and draw
-branches.
-
-The thread count matters (`--gpu-threads`, `--persistent-batch`; 1e9 samples):
+With persistent lanes (see [Shared kernel](#shared-kernel)), divergence is
+limited to the short load and draw branches. The thread count matters
+(`--gpu-threads`, `--batch`; 1e9 samples):
 
 | Threads | 2^26 samples/dispatch | 2^28 samples/dispatch |
 | ---: | ---: | ---: |
@@ -171,6 +214,6 @@ It is flat between about 24k and 64k threads with large batches, so the
 defaults are 32,768 threads and 2^28 samples per dispatch. Large batches
 shrink each dispatch's tail, when lanes wait for the last long orbits. Using
 fewer threads than the GPU could hold also helped, probably from longer
-refill runs per thread and less histogram contention. Both kernels still spend
+refill runs per thread and less histogram contention. The kernel still spends
 extra steps re-iterating escaping orbits (about half as many again as pass 1)
 because orbits are not stored on the GPU.

@@ -123,8 +123,7 @@ template <class C> struct mandelbrot : public mandelbrot_base<C> {
     }
 
     inline void index(const C &c, int &x, int &y) const {
-        x = c.real() * size / 4.0 + size / 2.0;
-        y = -fabs(c.imag()) * size / 4.0 + size / 2.0;
+        buddha_kernel::exclusion_cell(c.real(), c.imag(), uint32_t(size), x, y);
     }
 
     C point(size_t i) const {
@@ -205,14 +204,9 @@ template <class C> struct mandelbrot : public mandelbrot_base<C> {
                                  << " s";
     }
 
+    // Shared with buddha-metal (buddha_kernel.h).
     inline bool excluded(const C &c) const {
-        int x, y;
-        index(c, x, y);
-        ;
-        if (x < 0 || x >= int(size) || y < 0 || y >= int(size / 2))
-            return false;
-
-        return data[index(x, y)];
+        return buddha_kernel::excluded(c.real(), c.imag(), uint32_t(size), data);
     }
 
     int evaluate(vector<C> &seq) const {

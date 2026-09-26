@@ -6,6 +6,7 @@
 #include <thread>
 #include <iostream>
 
+#include "buddha_kernel.h"
 #include "settings.h"
 using namespace std;
 
@@ -20,40 +21,21 @@ class mandelbrot_base {
                 (s.symmetric_image && -c.imag() <= s.maxim && -c.imag() >= s.minim));
     }
 
-    inline bool cyclic(const vector<C> &seq, const unsigned int &i, unsigned int &critical,
-                       unsigned int &criticalStep) const {
-        if (i > criticalStep) {
-            // compute the distance from the critical point
-            double distance = norm(seq[i] - seq[critical]);
-
-            // if I found that two calculated points are very very close I conclude that
-            // they are the same point, so the sequence is periodic so we are computing a point
-            // in the mandelbrot, so I stop the calculation
-            if (distance < FLT_EPSILON * FLT_EPSILON) { // maybe also DBL_EPSILON is sufficient
-                return true;
-            }
-
-            // I don't do this step at every iteration to be more fast, I found that a very good
-            // compromise is to use a multiplicative distance between each checkpoint
-            if (i == criticalStep * 2) {
-                criticalStep *= 2;
-                critical = i;
-            }
-        }
-
-        return false;
-    }
+    // Escape and periodicity rules are shared with buddha-metal (buddha_kernel.h). Each evaluate
+    // returns the last orbit index before escape, or -1 for periodic and capped orbits.
+    typedef typename C::value_type real_type;
+    typedef buddha_kernel::periodicity<real_type> periodicity;
 
     inline int evaluate(vector<C> &seq) const {
-        unsigned int criticalStep = 8;
-        unsigned int critical = criticalStep;
+        periodicity period;
+        period.reset();
 
         for (unsigned int i = 0; i < s.high; ++i) {
             // test the stop condition and eventually continue a little bit
-            if (norm(seq[i]) > 8.0)
+            if (buddha_kernel::escaped(norm(seq[i])))
                 return i - 1;
 
-            if (cyclic(seq, i, critical, criticalStep))
+            if (period.cyclic(seq[i].real(), seq[i].imag(), i))
                 return -1;
 
             // next_point( seq[i], begin );
@@ -64,17 +46,17 @@ class mandelbrot_base {
     }
 
     inline int evaluate(vector<C> &seq, unsigned int &calculated) const {
-        unsigned int criticalStep = 8;
-        unsigned int critical = criticalStep;
+        periodicity period;
+        period.reset();
 
         for (unsigned int i = 0; i < s.high; ++i) {
             // test the stop condition and eventually continue a little bit
-            if (norm(seq[i]) > 8.0) {
+            if (buddha_kernel::escaped(norm(seq[i]))) {
                 calculated = i;
                 return i - 1;
             }
 
-            if (cyclic(seq, i, critical, criticalStep)) {
+            if (period.cyclic(seq[i].real(), seq[i].imag(), i)) {
                 calculated = i;
                 return -1;
             }
@@ -90,8 +72,8 @@ class mandelbrot_base {
     // this is the main function. Here little modifications impacts a lot on the speed of the
     // program!
     inline int evaluate(vector<C> &seq, unsigned int &contribute, unsigned int &calculated) const {
-        unsigned int criticalStep = 8;
-        unsigned int critical = criticalStep;
+        periodicity period;
+        period.reset();
         contribute = 0;
 
         for (unsigned int i = 0; i < s.high; ++i) {
@@ -103,12 +85,12 @@ class mandelbrot_base {
                 ++contribute;
 
             // test the stop condition and eventually continue a little bit
-            if (norm(seq[i]) > 8.0) {
+            if (buddha_kernel::escaped(norm(seq[i]))) {
                 calculated = i;
                 return i - 1;
             }
 
-            if (cyclic(seq, i, critical, criticalStep)) {
+            if (period.cyclic(seq[i].real(), seq[i].imag(), i)) {
                 calculated = i;
                 return -1;
             }

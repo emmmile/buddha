@@ -1,8 +1,9 @@
 // buddha-metal: Apple-silicon GPU renderer using naive (uniform) sampling.
 //
-// It accepts the same options as buddha++ and reuses its exclusion map, checkpoint format and
-// TIFF output, but samples starting points uniformly over [-2, 2]^2 instead of running
-// Metropolis chains, in single precision. See metal/README.md.
+// It is buddha++ with a different generator: options, exclusion map, checkpoints and TIFF output
+// all go through the same buddha object, and the GPU renders straight into its histogram.
+// Starting points are sampled uniformly over [-2, 2]^2 in single precision instead of running
+// Metropolis chains. See metal/README.md.
 
 #include "persistent_renderer.h"
 
@@ -10,7 +11,6 @@
 #include "settings_parser.h"
 #include "timer.h"
 
-#include <algorithm>
 #include <atomic>
 #include <csignal>
 #include <deque>
@@ -21,28 +21,6 @@
 namespace {
 
 using buddha_metal::persistent_renderer;
-
-// A valid map always excludes some interior points; an all-zero map means none was loaded.
-bool map_loaded(const mandelbrot<buddha::complex_type> &core) {
-    return std::any_of(core.data.begin(), core.data.end(), [](uint8_t v) { return v != 0; });
-}
-
-void ensure_exclusion_map(buddha &b) {
-    if (b.s.exclusion.empty() || map_loaded(b.core))
-        return;
-    const bool exists = boost::filesystem::exists(b.s.exclusion);
-    BOOST_LOG_TRIVIAL(info) << "generating " << b.s.exclusion_size << "x" << b.s.exclusion_size
-                            << " exclusion map";
-    timer time;
-    b.core.exclusion();
-    BOOST_LOG_TRIVIAL(info) << "generated exclusion map in " << time.elapsed() << " s";
-    // Never overwrite an existing file, e.g. a map saved with another size.
-    if (!exists)
-        b.core.save();
-    else
-        BOOST_LOG_TRIVIAL(warning)
-            << "'" << b.s.exclusion << "' could not be loaded; using the generated map unsaved";
-}
 
 // Joins the signal waiter on every exit path; if no signal arrived yet, wakes it with one.
 struct waiter_guard {
@@ -71,29 +49,21 @@ int main(int argc, char **argv) {
             sigaddset(&shutdown, SIGTERM);
             pthread_sigmask(SIG_BLOCK, &shutdown, nullptr);
 
+            // Loads the exclusion map and a --load checkpoint exactly as buddha++ does.
             settings_parser parser(argc, argv);
             buddha b(parser());
-            const settings &s = b.s;
+            buddha_metal::check_histogram_layout<buddha::vector_type>();
             if (b.raw.size() > UINT32_MAX)
                 throw std::runtime_error("histogram too large for the Metal kernel's 32-bit "
                                          "indices; reduce the image size");
-            ensure_exclusion_map(b);
 
             id<MTLDevice> device = buddha_metal::default_device();
-            if (b.raw.size() * sizeof(uint32_t) > device.maxBufferLength)
-                throw std::runtime_error("histogram exceeds the Metal device's maximum buffer "
-                                         "length");
-            persistent_renderer gpu(device, buddha_metal::make_parameters(s), b.core.data.data(),
-                                    b.core.data.size(), b.raw.size());
+            persistent_renderer gpu(device, buddha_metal::make_parameters(b.s), b.core.data.data(),
+                                    b.core.data.size(), b.raw.data(),
+                                    buddha_metal::histogram_bytes(b.raw));
             BOOST_LOG_TRIVIAL(info)
                 << "buddha-metal: naive float sampling on " << device.name.UTF8String << ", "
-                << gpu.threads() << " GPU threads, " << (gpu.bins() * sizeof(uint32_t) >> 20)
-                << " MiB histogram";
-
-            // Continue a loaded checkpoint.
-            uint32_t *histogram = gpu.histogram();
-            for (uint64_t i = 0; i < b.raw.size(); ++i)
-                histogram[i] = b.raw[i].load();
+                << gpu.threads() << " GPU threads";
 
             std::atomic<bool> stop{false};
             std::thread waiter([&] {
@@ -105,7 +75,7 @@ int main(int argc, char **argv) {
             waiter_guard guard{waiter, stop};
 
             // Each dispatch draws a fresh random stream; keep two queued so the GPU never idles
-            // between them.
+            // between them. The CPU does not touch the histogram until they have completed.
             std::random_device random;
             std::deque<id<MTLCommandBuffer>> in_flight;
             uint64_t samples = 0;
@@ -123,10 +93,7 @@ int main(int argc, char **argv) {
                 persistent_renderer::wait(command);
             b.totaltime = time.elapsed();
 
-            for (uint64_t i = 0; i < b.raw.size(); ++i)
-                b.raw[i].store(histogram[i]);
-
-            const buddha_metal::thread_totals t = gpu.totals();
+            const buddha_kernel::totals t = gpu.sum();
             b.computed = t.iterations;
             BOOST_LOG_TRIVIAL(info)
                 << "samples: " << samples << " (" << samples / b.totaltime / 1e6

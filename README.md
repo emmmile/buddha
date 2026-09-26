@@ -96,12 +96,13 @@ the same options and writes the same checkpoints and TIFF images:
 
 It is a different sampler, not a GPU port of `buddha++`: starting points are
 sampled uniformly over `[-2, 2]²` (naive Buddhabrot) in single precision,
-without the Metropolis chains. The exclusion map is generated and saved
-automatically if missing. At 8192² it fills the histogram about four times
-faster than the CPU renderer on an M5 Pro, but the images look different, and
-naive sampling wastes most samples on zoomed-in views. Do not continue a
-`buddha++` checkpoint with `buddha-metal` or the other way round: the
-checkpoint validates geometry, not the sampler. See
+without the Metropolis chains. The rendering rules live in
+`core/buddha_kernel.h`, shared by both renderers and checked by
+`kernel-consistency` and `metal-consistency`. At 8192² it fills the histogram
+about four times faster than the CPU renderer on an M5 Pro, but the images
+look different, and naive sampling wastes most samples on zoomed-in views. Do
+not continue a `buddha++` checkpoint with `buddha-metal` or the other way
+round: the checkpoint validates geometry, not the sampler. See
 [metal/README.md](metal/README.md) for details and benchmarks.
 
 ## Historical Qt GUI
