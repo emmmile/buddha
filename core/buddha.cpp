@@ -297,10 +297,11 @@ void buddha::reduce() {
                                 << format_points(total / totaltime) << "/s)";
     else
         BOOST_LOG_TRIVIAL(info) << format_points(total) << " in the histogram";
-    BOOST_LOG_TRIVIAL(info) << "find attempts: " << find_attempts << ", proposals: " << proposals
-                            << ", accepted: " << accepted << " ("
-                            << (proposals ? double(accepted) / proposals : 0.0) << ")"
-                            << ", drawn orbits: " << drawn_orbits;
+    if (proposals) // no Metropolis statistics when the histogram came from buddha-metal
+        BOOST_LOG_TRIVIAL(info) << "find attempts: " << find_attempts
+                                << ", proposals: " << proposals << ", accepted: " << accepted
+                                << " (" << double(accepted) / proposals << ")"
+                                << ", drawn orbits: " << drawn_orbits;
 }
 
 void buddha::save() {

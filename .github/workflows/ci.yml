@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install boost libtiff zstd
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      # render-regression, kernel-consistency (CPU renderer vs the kernel shared with
+      # buddha-metal) and metal-consistency (GPU vs the shared kernel on the CPU; reported as
+      # skipped when the runner has no Metal device).
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      # buddha-metal compiles its kernel at run time. Compiling it here as well catches Metal
+      # errors in core/buddha_kernel.h even when the runner cannot execute Metal.
+      - name: Compile the Metal kernel ahead of time
+        run: |
+          if ! xcrun -sdk macosx --find metal >/dev/null 2>&1; then
+            xcodebuild -downloadComponent MetalToolchain
+          fi
+          xcrun -sdk macosx metal -c build/generated/buddha.metal -o build/buddha.air
