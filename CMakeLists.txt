@@ -46,4 +46,18 @@ if(APPLE)
     target_compile_features(metal-orbit-benchmark PRIVATE cxx_std_17)
     target_compile_options(metal-orbit-benchmark PRIVATE -fno-fast-math)
     target_link_libraries(metal-orbit-benchmark PRIVATE "-framework Metal" "-framework Foundation")
+
+    # GPU renderer (naive sampling) with buddha++'s options, exclusion map, checkpoints and TIFF
+    # output. The kernel lives in metal/render_kernel.h.
+    add_executable(buddha-metal metal/main.mm)
+    set_target_properties(buddha-metal PROPERTIES OBJCXX_STANDARD 23)
+    target_compile_options(buddha-metal PRIVATE -fobjc-arc)
+    target_link_libraries(buddha-metal PRIVATE core Threads::Threads "-framework Metal" "-framework Foundation")
+
+    # Naive-sampling benchmark: CPU renderer path, CPU float mirror and both Metal kernels. It
+    # keeps the project flags so the CPU double path is the renderer's own code.
+    add_executable(metal-render-benchmark metal/render_benchmark.mm)
+    set_target_properties(metal-render-benchmark PROPERTIES OBJCXX_STANDARD 23)
+    target_compile_options(metal-render-benchmark PRIVATE -fobjc-arc)
+    target_link_libraries(metal-render-benchmark PRIVATE core "-framework Metal" "-framework Foundation")
 endif()

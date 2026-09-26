@@ -86,9 +86,15 @@ Continue to a full GPU sampler only when the prototype:
 - has a histogram strategy that remains viable at 32,768² within the 48 GB
   unified-memory budget.
 
-## Full-port follow-up
+## Outcome
 
-Port the Metropolis sampler only after the decision gate. Preserve independent
-chains per GPU thread, then validate its mutation and acceptance distribution
-against the CPU implementation. Keep CPU rendering as a fallback and use
-Metal for the final tone-mapping pass only if the generator port does not win.
+A fixed-trace and a GPU-owned Metropolis prototype were built and measured:
+one chain per GPU thread was about 8.5× slower than the CPU, because natural
+chain lengths are very uneven (median 2,560 proposals, 95th percentile
+65,536). Porting the Metropolis sampler was dropped as too hard to make
+GPU-efficient, and the prototypes were removed.
+
+Instead, `buddha-metal` renders with naive uniform sampling, the exclusion map
+and the periodicity check, using persistent GPU threads. It fills an 8192²
+histogram about four times faster than the CPU renderer path. See
+`metal/README.md`. The CPU Metropolis renderer remains the reference.

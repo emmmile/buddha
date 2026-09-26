@@ -85,6 +85,25 @@ the real axis, which retain the old histogram layout.
 Windows centered on the real axis use a mirrored histogram to save memory.
 An off-axis window (`--cim` other than zero) uses a full-height histogram.
 
+## GPU rendering on Apple silicon (experimental)
+
+On macOS the build also produces `buddha-metal`, a Metal renderer that takes
+the same options and writes the same checkpoints and TIFF images:
+
+```sh
+./build/buddha-metal --width 8192 --height 8192 --scale 2048 --out render
+```
+
+It is a different sampler, not a GPU port of `buddha++`: starting points are
+sampled uniformly over `[-2, 2]²` (naive Buddhabrot) in single precision,
+without the Metropolis chains. The exclusion map is generated and saved
+automatically if missing. At 8192² it fills the histogram about four times
+faster than the CPU renderer on an M5 Pro, but the images look different, and
+naive sampling wastes most samples on zoomed-in views. Do not continue a
+`buddha++` checkpoint with `buddha-metal` or the other way round: the
+checkpoint validates geometry, not the sampler. See
+[metal/README.md](metal/README.md) for details and benchmarks.
+
 ## Historical Qt GUI
 
 The original interactive Qt navigator is preserved on the
