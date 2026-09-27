@@ -55,29 +55,22 @@ void buddha_generator::stop() {
     finish = true;
 }
 
+namespace {
+// Histogram access for buddha_kernel::draw.
+struct raw_histogram {
+    buddha::vector_type &raw;
+    uint64_t width;
+    void add(uint32_t x, uint32_t y, uint32_t channel, uint32_t weight) {
+        raw[(uint64_t(y) * width + x) * 3 + channel].add(weight);
+    }
+};
+} // namespace
+
+// Mapping, mirroring and the odd-height centre-row weight are shared with buddha-metal.
 void buddha_generator::drawPoint(complex_type &c, bool drawr, bool drawg, bool drawb) {
-    const double image_x = (c.real() - s.minre) * s.scale;
-    if (!(image_x >= 0.0 && image_x < s.w))
-        return;
-
-    const double imag = s.symmetric_image ? std::abs(c.imag()) : c.imag();
-    const double image_y = (s.maxim - imag) * s.scale;
-    if (!(image_y >= 0.0 && image_y < s.histogram_height))
-        return;
-
-    const uint64_t x = static_cast<uint64_t>(image_x);
-    const uint64_t y = static_cast<uint64_t>(image_y);
-    const uint64_t i = (y * s.w + x) * 3;
-    // The unmirrored middle row covers one strip; other rows accumulate both
-    // halves of the orbit. Match their expected density before tone mapping.
-    const pixel weight =
-        s.symmetric_image && (s.h % 2 != 0) && (y + 1 == s.histogram_height) ? 2 : 1;
-    if (drawr)
-        raw[i].add(weight);
-    if (drawg)
-        raw[i + 1].add(weight);
-    if (drawb)
-        raw[i + 2].add(weight);
+    const buddha_kernel::geometry<double> g = s.histogram_geometry();
+    raw_histogram histogram{raw, s.w};
+    buddha_kernel::draw(g, c.real(), c.imag(), drawr, drawg, drawb, histogram);
 }
 
 inline void buddha_generator::gaussianMutation(complex_type &z, double radius) {
@@ -189,8 +182,9 @@ void buddha_generator::metropolis() {
 
         for (unsigned int i = s.low;
              int(i) <= proposedOrbitMax && proposedOrbitCount > 0 && i < s.high; i++) {
-            drawPoint(seq[i], i < s.highr && i > s.lowr, i < s.highg && i > s.lowg,
-                      i < s.highb && i > s.lowb);
+            drawPoint(seq[i], buddha_kernel::in_channel(i, s.lowr, s.highr),
+                      buddha_kernel::in_channel(i, s.lowg, s.highg),
+                      buddha_kernel::in_channel(i, s.lowb, s.highb));
         }
 
         if (finish)
@@ -198,41 +192,36 @@ void buddha_generator::metropolis() {
     }
 }
 
-// normal buddhabrot drawing function, no metropolis
 void buddha_generator::naive() {
-    // normal uniform search
-    seq[0] = complex_type(uniform(generator) * 4 - 2.0, uniform(generator) * 4 - 2.0);
-    unsigned int calculated;
-    int orbitMax;
+    const uint64_t key = generator();
+    naive(uint32_t(key), uint32_t(key >> 32), naive_batch);
+}
 
-    // generate a random point
-    // gaussianMutation( begin, 1.0 );
-    // BOOST_LOG_TRIVIAL(info) << begin.real() << " " << begin.imag();
-    // calculate the sequence
-    orbitMax = core.evaluate(seq, calculated);
-    computed += calculated;
+void buddha_generator::naive(uint32_t key0, uint32_t key1, uint32_t count) {
+    buddha_kernel::parameters p = s.kernel_parameters();
+    p.key0 = key0;
+    p.key1 = key1;
+    p.count = count;
+    const buddha_kernel::geometry<float> g = buddha_kernel::make_geometry<float>(p);
+    raw_histogram histogram{raw, s.w};
 
-    for (int h = 0; h <= orbitMax - (int)s.low && h <= int(s.high - s.low); h++) {
-        unsigned int i = h + s.low;
-        drawPoint(seq[h], i < s.highr && i > s.lowr, i < s.highg && i > s.lowg,
-                  i < s.highb && i > s.lowb);
+    buddha_kernel::lane<float> lane;
+    lane.begin(0, 1, count);
+    while (lane.advance(p, g, core.data, histogram)) {
     }
-
-    /*for ( unsigned int i = s.low; i <= orbitMax && i < s.high; i++ ) {
-        drawPoint( seq[i],
-                   i < s.highr && i > s.lowr,
-                   i < s.highg && i > s.lowg,
-                   i < s.highb && i > s.lowb
-        );
-    }*/
+    computed += lane.t.iterations;
+    drawn_orbits += lane.t.escaped;
 }
 
 void buddha_generator::run() {
     BOOST_LOG_TRIVIAL(debug) << "buddha_generator::run()";
+    const bool naive_sampler = s.sampler == "naive";
 
     while (true) {
-        metropolis();
-        // normal( );
+        if (naive_sampler)
+            naive();
+        else
+            metropolis();
 
         lock_guard<mutex> locker(execution);
         if (finish)

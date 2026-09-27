@@ -78,15 +78,39 @@ When `--out` is omitted on a resumed render, the checkpoint stem is reused and
 the completed checkpoint atomically replaces the previous one. Supplying a
 different `--out` creates a new checkpoint instead.
 
-New checkpoints record image geometry and iteration ranges and refuse to load
-with different rendering settings. Checkpoints written by older versions lack
-this metadata. After verifying their settings yourself, pass
-`--allow-legacy-checkpoint` once to load and rewrite one in the new format.
+New checkpoints record image geometry, iteration ranges and the sampler
+(`--sampler metropolis`, the default, or `naive`) and refuse to load with
+different settings. Checkpoints written before the sampler was recorded load
+as Metropolis. The oldest checkpoints lack this metadata entirely. After
+verifying their settings yourself, pass `--allow-legacy-checkpoint` once to
+load and rewrite one in the new format.
 Legacy checkpoints can only be imported for even-height windows centered on
 the real axis, which retain the old histogram layout.
 
 Windows centered on the real axis use a mirrored histogram to save memory.
 An off-axis window (`--cim` other than zero) uses a full-height histogram.
+
+## GPU rendering on Apple silicon (experimental)
+
+On macOS the build also produces `buddha-metal`, a Metal renderer that takes
+the same options and writes the same checkpoints and TIFF images:
+
+```sh
+./build/buddha-metal --width 8192 --height 8192 --scale 2048 --out render
+```
+
+It uses a different sampler than `buddha++`'s default: starting points are
+sampled uniformly over `[-2, 2]²` (naive Buddhabrot) in single precision,
+without the Metropolis chains. `buddha++ --sampler naive` runs the same
+sampler on the CPU and, given the same random stream, produces the same
+histogram. The rendering rules live in
+`core/buddha_kernel.h`, shared by both renderers and checked by
+`kernel-consistency` and `metal-consistency`. At 8192² it fills the histogram
+about four times faster than the CPU renderer on an M5 Pro, but the images
+look different, and naive sampling wastes most samples on zoomed-in views.
+Checkpoints record the sampler, so a Metropolis checkpoint cannot be continued
+by `buddha-metal`, nor a naive one by `buddha++` without `--sampler naive`.
+See [metal/README.md](metal/README.md) for details and benchmarks.
 
 ## Historical Qt GUI
 
@@ -104,7 +128,3 @@ navigation and render controls in the browser, with progressive previews and
 checkpoint-aware long-running jobs. A WebGPU/WebAssembly implementation would
 also make GPU experimentation portable while retaining the reproducible
 renderer configuration described above.
-
-The separate `prototype/metal-orbit-benchmark` branch contains only an
-Apple-silicon CPU-versus-Metal orbit-loop benchmark. It is intentionally not
-part of this renderer or its modernization pull request.

@@ -207,28 +207,34 @@ class zstd_input_streambuf : public std::streambuf {
 
 const size_t checkpoint_block_pixels = 1 << 20;
 constexpr uint64_t checkpoint_magic = 0x4255444448413031ULL; // "BUDDHA01"
-constexpr uint32_t checkpoint_version = 1;
+// Version 2 records the sampler in the string that version 1 used for the (unused) formula.
+// Only the Metropolis sampler wrote version 1 checkpoints.
+constexpr uint32_t checkpoint_version = 2;
 
 struct checkpoint_settings {
     uint64_t width, height;
     double scale, center_real, center_imag;
     uint32_t low_red, low_green, low_blue;
     uint32_t high_red, high_green, high_blue;
-    // Formerly the --formula option, which was never applied. Kept so the checkpoint format
-    // does not change; always the quadratic formula the renderer evaluates.
-    string formula = "z = z * z + c";
+    string sampler;
 
     explicit checkpoint_settings(const settings &s)
         : width(s.w), height(s.h), scale(s.scale), center_real(s.cre), center_imag(s.cim),
           low_red(s.lowr), low_green(s.lowg), low_blue(s.lowb), high_red(s.highr),
-          high_green(s.highg), high_blue(s.highb) {}
+          high_green(s.highg), high_blue(s.highb), sampler(s.sampler) {}
 
     checkpoint_settings() = default;
 
     template <typename Archive> void serialize(Archive &archive, unsigned int) {
         archive & width & height & scale & center_real & center_imag;
         archive & low_red & low_green & low_blue;
-        archive & high_red & high_green & high_blue & formula;
+        archive & high_red & high_green & high_blue & sampler;
+    }
+
+    bool same_geometry(const checkpoint_settings &other) const {
+        checkpoint_settings copy = other;
+        copy.sampler = sampler;
+        return *this == copy;
     }
 
     bool operator==(const checkpoint_settings &) const = default;
@@ -255,15 +261,14 @@ uint64_t generator_seed() {
 
 buddha::buddha(const settings &s) : s(s), core(this->s), computed(0) {
     BOOST_LOG_TRIVIAL(debug) << "buddha::buddha()";
+    if (this->s.sampler.empty())
+        this->s.sampler = "metropolis";
 
-    s.dump();
+    this->s.dump();
 
     raw.reserve(3 * s.size);
     for (uint64_t i = 0; i < 3 * s.size; ++i)
         raw.emplace_back(0);
-
-    for (unsigned int i = 0; i < s.threads; ++i)
-        generators.push_back(make_unique<buddha_generator>(core, raw, this->s, generator_seed()));
 
     clearBuffers();
     if (s.exclusion != "")
@@ -299,10 +304,11 @@ void buddha::reduce() {
                                 << format_points(total / totaltime) << "/s)";
     else
         BOOST_LOG_TRIVIAL(info) << format_points(total) << " in the histogram";
-    BOOST_LOG_TRIVIAL(info) << "find attempts: " << find_attempts << ", proposals: " << proposals
-                            << ", accepted: " << accepted << " ("
-                            << (proposals ? double(accepted) / proposals : 0.0) << ")"
-                            << ", drawn orbits: " << drawn_orbits;
+    if (proposals) // no Metropolis statistics when the histogram came from buddha-metal
+        BOOST_LOG_TRIVIAL(info) << "find attempts: " << find_attempts
+                                << ", proposals: " << proposals << ", accepted: " << accepted
+                                << " (" << double(accepted) / proposals << ")"
+                                << ", drawn orbits: " << drawn_orbits;
 }
 
 void buddha::save() {
@@ -355,11 +361,17 @@ void buddha::load() {
         uint32_t version;
         checkpoint_settings saved;
         ia >> version >> saved;
-        if (version != checkpoint_version)
+        if (version == 1)
+            saved.sampler = "metropolis";
+        else if (version != checkpoint_version)
             throw runtime_error("unsupported checkpoint version");
-        if (!(saved == checkpoint_settings(s)))
+        const checkpoint_settings current(s);
+        if (!saved.same_geometry(current))
             throw runtime_error("checkpoint rendering settings do not match; use the original "
                                 "geometry and iteration ranges");
+        if (saved.sampler != current.sampler)
+            throw runtime_error("checkpoint was rendered with the " + saved.sampler +
+                                " sampler; resume it with --sampler " + saved.sampler);
     } else {
         if (!s.allow_legacy_checkpoint)
             throw runtime_error("legacy checkpoint has no settings metadata; pass "
@@ -367,6 +379,9 @@ void buddha::load() {
         if (!s.symmetric_image || s.h % 2 != 0)
             throw runtime_error("legacy checkpoints can only be loaded with an even-height image "
                                 "centered on the real axis");
+        if (s.sampler != "metropolis")
+            throw runtime_error("legacy checkpoints were rendered with the metropolis sampler; "
+                                "resume them with --sampler metropolis");
         BOOST_LOG_TRIVIAL(warning) << "loading legacy checkpoint without settings validation";
         first_pixel = 2;
         for (uint64_t i = 0; i < std::min<uint64_t>(first_pixel, raw.size()); ++i) {
@@ -398,9 +413,12 @@ void buddha::startGenerators() {
     sigset_t old_mask;
     pthread_sigmask(SIG_BLOCK, &new_mask, &old_mask);
 
-    for (unsigned int i = 0; i < s.threads; ++i) {
-        generators[i]->start();
-    }
+    // Created here rather than in the constructor, so buddha-metal (which renders on the GPU and
+    // never starts them) does not allocate CPU generators.
+    for (unsigned int i = 0; i < s.threads; ++i)
+        generators.push_back(make_unique<buddha_generator>(core, raw, this->s, generator_seed()));
+    for (auto &generator : generators)
+        generator->start();
 
     // Restore previous signals.
     pthread_sigmask(SIG_SETMASK, &old_mask, 0);
@@ -411,14 +429,13 @@ void buddha::startGenerators() {
 // I think this is impossible.
 // If the s.threads were running acquire completely the semaphore.
 void buddha::stopGenerators() {
-    for (unsigned int i = 0; i < s.threads; ++i) {
-        lock_guard<mutex> locker(generators[i]->execution);
-        generators[i]->finish = true;
+    for (auto &generator : generators) {
+        lock_guard<mutex> locker(generator->execution);
+        generator->finish = true;
     }
 
-    for (unsigned int i = 0; i < s.threads; ++i) {
-        generators[i]->t.join();
-    }
+    for (auto &generator : generators)
+        generator->t.join();
 
     BOOST_LOG_TRIVIAL(debug) << "buddha::stopGenerators()";
 }

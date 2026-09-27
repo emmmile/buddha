@@ -78,7 +78,12 @@ struct buddha_generator {
     int findPoint(complex_type &begin, unsigned int &contribute, unsigned int &calculated);
     void metropolis();
 
+    // Naive (uniform) sampling with the kernel buddha-metal runs on the GPU, in float: given the
+    // same random key it produces the same histogram. naive() draws a fresh key and processes
+    // naive_batch samples.
+    static constexpr uint32_t naive_batch = 1U << 16;
     void naive();
+    void naive(uint32_t key0, uint32_t key1, uint32_t count);
 
     void start();
     void stop();

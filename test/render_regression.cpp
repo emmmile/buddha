@@ -17,6 +17,46 @@ void require(bool condition, const char *message) {
         throw std::runtime_error(message);
 }
 
+template <class F> bool throws(F f) {
+    try {
+        f();
+    } catch (const std::runtime_error &) {
+        return true;
+    }
+    return false;
+}
+
+// Writes a zstd-compressed checkpoint from a serialisation callback.
+template <class F> void write_checkpoint(const std::string &path, F serialise) {
+    std::ostringstream bytes(std::ios::binary);
+    {
+        boost::archive::binary_oarchive archive(bytes);
+        serialise(archive);
+    }
+    const auto raw = bytes.str();
+    std::vector<char> compressed(ZSTD_compressBound(raw.size()));
+    const auto written =
+        ZSTD_compress(compressed.data(), compressed.size(), raw.data(), raw.size(), 1);
+    require(!ZSTD_isError(written), "checkpoint fixture compression");
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    output.write(compressed.data(), written);
+}
+
+// Version 1 checkpoint settings: the formula string sat where version 2 keeps the sampler.
+struct v1_settings {
+    uint64_t width, height;
+    double scale, center_real, center_imag;
+    uint32_t low_red, low_green, low_blue;
+    uint32_t high_red, high_green, high_blue;
+    std::string formula;
+
+    template <typename Archive> void serialize(Archive &archive, unsigned int) {
+        archive & width & height & scale & center_real & center_imag;
+        archive & low_red & low_green & low_blue;
+        archive & high_red & high_green & high_blue & formula;
+    }
+};
+
 settings make_settings() {
     settings s{};
     s.w = 4;
@@ -150,6 +190,32 @@ void checkpoint_test() {
         rejected = true;
     }
     require(rejected, "mismatched checkpoint settings were accepted");
+
+    // The sampler must match: the checkpoint above was written by the Metropolis sampler.
+    s = make_settings();
+    s.infile = path.string() + ".zst";
+    s.sampler = "naive";
+    require(throws([&] { buddha other(s); }), "checkpoint from another sampler was accepted");
+
+    // Version 1 checkpoints (all written by the Metropolis sampler) load as Metropolis.
+    s = make_settings();
+    s.infile = path.string() + ".zst";
+    write_checkpoint(s.infile, [&](auto &archive) {
+        const uint64_t magic = 0x4255444448413031ULL;
+        const uint32_t version = 1;
+        v1_settings v1{s.w,    s.h,    s.scale, s.cre,   s.cim,   s.lowr,
+                       s.lowg, s.lowb, s.highr, s.highg, s.highb, "z = z * z + c"};
+        std::vector<buddha::pixel> values(3 * s.size, 0);
+        values[0] = 5;
+        archive << magic << version << v1;
+        archive.save_binary(values.data(), values.size() * sizeof(values[0]));
+    });
+    {
+        buddha v1(s);
+        require(v1.raw[0].load() == 5, "version 1 checkpoint");
+    }
+    s.sampler = "naive";
+    require(throws([&] { buddha other(s); }), "version 1 checkpoint loaded by the naive sampler");
 
     s = make_settings();
     s.h = 4;

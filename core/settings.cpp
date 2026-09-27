@@ -28,4 +28,5 @@ void settings::dump() const {
     BOOST_LOG_TRIVIAL(debug) << "output name: " << outfile;
     BOOST_LOG_TRIVIAL(debug) << "write image: " << !no_image;
     BOOST_LOG_TRIVIAL(debug) << "checkpoint format: zstd";
+    BOOST_LOG_TRIVIAL(debug) << "sampler: " << (sampler.empty() ? "default" : sampler);
 }
