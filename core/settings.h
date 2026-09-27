@@ -3,7 +3,6 @@
 
 #include <complex>
 #include <cstdint>
-#include <dlfcn.h>
 #include <fstream>
 #include <string>
 #ifndef BOOST_LOG_DYN_LINK
@@ -52,14 +51,11 @@ struct settings {
     uint32_t threads;
     bool inverse;
 
-    string formula;
     string exclusion;
     uint64_t exclusion_size;
 
-    void (*next_point)(complex<double> &, complex<double> &);
 
     void indirect_settings();
-    void compile_formula();
     void dump() const;
 };
 

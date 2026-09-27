@@ -214,12 +214,14 @@ struct checkpoint_settings {
     double scale, center_real, center_imag;
     uint32_t low_red, low_green, low_blue;
     uint32_t high_red, high_green, high_blue;
-    string formula;
+    // Formerly the --formula option, which was never applied. Kept so the checkpoint format
+    // does not change; always the quadratic formula the renderer evaluates.
+    string formula = "z = z * z + c";
 
     explicit checkpoint_settings(const settings &s)
         : width(s.w), height(s.h), scale(s.scale), center_real(s.cre), center_imag(s.cim),
           low_red(s.lowr), low_green(s.lowg), low_blue(s.lowb), high_red(s.highr),
-          high_green(s.highg), high_blue(s.highb), formula(s.formula) {}
+          high_green(s.highg), high_blue(s.highb) {}
 
     checkpoint_settings() = default;
 
