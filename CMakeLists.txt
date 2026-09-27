@@ -50,6 +50,10 @@ if(BUILD_TESTING)
     target_link_libraries(kernel-consistency PRIVATE core)
     target_compile_options(kernel-consistency PRIVATE ${BUDDHA_STRICT_FP})
     add_test(NAME kernel-consistency COMMAND kernel-consistency)
+
+    add_executable(browser-display-test test/browser_display.cpp)
+    target_include_directories(browser-display-test PRIVATE metal)
+    add_test(NAME browser-display-test COMMAND browser-display-test)
 endif()
 
 if(APPLE)

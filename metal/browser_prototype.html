@@ -15,6 +15,10 @@
     label { display: grid; grid-template-columns: 1fr 104px; align-items: center; gap: 4px; margin: 2px 0; font-size: .72rem; color: #b3bdc4; }
     input { width: 100%; height: 25px; margin: 0; padding: 2px 4px; border-radius: 0; border: 1px solid #3b454b; background: #1a1f22; color: #e3e8eb; font: inherit; }
     input:invalid { border-color: #af674f; }
+    input[type=color] { padding: 1px; height: 24px; }
+    input[type=range] { padding: 0; height: 20px; border: 0; background: transparent; accent-color: #81a2b5; }
+    label.slider { grid-template-columns: 1fr 83px 28px; }
+    output { text-align: right; font-variant-numeric: tabular-nums; }
     button { height: 27px; padding: 2px 7px; border: 1px solid #495c68; border-radius: 0; color: #e5edf1; background: #263b48; cursor: pointer; font: inherit; font-size: .72rem; }
     button:hover { background: #345365; }
     button.secondary { background: #202629; border-color: #3b454b; }
@@ -52,6 +56,16 @@
           <label>B max<input name="highb" type="number" min="1" max="100000" step="1" value="512" required></label>
         </div>
       </fieldset>
+      <fieldset>
+        <legend>Display</legend>
+        <label>Red channel<input name="red" type="color" value="#ff0000"></label>
+        <label>Green channel<input name="green" type="color" value="#00ff00"></label>
+        <label>Blue channel<input name="blue" type="color" value="#0000ff"></label>
+        <label class="slider">Brightness<input name="brightness" type="range" min="-100" max="100" value="0"><output id="brightness-value">0</output></label>
+        <label class="slider">Contrast<input name="contrast" type="range" min="0" max="200" value="100"><output id="contrast-value">100</output></label>
+        <label class="slider">Saturation<input name="saturation" type="range" min="0" max="200" value="100"><output id="saturation-value">100</output></label>
+        <label class="slider" title="Local contrast, 8 output-pixel radius">Clarity<input name="clarity" type="range" min="-100" max="100" value="0"><output id="clarity-value">0</output></label>
+      </fieldset>
       <div class="actions">
         <button type="submit">Start</button>
         <button type="button" class="secondary" id="stop">Stop</button>
@@ -76,6 +90,10 @@
     let lastViewport;
     let requestNumber = 0;
     let commandQueue = Promise.resolve();
+    let displayTimer;
+    let displayDirty = false;
+    let displayTouched = false;
+    let displayInitialized = false;
     const pointers = new Map();
     let gesture;
 
@@ -100,6 +118,22 @@
       for (const [name, value] of Object.entries({lowr: 512, highr: 8192,
            lowg: 128, highg: 2048, lowb: 32, highb: 512}))
         form.elements[name].value = value;
+      for (const [name, value] of Object.entries({red: '#ff0000', green: '#00ff00',
+           blue: '#0000ff', brightness: 0, contrast: 100, saturation: 100, clarity: 0}))
+        form.elements[name].value = value;
+      updateDisplayLabels();
+    }
+
+    const displayNames = ['red', 'green', 'blue', 'brightness', 'contrast', 'saturation', 'clarity'];
+    function updateDisplayLabels() {
+      for (const name of ['brightness', 'contrast', 'saturation', 'clarity'])
+        document.getElementById(`${name}-value`).textContent = form.elements[name].value;
+    }
+
+    function displayData() {
+      return Object.fromEntries(displayNames.map(name =>
+        [name, ['red', 'green', 'blue'].includes(name) ? form.elements[name].value :
+         Number(form.elements[name].value)]));
     }
 
     async function command(path, body) {
@@ -115,6 +149,33 @@
       return next;
     }
 
+    async function sendDisplay() {
+      clearTimeout(displayTimer);
+      displayDirty = false;
+      try {
+        await enqueueCommand('/display', displayData());
+        return true;
+      } catch (error) {
+        displayDirty = true;
+        message.textContent = error.message;
+        return false;
+      }
+    }
+
+    function scheduleDisplay() {
+      displayDirty = true;
+      displayTouched = true;
+      message.textContent = 'Updating display…';
+      clearTimeout(displayTimer);
+      displayTimer = setTimeout(sendDisplay, 80);
+    }
+
+    form.addEventListener('input', event => {
+      if (!displayNames.includes(event.target.name)) return;
+      updateDisplayLabels();
+      scheduleDisplay();
+    });
+
     function validSettings(report) {
       for (const input of form.querySelectorAll('input')) input.setCustomValidity('');
       for (const color of ['r', 'g', 'b']) {
@@ -129,12 +190,14 @@
     async function startRender() {
       clearTimeout(renderTimer);
       if (!validSettings(true)) return;
+      const currentRequest = ++requestNumber;
+      if (displayDirty && !await sendDisplay()) return;
+      if (currentRequest !== requestNumber) return;
       const data = Object.fromEntries(new FormData(form));
       for (const name of ['cre', 'cim', 'scale', 'lowr', 'lowg', 'lowb',
                           'highr', 'highg', 'highb'])
         data[name] = Number(data[name]);
       Object.assign(data, viewportPixels());
-      const currentRequest = ++requestNumber;
       try {
         const status = await enqueueCommand('/render', data);
         if (currentRequest === requestNumber) {
@@ -163,6 +226,7 @@
     document.getElementById('preset').addEventListener('click', () => {
       clearTimeout(renderTimer);
       fullViewPreset();
+      scheduleDisplay();
     });
 
     function viewState() {
@@ -283,6 +347,13 @@
       try {
         const response = await fetch('/status', {cache: 'no-store'});
         const status = await response.json();
+        if (!displayInitialized && status.display) {
+          if (!displayTouched) {
+            for (const name of displayNames) form.elements[name].value = status.display[name];
+            updateDisplayLabels();
+          }
+          displayInitialized = true;
+        }
         activeRenderId = status.render_id;
         const rate = status.elapsed > 0 ? (status.samples / status.elapsed / 1e6).toFixed(1) : '0.0';
         const batchRate = status.batch_seconds > 0 ? (status.samples / status.batch_seconds / 1e6).toFixed(1) : '0.0';

@@ -1,6 +1,7 @@
 // Small local browser UI prototype: one Metal render and an HTTP RGBA preview.
 
 #include "persistent_renderer.h"
+#include "browser_display.h"
 
 #include "buddha.h"
 #include "settings.h"
@@ -18,12 +19,14 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <charconv>
 #include <cmath>
 #include <condition_variable>
 #include <csignal>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <iterator>
 #include <memory>
@@ -69,6 +72,35 @@ request_settings parse_settings(const std::string &body) {
     return c;
 }
 
+uint32_t parse_color(const std::string &color) {
+    if (color.size() != 7 || color[0] != '#')
+        throw std::invalid_argument("channel colors must use #RRGGBB");
+    uint32_t value = 0;
+    const auto [end, error] = std::from_chars(color.data() + 1, color.data() + 7, value, 16);
+    if (error != std::errc{} || end != color.data() + 7)
+        throw std::invalid_argument("channel colors must use #RRGGBB");
+    return value;
+}
+
+buddha_browser::display_settings parse_display(const std::string &body) {
+    std::istringstream input(body);
+    boost::property_tree::ptree json;
+    boost::property_tree::read_json(input, json);
+    buddha_browser::display_settings display;
+    display.colors = {parse_color(json.get<std::string>("red")),
+                      parse_color(json.get<std::string>("green")),
+                      parse_color(json.get<std::string>("blue"))};
+    display.brightness = json.get<int>("brightness");
+    display.contrast = json.get<int>("contrast");
+    display.saturation = json.get<int>("saturation");
+    display.clarity = json.get<int>("clarity");
+    if (display.brightness < -100 || display.brightness > 100 || display.contrast < 0 ||
+        display.contrast > 200 || display.saturation < 0 || display.saturation > 200 ||
+        display.clarity < -100 || display.clarity > 100)
+        throw std::invalid_argument("display values are outside their supported ranges");
+    return display;
+}
+
 settings make_settings(const request_settings &c) {
     settings s{};
     // The TIFF writer rotates the histogram 90 degrees clockwise.
@@ -100,7 +132,7 @@ uint8_t to_byte(uint32_t count, double multiplier, float contrast) {
     return uint8_t(std::clamp(value, 0.0, 65535.0) / 256.0);
 }
 
-std::vector<uint8_t> make_rgba(const buddha &b) {
+std::vector<uint8_t> make_rgba(const buddha &b, const buddha_browser::display_settings &display) {
     const settings &s = b.s;
     uint32_t maximum[3]{};
     for (size_t i = 0; i < b.raw.size(); i += 3)
@@ -129,6 +161,7 @@ std::vector<uint8_t> make_rgba(const buddha &b) {
         }
     }
 
+    buddha_browser::apply_display(rgba, width, height, display);
     return rgba;
 }
 
@@ -167,9 +200,10 @@ struct render_session {
             std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
     }
 
-    std::shared_ptr<const std::vector<uint8_t>> capture_frame() {
+    std::shared_ptr<const std::vector<uint8_t>>
+    capture_frame(const buddha_browser::display_settings &display) {
         const auto begin = std::chrono::steady_clock::now();
-        auto frame = std::make_shared<const std::vector<uint8_t>>(make_rgba(*image));
+        auto frame = std::make_shared<const std::vector<uint8_t>>(make_rgba(*image, display));
         const auto end = std::chrono::steady_clock::now();
         preview_seconds += std::chrono::duration<double>(end - begin).count();
         last_preview = end;
@@ -186,6 +220,9 @@ struct state {
     uint64_t render_id = 0;
     uint64_t frame_render_id = 0;
     uint64_t frame_revision = 0;
+    uint64_t display_revision = 0;
+    uint64_t frame_display_revision = 0;
+    buddha_browser::display_settings display;
     uint64_t samples = 0;
     double elapsed = 0;
     double batch_seconds = 0;
@@ -197,17 +234,40 @@ struct state {
     std::shared_ptr<const std::vector<uint8_t>> frame;
 };
 
+void publish_frame(state &shared, render_session &session,
+                   const buddha_browser::display_settings &display, uint64_t display_revision) {
+    auto frame = session.capture_frame(display);
+    std::lock_guard lock(shared.mutex);
+    if (shared.render_id == session.id && !shared.pending &&
+        shared.display_revision == display_revision) {
+        shared.frame = std::move(frame);
+        shared.frame_render_id = session.id;
+        shared.frame_display_revision = display_revision;
+        ++shared.frame_revision;
+        shared.preview_seconds = session.preview_seconds;
+        if (shared.phase == "running")
+            shared.elapsed = session.elapsed();
+    }
+}
+
 void render_worker(state &shared) {
     std::optional<render_session> session;
     std::random_device random;
+    bool running = false;
     while (true) {
         std::optional<request_settings> next;
         uint64_t next_id = 0;
+        bool recolor = false;
+        buddha_browser::display_settings display;
+        uint64_t display_revision = 0;
         {
             std::unique_lock lock(shared.mutex);
-            if (!session)
+            if (!running)
                 shared.changed.wait(lock, [&] {
-                    return shared.shutdown || shared.pending.has_value() || shared.stop;
+                    return shared.shutdown || shared.pending.has_value() || shared.stop ||
+                           (session && shared.render_id == session->id &&
+                            (shared.frame_render_id != session->id ||
+                             shared.frame_display_revision != shared.display_revision));
                 });
             if (shared.shutdown)
                 return;
@@ -215,11 +275,22 @@ void render_worker(state &shared) {
                 next = std::move(shared.pending);
                 shared.pending.reset();
                 next_id = shared.render_id;
-            } else if (shared.stop) {
-                session.reset();
-                shared.stop = false;
-                shared.phase = "stopped";
-                continue;
+                running = false;
+            } else {
+                if (shared.stop) {
+                    shared.stop = false;
+                    running = false;
+                    shared.phase = "stopped";
+                    if (session)
+                        shared.elapsed = session->elapsed();
+                }
+                if (!running && session && shared.render_id == session->id &&
+                    (shared.frame_render_id != session->id ||
+                     shared.frame_display_revision != shared.display_revision)) {
+                    recolor = true;
+                    display = shared.display;
+                    display_revision = shared.display_revision;
+                }
             }
         }
         if (next) {
@@ -231,6 +302,7 @@ void render_worker(state &shared) {
                 std::lock_guard lock(shared.mutex);
                 if (shared.render_id == next_id) {
                     shared.phase = "running";
+                    running = true;
                 }
             } catch (const std::exception &e) {
                 std::lock_guard lock(shared.mutex);
@@ -242,7 +314,20 @@ void render_worker(state &shared) {
             }
             continue;
         }
-        if (!session)
+        if (recolor) {
+            try {
+                @autoreleasepool {
+                    publish_frame(shared, *session, display, display_revision);
+                }
+            } catch (const std::exception &e) {
+                std::lock_guard lock(shared.mutex);
+                shared.phase = "error";
+                shared.error = e.what();
+                session.reset();
+            }
+            continue;
+        }
+        if (!running || !session)
             continue;
 
         try {
@@ -257,21 +342,17 @@ void render_worker(state &shared) {
                         shared.batch_seconds = session->batch_seconds;
                         shared.preview_seconds = session->preview_seconds;
                         preview = shared.stop || shared.frame_render_id != session->id ||
+                                  shared.frame_display_revision != shared.display_revision ||
                                   std::chrono::steady_clock::now() - session->last_preview >=
                                       std::chrono::seconds(1);
+                        if (preview) {
+                            display = shared.display;
+                            display_revision = shared.display_revision;
+                        }
                     }
                 }
-                if (preview) {
-                    auto frame = session->capture_frame();
-                    std::lock_guard lock(shared.mutex);
-                    if (shared.render_id == session->id && !shared.pending) {
-                        shared.frame = std::move(frame);
-                        shared.frame_render_id = session->id;
-                        ++shared.frame_revision;
-                        shared.preview_seconds = session->preview_seconds;
-                        shared.elapsed = session->elapsed();
-                    }
-                }
+                if (preview)
+                    publish_frame(shared, *session, display, display_revision);
             }
         } catch (const std::exception &e) {
             std::lock_guard lock(shared.mutex);
@@ -280,6 +361,7 @@ void render_worker(state &shared) {
                 shared.error = e.what();
             }
             session.reset();
+            running = false;
         }
     }
 }
@@ -298,13 +380,27 @@ std::string escape_json(const std::string &value) {
     return out;
 }
 
+std::string color_hex(uint32_t color) {
+    std::ostringstream out;
+    out << '#' << std::hex << std::setfill('0') << std::setw(6) << color;
+    return out.str();
+}
+
 std::string status_json(state &shared) {
     std::lock_guard lock(shared.mutex);
     std::ostringstream out;
     out << "{\"render_id\":" << shared.render_id
         << ",\"frame_render_id\":" << shared.frame_render_id
         << ",\"frame_revision\":" << shared.frame_revision << ",\"phase\":\"" << shared.phase
-        << "\",\"samples\":" << shared.samples << ",\"elapsed\":" << shared.elapsed
+        << "\",\"display_revision\":" << shared.display_revision
+        << ",\"frame_display_revision\":" << shared.frame_display_revision
+        << ",\"display\":{\"red\":\"" << color_hex(shared.display.colors[0]) << "\",\"green\":\""
+        << color_hex(shared.display.colors[1]) << "\",\"blue\":\""
+        << color_hex(shared.display.colors[2]) << "\",\"brightness\":" << shared.display.brightness
+        << ",\"contrast\":" << shared.display.contrast
+        << ",\"saturation\":" << shared.display.saturation
+        << ",\"clarity\":" << shared.display.clarity << "}"
+        << ",\"samples\":" << shared.samples << ",\"elapsed\":" << shared.elapsed
         << ",\"width\":" << shared.output_width << ",\"height\":" << shared.output_height
         << ",\"cre\":" << shared.cre << ",\"cim\":" << shared.cim << ",\"scale\":" << shared.scale
         << ",\"batch_seconds\":" << shared.batch_seconds
@@ -434,6 +530,15 @@ void handle(int fd, state &shared, const std::string &html, uint16_t port) {
                 shared.scale = c.scale;
                 shared.phase = "starting";
                 shared.error.clear();
+            }
+            shared.changed.notify_one();
+            respond(fd, 200, "application/json", status_json(shared));
+        } else if (request.method == "POST" && request.path == "/display") {
+            const auto display = parse_display(request.body);
+            {
+                std::lock_guard lock(shared.mutex);
+                shared.display = display;
+                ++shared.display_revision;
             }
             shared.changed.notify_one();
             respond(fd, 200, "application/json", status_json(shared));

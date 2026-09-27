@@ -200,6 +200,20 @@ TIFF export at the same settings; report any intentional 8-bit preview
 differences. Keep HTTP polling if it meets latency goals; otherwise add a push
 transport.
 
+The first implementation keeps display controls on the native preview path.
+`POST /display` replaces only display settings, and a completed GPU batch (or a
+stopped session) produces a new frame from the existing histogram. Channel
+colors linearly mix the three tone-mapped source channels. Brightness is an
+exposure factor from -2 to +2 stops; contrast is a slope around the midpoint;
+saturation scales distance from Rec. 709 luminance. Clarity adds or removes
+the difference between each pixel's luminance and a separable 17 × 17 box
+blur, so its radius is eight output pixels. The default settings leave the
+existing TIFF-style mapping untouched. Edited previews are 8-bit display
+images; TIFF export retains its 16-bit mapping and does not contain these
+display-only adjustments. A byte-for-byte comparison from one histogram can be
+done when session TIFF export arrives in milestone 4. Keep HTTP polling while
+its latency remains useful.
+
 ### 3. Zoom sampler and session recovery
 
 Integrate the CPU Metropolis fallback for zoom unless GPU Metropolis is ready.
