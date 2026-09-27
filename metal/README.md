@@ -100,20 +100,22 @@ probably because the periodicity checkpoint now stays in registers.
 
 ## Benchmarks
 
-The benchmarks behind these numbers are not built any more. They are preserved
-at the tag `metal-benchmarks` (commit `86e7b5f`):
+The benchmarks behind these numbers are not built any more. They are kept in the
+repository history at commit [`37787f4`](https://github.com/emmmile/buddha/blob/37787f438951b63dd665d87a650ee1265d57cdbc):
 
-- `metal/orbit_benchmark.mm`: the bare `z = z * z + c` loop on CPU and GPU,
-  with no histogram, exclusion map or periodicity check, plus memory sampling.
-- `metal/render_benchmark.mm`: naive sampling with the exclusion map,
-  periodicity check and RGB histogram. It runs identical samples through the
-  CPU renderer's code (double), the shared lane on CPU threads (float) and the
-  Metal kernel, and compares the histograms.
+- [`metal/orbit_benchmark.mm`](https://github.com/emmmile/buddha/blob/37787f438951b63dd665d87a650ee1265d57cdbc/metal/orbit_benchmark.mm): the bare
+  `z = z * z + c` loop on CPU and GPU, with no histogram, exclusion map or
+  periodicity check, plus memory sampling.
+- [`metal/render_benchmark.mm`](https://github.com/emmmile/buddha/blob/37787f438951b63dd665d87a650ee1265d57cdbc/metal/render_benchmark.mm): naive
+  sampling with the exclusion map, periodicity check and RGB histogram. It
+  runs identical samples through the CPU renderer's code (double), the shared
+  lane on CPU threads (float) and the Metal kernel, and compares the
+  histograms.
 
-To reproduce, build the tag in a separate checkout:
+To reproduce, build that commit in a separate checkout:
 
 ```sh
-git worktree add ../buddha-benchmarks metal-benchmarks
+git worktree add ../buddha-benchmarks 37787f4
 cmake -S ../buddha-benchmarks -B ../buddha-benchmarks/build -DCMAKE_BUILD_TYPE=Release
 cmake --build ../buddha-benchmarks/build --target metal-orbit-benchmark metal-render-benchmark
 ../buddha-benchmarks/build/metal-render-benchmark --samples 1000000000 --exclusion-map exclusion.map
