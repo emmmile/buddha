@@ -83,6 +83,14 @@ if(APPLE)
     # GPU renderer (naive sampling) with buddha++'s options, exclusion map, checkpoints and TIFF.
     add_metal_executable(buddha-metal metal/main.mm)
 
+    # Benchmarks behind the measurements in metal/README.md: the bare orbit loop on CPU and GPU,
+    # and naive rendering through the CPU renderer code, the shared lane and the Metal kernel.
+    add_executable(metal-orbit-benchmark metal/orbit_benchmark.mm)
+    target_compile_features(metal-orbit-benchmark PRIVATE cxx_std_17)
+    target_compile_options(metal-orbit-benchmark PRIVATE -fno-fast-math)
+    target_link_libraries(metal-orbit-benchmark PRIVATE "-framework Metal" "-framework Foundation")
+    add_metal_executable(metal-render-benchmark metal/render_benchmark.mm)
+
     if(BUILD_TESTING)
         # The GPU kernel against the shared lane on the CPU; skipped without a Metal device.
         add_metal_executable(metal-consistency test/metal_consistency.mm)
