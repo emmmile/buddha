@@ -28,10 +28,10 @@ find_package(Threads REQUIRED)
 add_subdirectory("${PROJECT_SOURCE_DIR}/core")
 
 add_executable(buddha++ main.cpp)
-target_link_libraries(buddha++ PRIVATE core Threads::Threads ${CMAKE_DL_LIBS})
+target_link_libraries(buddha++ PRIVATE core Threads::Threads)
 
 add_executable(exclusion exclusion.cpp)
-target_link_libraries(exclusion PRIVATE core Threads::Threads ${CMAKE_DL_LIBS})
+target_link_libraries(exclusion PRIVATE core Threads::Threads)
 
 include(CTest)
 if(BUILD_TESTING)

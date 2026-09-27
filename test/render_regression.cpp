@@ -29,7 +29,6 @@ settings make_settings() {
     s.contrast = s.lightness = 100;
     s.threads = 1;
     s.exclusion_size = 10;
-    s.formula = "z = z * z + c";
     s.no_image = true;
     s.indirect_settings();
     return s;

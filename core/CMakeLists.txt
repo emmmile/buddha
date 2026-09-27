@@ -13,5 +13,4 @@ target_link_libraries(core
         ZLIB::ZLIB
         zstd::libzstd
         Threads::Threads
-        ${CMAKE_DL_LIBS}
 )

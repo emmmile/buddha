@@ -15,39 +15,6 @@ void settings::indirect_settings() {
 
     realLightness = (float)lightness / (maxLightness - lightness + 1) * 0.5;
     realContrast = (float)contrast / (maxContrast) * 0.7;
-
-    // compile_formula();
-}
-
-void settings::compile_formula() {
-    ofstream source("/tmp/code.cpp");
-
-    source << "#include <complex>\nusing namespace std;\n"
-           << "extern \"C\" void next_point ( complex<double>& z, complex<double>& c ) {\n"
-           << "  " << formula << ";\n"
-           << "}" << endl;
-    source.close();
-
-    system("rm -f /tmp/code.so");
-    system("c++ -O3 -mtune=native -ffast-math -funroll-loops -Wall /tmp/code.cpp -o /tmp/code.so "
-           "-shared -fPIC -std=c++23");
-
-    char *error;
-    void *handle = dlopen("/tmp/code.so", RTLD_NOW);
-    if (!handle) {
-        BOOST_LOG_TRIVIAL(fatal) << dlerror();
-        exit(EXIT_FAILURE);
-    }
-
-    dlerror(); // Clear any existing error
-    next_point = (void (*)(complex<double> &, complex<double> &))dlsym(handle, "next_point");
-
-    if ((error = dlerror()) != NULL) {
-        BOOST_LOG_TRIVIAL(fatal) << error;
-        exit(EXIT_FAILURE);
-    }
-
-    BOOST_LOG_TRIVIAL(debug) << "successfully loaded formula: `" << formula << "'";
 }
 
 void settings::dump() const {
@@ -61,5 +28,4 @@ void settings::dump() const {
     BOOST_LOG_TRIVIAL(debug) << "output name: " << outfile;
     BOOST_LOG_TRIVIAL(debug) << "write image: " << !no_image;
     BOOST_LOG_TRIVIAL(debug) << "checkpoint format: zstd";
-    BOOST_LOG_TRIVIAL(debug) << "formula: `" << formula << "'";
 }

@@ -56,7 +56,6 @@ class mandelbrot_base {
             if (cyclic(seq, i, critical, criticalStep))
                 return -1;
 
-            // next_point( seq[i], begin );
             seq[i + 1] = seq[i] * seq[i] + seq[0];
         }
 
@@ -79,7 +78,6 @@ class mandelbrot_base {
                 return -1;
             }
 
-            // next_point( seq[i], begin );
             seq[i + 1] = seq[i] * seq[i] + seq[0];
         }
 
@@ -113,7 +111,6 @@ class mandelbrot_base {
                 return -1;
             }
 
-            // next_point( seq[i], begin );
             seq[i + 1] = seq[i] * seq[i] + seq[0];
         }
 
