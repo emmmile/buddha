@@ -59,21 +59,24 @@ inline std::vector<float> smooth_blur(const std::vector<float> &source, size_t w
                 scratch[y * width + x] = sum / float(right - left + 1);
             }
         }
-        for (size_t x = 0; x < width; ++x) {
-            float sum = 0;
-            for (size_t y = 0; y < std::min(height, radius + 1); ++y)
-                sum += scratch[y * width + x];
-            for (size_t y = 0; y < height; ++y) {
-                if (y > 0) {
-                    if (y + radius < height)
-                        sum += scratch[(y + radius) * width + x];
-                    if (y > radius)
-                        sum -= scratch[(y - radius - 1) * width + x];
-                }
-                const size_t top = y > radius ? y - radius : 0;
-                const size_t bottom = std::min(height - 1, y + radius);
-                current[y * width + x] = sum / float(bottom - top + 1);
+        std::vector<float> column_sum(width, 0);
+        for (size_t y = 0; y < std::min(height, radius + 1); ++y)
+            for (size_t x = 0; x < width; ++x)
+                column_sum[x] += scratch[y * width + x];
+        for (size_t y = 0; y < height; ++y) {
+            if (y > 0) {
+                if (y + radius < height)
+                    for (size_t x = 0; x < width; ++x)
+                        column_sum[x] += scratch[(y + radius) * width + x];
+                if (y > radius)
+                    for (size_t x = 0; x < width; ++x)
+                        column_sum[x] -= scratch[(y - radius - 1) * width + x];
             }
+            const size_t top = y > radius ? y - radius : 0;
+            const size_t bottom = std::min(height - 1, y + radius);
+            const float divisor = float(bottom - top + 1);
+            for (size_t x = 0; x < width; ++x)
+                current[y * width + x] = column_sum[x] / divisor;
         }
     }
     return current;

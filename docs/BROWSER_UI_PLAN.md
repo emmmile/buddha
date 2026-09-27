@@ -61,16 +61,15 @@ Browser page
 Local C++ service (127.0.0.1)
   settings validation and render-session state
   existing C++/Metal orbit sampler -> atomic RGB histogram
-  Metal histogram reduction and tone mapping -> display-sized RGBA frame
+  shared native tone and adjustment pipeline -> RGBA preview or TIFF export
   optional checkpoint and export writers
 ```
 
 A web page cannot directly import the renderer's native `MTLBuffer`. The service
-sends completed display frames across the local connection. This keeps
-the browser independent of WebGPU support and avoids transferring the full
-three-channel 32-bit histogram after every update. WebGPU tone mapping in the
-browser remains a possible later experiment if it measurably improves control
-latency; it would still require transferring histogram data.
+sends completed display frames across the local connection. The adjustments
+remain native because the user wants the exported TIFF to match the adjusted
+preview. A browser-only shader would require a second implementation of those
+adjustments and a separate way to reproduce them in export.
 
 The renderer should expose a reusable session API rather than making the UI
 launch and kill `buddha-metal` for each pan or zoom. A session owns the
@@ -94,9 +93,10 @@ preview paths. Preserve the mirrored histogram behavior for windows centered
 on the real axis. Add display controls only after a baseline
 preview matches the existing TIFF output closely enough to compare by eye.
 
-For Metal renders, schedule tone mapping after a completed render batch on the
-same command queue. That gives the preview a coherent point in the render's
-progress. The current CLI queues two large batches ahead; an interactive
+For Metal renders, capture a stable histogram snapshot after a completed batch.
+The CPU can process that snapshot while the next batch runs, but it must not
+read the live shared histogram while the GPU writes to it. The current CLI
+queues two large batches ahead; an interactive
 session needs a way to accept stop, navigation, and display commands between
 batches. Measure the time from each command to its visible effect and tune
 batch size and queue depth if commands wait too long. CPU renders need an
@@ -195,10 +195,11 @@ and frame capture operations.
 Add brightness, contrast, saturation, clarity, and texture. Define
 clarity as a local-contrast adjustment with a stated radius and strength, then
 choose its implementation after comparing sample images. Verify that changing
-these controls does not restart sampling. Compare a stopped preview with the
-TIFF export at the same settings; report any intentional 8-bit preview
-differences. Keep HTTP polling if it meets latency goals; otherwise add a push
-transport.
+these controls does not restart sampling. These settings are part of the image:
+session TIFF export must apply them, using the same native pipeline as the
+preview. Compare a stopped preview with the TIFF export at the same settings;
+report any intentional 8-bit preview differences. Keep HTTP polling if it
+meets latency goals; otherwise add a push transport.
 
 The first implementation keeps display controls on the native preview path.
 `POST /display` replaces only display settings, and a completed GPU batch (or a
@@ -213,37 +214,48 @@ avoid the rectangular support of a single large box, and clarity suppresses
 its effect near black and white. Neutral
 zero settings leave the existing TIFF-style mapping untouched. These curves
 approximate the behavior of photo editing controls; they are not exact
-Capture One or Photoshop algorithms. Edited previews are 8-bit display images;
-TIFF export retains its 16-bit mapping and does not contain these
-display-only adjustments. A byte-for-byte comparison from one histogram can be
-done when session TIFF export arrives in milestone 4. Keep HTTP polling while
-its latency remains useful.
+Capture One or Photoshop algorithms. The prototype currently quantizes the
+base preview to 8 bits before applying the controls. Before session export,
+move tone mapping and adjustments into one float pipeline, then quantize its
+output to 8-bit RGBA for the browser or 16-bit RGB for TIFF. The existing
+headless TIFF path remains available. Compare both outputs from one histogram
+when session export arrives in milestone 4.
 
 The primary button shows Start when idle or paused and Pause while sampling.
 Pause waits for the current batch and keeps the histogram; Start then resumes
 sampling from it. Stop ends the run, and the next Start creates a new histogram.
-The status bar shows the average native preview conversion time and formats
-sample totals with up to three significant digits.
+The status bar reports new-histogram preview and display-only recolor averages
+separately, and formats sample totals with up to three significant digits.
 
 At a 2-million-pixel preview size, the CPU display transform measured about
-50 ms with Clarity +50 alone and 65–70 ms with Texture also enabled on this
-development machine. This excludes histogram scanning, GPU readback, and
-browser presentation. A possible GPU path uses Metal Performance Shaders for
-the smooth blurs and a small custom Metal kernel for color, tone, and detail
-composition. Measure end-to-end preview latency before switching paths.
+32 ms with Clarity +50 alone and 39 ms with Texture also enabled after making
+the vertical blur pass row-major. This excludes histogram scanning and tone
+mapping, HTTP transfer, and browser presentation. Measure end-to-end latency
+before considering a GPU display path.
+
+With a paused 2-million-pixel session, caching the unadjusted base frame gave
+about 88 ms for a new histogram preview and 43 ms for a display-only recolor.
+Five display requests reached a completed native frame in 45–70 ms; sample
+count stayed unchanged. These are local measurements, not browser paint times.
 
 ### 3. Zoom sampler and session recovery
 
-Integrate the CPU Metropolis fallback for zoom unless GPU Metropolis is ready.
-Add stop/resume and reconnect. Measure time to a useful preview at
-representative zoom levels.
+Extract the render session from the HTTP file before adding a second sampler.
+Give the worker a command mailbox and publish immutable status/frame snapshots,
+so status and frame metadata stay paired. Add a sampler interface with a time
+budget and an active sampler name, then integrate the CPU Metropolis fallback
+for zoom unless GPU Metropolis is ready. Add reconnect and test start, pause,
+resume, stop, restart, and stale-frame ordering without a browser. Measure
+time to a useful preview at representative zoom levels.
 
 ### 4. Export and performance pass
 
 Add checkpoint and image export from the current session. Measure render
 throughput with the UI closed, connected but idle, and showing previews. Track
-preview latency and browser memory at representative display sizes. Change
-frame encoding or preview frequency only in response to those measurements.
+preview latency and browser memory at representative display sizes. Report
+histogram-to-preview and display-only recolor timings separately. Build frames
+only while a client requests them, and change frame encoding or preview
+frequency in response to those measurements.
 
 ## Target architecture decisions
 

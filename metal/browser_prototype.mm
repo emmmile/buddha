@@ -5,6 +5,7 @@
 
 #include "buddha.h"
 #include "settings.h"
+#include "tone_mapping.h"
 
 #import <AppKit/AppKit.h>
 
@@ -112,43 +113,32 @@ settings make_settings(const request_settings &c) {
     return s;
 }
 
-uint8_t to_byte(uint32_t count, double multiplier, float contrast) {
-    if (count == 0 || multiplier == 0)
-        return 0;
-    const double value = std::pow(double(count), contrast) * multiplier * 256.0;
-    return uint8_t(std::clamp(value, 0.0, 65535.0) / 256.0);
-}
-
-std::vector<uint8_t> make_rgba(const buddha &b, const buddha_browser::display_settings &display) {
+std::vector<uint8_t> make_base_rgba(const buddha &b) {
     const settings &s = b.s;
     uint32_t maximum[3]{};
     for (size_t i = 0; i < b.raw.size(); i += 3)
         for (size_t channel = 0; channel < 3; ++channel)
             maximum[channel] = std::max(maximum[channel], b.raw[i + channel].load());
-    double multiplier[3]{};
+    float multiplier[3]{};
     for (size_t channel = 0; channel < 3; ++channel)
-        if (maximum[channel])
-            multiplier[channel] = std::log(s.scale) /
-                                  std::pow(double(maximum[channel]), s.realContrast) * 70.0 *
-                                  s.realLightness;
+        multiplier[channel] =
+            buddha_tone::multiplier(maximum[channel], s.scale, s.realContrast, s.realLightness);
 
     // Output coordinates match saver.h's clockwise TIFF transform exactly.
     const size_t width = s.h, height = s.w;
     std::vector<uint8_t> rgba(width * height * 4);
     for (size_t y = 0; y < height; ++y) {
         for (size_t x = 0; x < width; ++x) {
-            const size_t source_y =
-                s.symmetric_image && s.h - x - 1 >= s.histogram_height ? x : s.h - x - 1;
-            const size_t index = (source_y * s.w + y) * 3;
+            const size_t index = buddha_tone::histogram_index(
+                y, s.h - x - 1, s.w, s.h, s.symmetric_image, s.histogram_height);
             const size_t out = (y * width + x) * 4;
             for (size_t channel = 0; channel < 3; ++channel)
-                rgba[out + channel] =
-                    to_byte(b.raw[index + channel].load(), multiplier[channel], s.realContrast);
+                rgba[out + channel] = buddha_tone::channel8(b.raw[index + channel].load(),
+                                                            multiplier[channel], s.realContrast);
             rgba[out + 3] = 255;
         }
     }
 
-    buddha_browser::apply_display(rgba, width, height, display);
     return rgba;
 }
 
@@ -162,6 +152,10 @@ struct render_session {
     double batch_seconds = 0;
     double preview_seconds = 0;
     uint64_t preview_count = 0;
+    double recolor_seconds = 0;
+    uint64_t recolor_count = 0;
+    std::optional<uint64_t> base_samples;
+    std::vector<uint8_t> base_rgba;
     double elapsed_before_pause = 0;
     bool paused = false;
 
@@ -210,10 +204,22 @@ struct render_session {
     std::shared_ptr<const std::vector<uint8_t>>
     capture_frame(const buddha_browser::display_settings &display) {
         const auto begin = std::chrono::steady_clock::now();
-        auto frame = std::make_shared<const std::vector<uint8_t>>(make_rgba(*image, display));
+        const bool new_histogram = !base_samples || *base_samples != samples;
+        if (new_histogram) {
+            base_rgba = make_base_rgba(*image);
+            base_samples = samples;
+        }
+        auto frame = std::make_shared<std::vector<uint8_t>>(base_rgba);
+        buddha_browser::apply_display(*frame, image->s.h, image->s.w, display);
         const auto end = std::chrono::steady_clock::now();
-        preview_seconds += std::chrono::duration<double>(end - begin).count();
-        ++preview_count;
+        const double seconds = std::chrono::duration<double>(end - begin).count();
+        if (new_histogram) {
+            preview_seconds += seconds;
+            ++preview_count;
+        } else {
+            recolor_seconds += seconds;
+            ++recolor_count;
+        }
         last_preview = end;
         return frame;
     }
@@ -238,6 +244,8 @@ struct state {
     double batch_seconds = 0;
     double preview_seconds = 0;
     uint64_t preview_count = 0;
+    double recolor_seconds = 0;
+    uint64_t recolor_count = 0;
     double cre = 0, cim = 0, scale = 0;
     uint32_t output_width = 0, output_height = 0;
     std::string phase = "idle";
@@ -257,6 +265,8 @@ void publish_frame(state &shared, render_session &session,
         ++shared.frame_revision;
         shared.preview_seconds = session.preview_seconds;
         shared.preview_count = session.preview_count;
+        shared.recolor_seconds = session.recolor_seconds;
+        shared.recolor_count = session.recolor_count;
         if (shared.phase == "running")
             shared.elapsed = session.elapsed();
     }
@@ -378,6 +388,8 @@ void render_worker(state &shared) {
                         shared.batch_seconds = session->batch_seconds;
                         shared.preview_seconds = session->preview_seconds;
                         shared.preview_count = session->preview_count;
+                        shared.recolor_seconds = session->recolor_seconds;
+                        shared.recolor_count = session->recolor_count;
                         preview = shared.stop || shared.pause ||
                                   shared.frame_render_id != session->id ||
                                   shared.frame_display_revision != shared.display_revision ||
@@ -438,7 +450,9 @@ std::string status_json(state &shared) {
         << ",\"cre\":" << shared.cre << ",\"cim\":" << shared.cim << ",\"scale\":" << shared.scale
         << ",\"batch_seconds\":" << shared.batch_seconds
         << ",\"preview_seconds\":" << shared.preview_seconds
-        << ",\"preview_count\":" << shared.preview_count << ",\"error\":\""
+        << ",\"preview_count\":" << shared.preview_count
+        << ",\"recolor_seconds\":" << shared.recolor_seconds
+        << ",\"recolor_count\":" << shared.recolor_count << ",\"error\":\""
         << escape_json(shared.error) << "\"}";
     return out.str();
 }
@@ -560,6 +574,8 @@ void handle(int fd, state &shared, const std::string &html, uint16_t port) {
                 shared.batch_seconds = 0;
                 shared.preview_seconds = 0;
                 shared.preview_count = 0;
+                shared.recolor_seconds = 0;
+                shared.recolor_count = 0;
                 shared.output_width = c.output_width;
                 shared.output_height = c.output_height;
                 shared.cre = c.cre;
