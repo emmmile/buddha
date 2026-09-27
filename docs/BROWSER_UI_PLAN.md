@@ -203,16 +203,28 @@ transport.
 The first implementation keeps display controls on the native preview path.
 `POST /display` replaces only display settings, and a completed GPU batch (or a
 stopped session) produces a new frame from the existing histogram. Channel
-colors linearly mix the three tone-mapped source channels. Brightness is an
-exposure factor from -2 to +2 stops; contrast is a slope around the midpoint;
-saturation scales distance from Rec. 709 luminance. Clarity adds or removes
-the difference between each pixel's luminance and a separable 17 × 17 box
-blur, so its radius is eight output pixels. The default settings leave the
-existing TIFF-style mapping untouched. Edited previews are 8-bit display
-images; TIFF export retains its 16-bit mapping and does not contain these
+colors linearly mix the three tone-mapped source channels. Contrast and
+saturation are signed offsets around neutral zero. The editable defaults are
+Brightness +25, Contrast +25, Saturation +50, Clarity +25, and Texture 0.
+Brightness uses a midtone curve with fixed black and white endpoints, so it
+does not multiply highlights into clipping. Clarity applies broad local
+contrast mostly to midtones; Texture affects a smaller detail scale. Both use
+multiple small box-blur passes to avoid the rectangular support of a single
+large box, and clarity suppresses its effect near black and white. Neutral
+zero settings leave the existing TIFF-style mapping untouched. These curves
+approximate the behavior of photo editing controls; they are not exact
+Capture One or Photoshop algorithms. Edited previews are 8-bit display images;
+TIFF export retains its 16-bit mapping and does not contain these
 display-only adjustments. A byte-for-byte comparison from one histogram can be
 done when session TIFF export arrives in milestone 4. Keep HTTP polling while
 its latency remains useful.
+
+At a 2-million-pixel preview size, the CPU display transform measured about
+35–50 ms with the default Clarity +25 and Texture either 0 or +25 on this
+development machine. This excludes histogram scanning, GPU readback, and
+browser presentation. A possible GPU path uses Metal Performance Shaders for
+the smooth blurs and a small custom Metal kernel for color, tone, and detail
+composition. Measure end-to-end preview latency before switching paths.
 
 ### 3. Zoom sampler and session recovery
 

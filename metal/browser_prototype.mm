@@ -94,9 +94,11 @@ buddha_browser::display_settings parse_display(const std::string &body) {
     display.contrast = json.get<int>("contrast");
     display.saturation = json.get<int>("saturation");
     display.clarity = json.get<int>("clarity");
-    if (display.brightness < -100 || display.brightness > 100 || display.contrast < 0 ||
-        display.contrast > 200 || display.saturation < 0 || display.saturation > 200 ||
-        display.clarity < -100 || display.clarity > 100)
+    display.texture = json.get<int>("texture");
+    if (display.brightness < -100 || display.brightness > 100 || display.contrast < -100 ||
+        display.contrast > 100 || display.saturation < -100 || display.saturation > 100 ||
+        display.clarity < -100 || display.clarity > 100 || display.texture < -100 ||
+        display.texture > 100)
         throw std::invalid_argument("display values are outside their supported ranges");
     return display;
 }
@@ -399,7 +401,8 @@ std::string status_json(state &shared) {
         << color_hex(shared.display.colors[2]) << "\",\"brightness\":" << shared.display.brightness
         << ",\"contrast\":" << shared.display.contrast
         << ",\"saturation\":" << shared.display.saturation
-        << ",\"clarity\":" << shared.display.clarity << "}"
+        << ",\"clarity\":" << shared.display.clarity << ",\"texture\":" << shared.display.texture
+        << "}"
         << ",\"samples\":" << shared.samples << ",\"elapsed\":" << shared.elapsed
         << ",\"width\":" << shared.output_width << ",\"height\":" << shared.output_height
         << ",\"cre\":" << shared.cre << ",\"cim\":" << shared.cim << ",\"scale\":" << shared.scale

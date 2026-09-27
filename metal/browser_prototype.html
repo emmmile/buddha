@@ -17,7 +17,7 @@
     input:invalid { border-color: #af674f; }
     input[type=color] { padding: 1px; height: 24px; }
     input[type=range] { padding: 0; height: 20px; border: 0; background: transparent; accent-color: #81a2b5; }
-    label.slider { grid-template-columns: 1fr 83px 28px; }
+    label.slider { grid-template-columns: 1fr 77px 34px; }
     output { text-align: right; font-variant-numeric: tabular-nums; }
     button { height: 27px; padding: 2px 7px; border: 1px solid #495c68; border-radius: 0; color: #e5edf1; background: #263b48; cursor: pointer; font: inherit; font-size: .72rem; }
     button:hover { background: #345365; }
@@ -61,10 +61,11 @@
         <label>Red channel<input name="red" type="color" value="#ff0000"></label>
         <label>Green channel<input name="green" type="color" value="#00ff00"></label>
         <label>Blue channel<input name="blue" type="color" value="#0000ff"></label>
-        <label class="slider">Brightness<input name="brightness" type="range" min="-100" max="100" value="0"><output id="brightness-value">0</output></label>
-        <label class="slider">Contrast<input name="contrast" type="range" min="0" max="200" value="100"><output id="contrast-value">100</output></label>
-        <label class="slider">Saturation<input name="saturation" type="range" min="0" max="200" value="100"><output id="saturation-value">100</output></label>
-        <label class="slider" title="Local contrast, 8 output-pixel radius">Clarity<input name="clarity" type="range" min="-100" max="100" value="0"><output id="clarity-value">0</output></label>
+        <label class="slider" title="Midtone lift with protected highlights">Brightness<input name="brightness" type="range" min="-100" max="100" value="25"><output id="brightness-value">+25</output></label>
+        <label class="slider">Contrast<input name="contrast" type="range" min="-100" max="100" value="25"><output id="contrast-value">+25</output></label>
+        <label class="slider">Saturation<input name="saturation" type="range" min="-100" max="100" value="50"><output id="saturation-value">+50</output></label>
+        <label class="slider" title="Broad midtone local contrast">Clarity<input name="clarity" type="range" min="-100" max="100" value="25"><output id="clarity-value">+25</output></label>
+        <label class="slider" title="Fine detail without broad halos">Texture<input name="texture" type="range" min="-100" max="100" value="0"><output id="texture-value">0</output></label>
       </fieldset>
       <div class="actions">
         <button type="submit">Start</button>
@@ -119,15 +120,17 @@
            lowg: 128, highg: 2048, lowb: 32, highb: 512}))
         form.elements[name].value = value;
       for (const [name, value] of Object.entries({red: '#ff0000', green: '#00ff00',
-           blue: '#0000ff', brightness: 0, contrast: 100, saturation: 100, clarity: 0}))
+           blue: '#0000ff', brightness: 25, contrast: 25, saturation: 50, clarity: 25, texture: 0}))
         form.elements[name].value = value;
       updateDisplayLabels();
     }
 
-    const displayNames = ['red', 'green', 'blue', 'brightness', 'contrast', 'saturation', 'clarity'];
+    const displayNames = ['red', 'green', 'blue', 'brightness', 'contrast', 'saturation', 'clarity', 'texture'];
     function updateDisplayLabels() {
-      for (const name of ['brightness', 'contrast', 'saturation', 'clarity'])
-        document.getElementById(`${name}-value`).textContent = form.elements[name].value;
+      for (const name of ['brightness', 'contrast', 'saturation', 'clarity', 'texture']) {
+        const value = Number(form.elements[name].value);
+        document.getElementById(`${name}-value`).textContent = value > 0 ? `+${value}` : `${value}`;
+      }
     }
 
     function displayData() {
