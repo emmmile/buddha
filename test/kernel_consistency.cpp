@@ -42,7 +42,7 @@ settings make_settings(uint64_t w, uint64_t h, double scale, double cre, double 
     s.highb = 128;
     s.contrast = s.lightness = 100;
     s.threads = 1;
-    s.exclusion_size = 256;
+    s.exclusion = BUDDHA_EXCLUSION_MAP;
     s.no_image = true;
     s.indirect_settings();
     return s;
@@ -58,7 +58,7 @@ struct raw_histogram {
 
 void check(const std::string &name, const settings &s) {
     mandelbrot<complex_type> core(s);
-    core.compute(0, core.data.size()); // deterministic part of the exclusion map
+    require(core.load(), "the committed exclusion map must load");
     const mandelbrot_base<complex_type> &base = core;
 
     buddha_kernel::parameters p{};
@@ -70,7 +70,7 @@ void check(const std::string &name, const settings &s) {
     p.highg = s.highg;
     p.lowb = s.lowb;
     p.highb = s.highb;
-    p.exclusion_size = uint32_t(s.exclusion_size);
+    p.exclusion_size = uint32_t(core.size);
     p.key0 = 0x2545f491U;
     p.key1 = 0x9e3779b9U;
     p.count = 200000;
@@ -141,7 +141,7 @@ void check(const std::string &name, const settings &s) {
     buddha::vector_type naive(3 * s.size), reference(3 * s.size);
     buddha_generator sampler(core, naive, s, 2);
     sampler.naive(p.key0, p.key1, p.count);
-    buddha_kernel::parameters q = s.kernel_parameters();
+    buddha_kernel::parameters q = s.kernel_parameters(uint32_t(core.size));
     q.key0 = p.key0;
     q.key1 = p.key1;
     q.count = p.count;

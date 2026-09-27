@@ -179,10 +179,10 @@ class persistent_renderer {
     id<MTLBuffer> map_, raw_, totals_;
 };
 
-// Kernel parameters for a renderer settings object (settings::kernel_parameters, which the CPU
-// naive sampler uses too).
-template <class Settings> parameters make_parameters(const Settings &s) {
-    return s.kernel_parameters();
+// Kernel parameters for a renderer settings object and exclusion map resolution
+// (settings::kernel_parameters, which the CPU naive sampler uses too).
+template <class Settings> parameters make_parameters(const Settings &s, uint64_t exclusion_size) {
+    return s.kernel_parameters(uint32_t(exclusion_size));
 }
 
 // Bytes to wrap for a histogram allocated with page_allocator.

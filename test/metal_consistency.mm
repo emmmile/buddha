@@ -40,7 +40,7 @@ settings make_settings(uint64_t w, uint64_t h, double scale, double cre, double 
     s.lowb = 4;
     s.highb = 128;
     s.threads = 1;
-    s.exclusion_size = 256;
+    s.exclusion = BUDDHA_EXCLUSION_MAP;
     s.indirect_settings();
     return s;
 }
@@ -48,9 +48,10 @@ settings make_settings(uint64_t w, uint64_t h, double scale, double cre, double 
 // Returns the number of histogram bins that differ.
 uint64_t check(id<MTLDevice> device, const std::string &name, const settings &s) {
     mandelbrot<buddha::complex_type> core(s);
-    core.compute(0, core.data.size());
+    if (!core.load())
+        throw std::runtime_error("the committed exclusion map must load");
 
-    parameters p = make_parameters(s);
+    parameters p = make_parameters(s, core.size);
     p.key0 = 0x2545f491U;
     p.key1 = 0x9e3779b9U;
     const uint32_t samples = 1 << 20;

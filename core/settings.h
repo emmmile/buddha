@@ -57,7 +57,6 @@ struct settings {
     // buddha-metal: naive, the only one it supports). Checkpoints record it.
     string sampler;
     string exclusion;
-    uint64_t exclusion_size;
 
     void indirect_settings();
     void dump() const;
@@ -75,9 +74,10 @@ struct settings {
         return g;
     }
 
-    // Naive-sampler parameters, shared by buddha_generator::naive and buddha-metal. The caller
-    // sets the sample range, random key and lane count.
-    buddha_kernel::parameters kernel_parameters() const {
+    // Naive-sampler parameters, shared by buddha_generator::naive and buddha-metal, for an
+    // exclusion map of the given resolution. The caller sets the sample range, random key and
+    // lane count.
+    buddha_kernel::parameters kernel_parameters(uint32_t exclusion_size) const {
         const buddha_kernel::geometry<double> g = histogram_geometry();
         buddha_kernel::parameters p{};
         p.low = low;
@@ -92,7 +92,7 @@ struct settings {
         p.histogram_height = g.height;
         p.symmetric = g.symmetric;
         p.odd_center = g.odd_center;
-        p.exclusion_size = uint32_t(exclusion_size);
+        p.exclusion_size = exclusion_size;
         p.minre = float(g.minre);
         p.maxim = float(g.maxim);
         p.scale = float(g.scale);

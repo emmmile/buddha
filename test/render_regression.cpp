@@ -68,7 +68,6 @@ settings make_settings() {
     s.highr = s.highg = s.highb = 32;
     s.contrast = s.lightness = 100;
     s.threads = 1;
-    s.exclusion_size = 10;
     s.no_image = true;
     s.indirect_settings();
     return s;
@@ -150,15 +149,39 @@ void exclusion_test() {
                     std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())))
                       .string();
     mandelbrot<buddha::complex_type> map(s);
-    map.data.assign(map.data.size(), 2);
-    map.exclusion();
+    map.exclusion(10);
     for (auto cell : map.data)
         require(cell <= 1, "exclusion-map worker left a cell uncomputed");
     map.save();
     mandelbrot<buddha::complex_type> loaded(s);
     require(loaded.load(), "exclusion-map load");
+    require(loaded.size == 10 && loaded.iterations == s.high,
+            "exclusion-map resolution and iterations round trip");
     require(loaded.data == map.data, "exclusion-map round trip");
+
+    {
+        std::ofstream(s.exclusion, std::ios::binary) << "not a map";
+    }
+    bool rejected = false;
+    try {
+        loaded.load();
+    } catch (const std::runtime_error &) {
+        rejected = true;
+    }
+    require(rejected, "exclusion-map load accepted a file without a header");
     fs::remove(s.exclusion);
+
+    // The committed map, which every binary loads by default.
+    s.exclusion = BUDDHA_EXCLUSION_MAP;
+    mandelbrot<buddha::complex_type> committed(s);
+    require(committed.load(), "committed exclusion map load");
+    require(committed.size == 8192, "committed exclusion map resolution");
+    for (auto c : {buddha::complex_type(0, 0.1), buddha::complex_type(-1, 0.1),
+                   buddha::complex_type(-0.1, -0.5)})
+        require(committed.excluded(c), "committed exclusion map misses an interior point");
+    for (auto c : {buddha::complex_type(0.5, 0), buddha::complex_type(0.5, 0.5),
+                   buddha::complex_type(-2.5, 0)})
+        require(!committed.excluded(c), "committed exclusion map excludes an escaping point");
 }
 
 void checkpoint_test() {
