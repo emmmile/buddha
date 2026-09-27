@@ -51,3 +51,43 @@ if(BUILD_TESTING)
     target_compile_options(kernel-consistency PRIVATE ${BUDDHA_STRICT_FP})
     add_test(NAME kernel-consistency COMMAND kernel-consistency)
 endif()
+
+if(APPLE)
+    enable_language(OBJCXX)
+
+    # metal/render.metal with core/buddha_kernel.h inlined, embedded as a string for run-time
+    # compilation (no Xcode needed) and written as a .metal file for ahead-of-time checks.
+    set(BUDDHA_METAL_GENERATED ${CMAKE_CURRENT_BINARY_DIR}/generated)
+    add_custom_command(
+        OUTPUT ${BUDDHA_METAL_GENERATED}/buddha_metal_source.h ${BUDDHA_METAL_GENERATED}/buddha.metal
+        COMMAND ${CMAKE_COMMAND}
+                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/core/buddha_kernel.h
+                -DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/metal/render.metal
+                -DOUTPUT_METAL=${BUDDHA_METAL_GENERATED}/buddha.metal
+                -DOUTPUT_HEADER=${BUDDHA_METAL_GENERATED}/buddha_metal_source.h
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/metal/embed_source.cmake
+        DEPENDS core/buddha_kernel.h metal/render.metal metal/embed_source.cmake
+        COMMENT "Embedding the Metal kernel")
+    add_custom_target(metal-source DEPENDS ${BUDDHA_METAL_GENERATED}/buddha_metal_source.h)
+
+    function(add_metal_executable name)
+        add_executable(${name} ${ARGN})
+        add_dependencies(${name} metal-source)
+        set_target_properties(${name} PROPERTIES OBJCXX_STANDARD 23)
+        target_compile_options(${name} PRIVATE -fobjc-arc)
+        target_include_directories(${name} PRIVATE metal ${BUDDHA_METAL_GENERATED})
+        target_link_libraries(${name} PRIVATE core Threads::Threads "-framework Metal"
+                              "-framework Foundation" "-framework IOKit")
+    endfunction()
+
+    # GPU renderer (naive sampling) with buddha++'s options, exclusion map, checkpoints and TIFF.
+    add_metal_executable(buddha-metal metal/main.mm)
+
+    if(BUILD_TESTING)
+        # The GPU kernel against the shared lane on the CPU; skipped without a Metal device.
+        add_metal_executable(metal-consistency test/metal_consistency.mm)
+        target_compile_options(metal-consistency PRIVATE ${BUDDHA_STRICT_FP})
+        add_test(NAME metal-consistency COMMAND metal-consistency)
+        set_tests_properties(metal-consistency PROPERTIES SKIP_RETURN_CODE 77)
+    endif()
+endif()
