@@ -83,6 +83,14 @@ if(APPLE)
     # GPU renderer (naive sampling) with buddha++'s options, exclusion map, checkpoints and TIFF.
     add_metal_executable(buddha-metal metal/main.mm)
 
+    # Minimal local browser prototype. The HTML is copied next to the executable at configure time.
+    configure_file(metal/browser_prototype.html browser_prototype.html COPYONLY)
+    add_metal_executable(buddha-browser metal/browser_prototype.mm)
+    target_compile_definitions(buddha-browser PRIVATE
+        BUDDHA_BROWSER_HTML_PATH="${CMAKE_CURRENT_BINARY_DIR}/browser_prototype.html")
+    target_compile_options(buddha-browser PRIVATE -fno-fast-math)
+    target_link_libraries(buddha-browser PRIVATE "-framework AppKit")
+
     if(BUILD_TESTING)
         # The GPU kernel against the shared lane on the CPU; skipped without a Metal device.
         add_metal_executable(metal-consistency test/metal_consistency.mm)
