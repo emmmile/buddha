@@ -139,9 +139,7 @@ viewport determines the render resolution, capped at two million pixels. The
 current Metal sampler renders overview and shallow-zoom views; a raw RGBA
 preview updates while it runs. Start or Stop from the page, and press `Ctrl-C` in the
 terminal to exit. Use `--no-open` to print the URL without opening a browser.
-The default `./exclusion.map` path must point to an existing map for the
-expected sampling speed; the page warns if it is missing. Create a map with
-the `exclusion` tool or enter the path to one you already have.
+The browser renderer loads the committed `data/exclusion.map` automatically.
 The headless `buddha++` and `buddha-metal` binaries remain available for large
 renders and automation.
 

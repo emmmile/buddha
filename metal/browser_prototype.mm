@@ -46,8 +46,6 @@ struct request_settings {
     uint32_t output_width, output_height;
     double cre, cim, scale;
     uint32_t lowr, lowg, lowb, highr, highg, highb;
-    uint32_t exclusion_size;
-    std::string exclusion_map;
 };
 
 request_settings parse_settings(const std::string &body) {
@@ -55,19 +53,10 @@ request_settings parse_settings(const std::string &body) {
     boost::property_tree::ptree json;
     boost::property_tree::read_json(input, json);
     request_settings c{
-        json.get<uint32_t>("width"),
-        json.get<uint32_t>("height"),
-        json.get<double>("cre"),
-        json.get<double>("cim"),
-        json.get<double>("scale"),
-        json.get<uint32_t>("lowr"),
-        json.get<uint32_t>("lowg"),
-        json.get<uint32_t>("lowb"),
-        json.get<uint32_t>("highr"),
-        json.get<uint32_t>("highg"),
-        json.get<uint32_t>("highb"),
-        json.get<uint32_t>("exclusion_size"),
-        json.get<std::string>("exclusion_map"),
+        json.get<uint32_t>("width"), json.get<uint32_t>("height"), json.get<double>("cre"),
+        json.get<double>("cim"),     json.get<double>("scale"),    json.get<uint32_t>("lowr"),
+        json.get<uint32_t>("lowg"),  json.get<uint32_t>("lowb"),   json.get<uint32_t>("highr"),
+        json.get<uint32_t>("highg"), json.get<uint32_t>("highb"),
     };
     if (c.output_width == 0 || c.output_height == 0 ||
         uint64_t(c.output_width) * c.output_height > max_pixels)
@@ -77,10 +66,6 @@ request_settings parse_settings(const std::string &body) {
     if (c.highr == 0 || c.highg == 0 || c.highb == 0 || c.highr > 100'000 || c.highg > 100'000 ||
         c.highb > 100'000 || c.lowr >= c.highr || c.lowg >= c.highg || c.lowb >= c.highb)
         throw std::invalid_argument("invalid channel iteration ranges");
-    if (c.exclusion_size == 0 || c.exclusion_size % 2 != 0 || c.exclusion_size > 16'384)
-        throw std::invalid_argument("exclusion size must be an even number up to 16384");
-    if (c.exclusion_map.size() > 1024)
-        throw std::invalid_argument("exclusion map path is too long");
     return c;
 }
 
@@ -102,8 +87,7 @@ settings make_settings(const request_settings &c) {
     s.lightness = 100;
     s.threads = 1;
     s.sampler = "naive";
-    s.exclusion_size = c.exclusion_size;
-    s.exclusion = c.exclusion_map;
+    s.exclusion = BUDDHA_EXCLUSION_MAP;
     s.no_image = true;
     s.indirect_settings();
     return s;
@@ -157,18 +141,14 @@ struct render_session {
     uint64_t samples = 0;
     double batch_seconds = 0;
     double preview_seconds = 0;
-    std::string warning;
-
     render_session(uint64_t render_id, const request_settings &c) : id(render_id) {
-        if (!c.exclusion_map.empty()) {
-            std::error_code error;
-            if (!std::filesystem::is_regular_file(c.exclusion_map, error))
-                warning = "Exclusion map not found; rendering without it: " + c.exclusion_map;
-        }
+        if (!std::filesystem::is_regular_file(BUDDHA_EXCLUSION_MAP))
+            throw std::runtime_error("default exclusion map is missing: " BUDDHA_EXCLUSION_MAP);
         image = std::make_unique<buddha>(make_settings(c));
         buddha_metal::check_histogram_layout<buddha::vector_type>();
         gpu = std::make_unique<buddha_metal::persistent_renderer>(
-            buddha_metal::default_device(), image->s.kernel_parameters(), image->core.data.data(),
+            buddha_metal::default_device(),
+            buddha_metal::make_parameters(image->s, image->core.size), image->core.data.data(),
             image->core.data.size(), image->raw.data(), buddha_metal::histogram_bytes(image->raw));
         start = last_preview = std::chrono::steady_clock::now();
     }
@@ -190,7 +170,6 @@ struct state {
     uint32_t output_width = 0, output_height = 0;
     std::string phase = "idle";
     std::string error;
-    std::string warning;
     std::shared_ptr<const std::vector<uint8_t>> frame;
 };
 
@@ -228,7 +207,6 @@ void render_worker(state &shared) {
                 std::lock_guard lock(shared.mutex);
                 if (shared.render_id == next_id) {
                     shared.phase = "running";
-                    shared.warning = session->warning;
                 }
             } catch (const std::exception &e) {
                 std::lock_guard lock(shared.mutex);
@@ -320,7 +298,7 @@ std::string status_json(state &shared) {
         << ",\"width\":" << shared.output_width << ",\"height\":" << shared.output_height
         << ",\"batch_seconds\":" << shared.batch_seconds
         << ",\"preview_seconds\":" << shared.preview_seconds << ",\"error\":\""
-        << escape_json(shared.error) << "\",\"warning\":\"" << escape_json(shared.warning) << "\"}";
+        << escape_json(shared.error) << "\"}";
     return out.str();
 }
 
@@ -442,7 +420,6 @@ void handle(int fd, state &shared, const std::string &html, uint16_t port) {
                 shared.output_height = c.output_height;
                 shared.phase = "starting";
                 shared.error.clear();
-                shared.warning.clear();
             }
             shared.changed.notify_one();
             respond(fd, 200, "application/json", status_json(shared));

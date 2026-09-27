@@ -18,8 +18,8 @@ run Metropolis on the CPU. The UI protocol should support either renderer.
 
 1. Launch the local renderer app; it starts its web server and opens the browser
    page. During development, launch it from the terminal.
-2. Choose the image size, complex-plane center and scale, channel iteration
-   ranges, and display controls.
+2. Choose the complex-plane center and scale, channel iteration ranges, and
+   display controls. The image size follows the viewport.
 3. Start a render and watch a progressive image with elapsed time and sampling
    statistics.
 4. Drag to pan and scroll or pinch to zoom. A changed complex-plane window
@@ -40,7 +40,7 @@ area. A full-size preview frame represents the entire image.
 
 | Setting | Effect |
 | --- | --- |
-| Width, height, center, scale, sampler, exclusion map, channel iteration ranges | Start a new histogram. |
+| Viewport size, center, scale, sampler, channel iteration ranges | Start a new histogram. |
 | Pan or zoom | Compute a new center and scale, then start a new histogram. The UI can transform the old frame while waiting. |
 | Channel colors, brightness, contrast, gamma, exposure | Recompute RGB from the current histogram. No orbit work. |
 | Clarity, sharpening, blur, or similar image filters | Apply to the display image after tone mapping. Define each filter precisely before adding its control. |
@@ -144,8 +144,8 @@ mirrored and off-axis windows, and device pixel ratios other than one.
 Build one macOS executable that serves a single page on loopback and owns one
 Metal render. The page takes its output resolution from the image viewport;
 resolution is not a form input. It has center-real, center-imaginary, and scale
-inputs, channel ranges, an exclusion-map path and size, Start and Stop buttons,
-and one image. Cap the render at a small display-sized image (initially two
+inputs, channel ranges, Start and Stop buttons,
+and one image. Load the committed exclusion map automatically. Cap the render at a small display-sized image (initially two
 million output pixels). Use the current naive Metal sampler and test only
 overview or shallow-zoom windows. The supplied 8192 × 8192, scale 2048 command
 is an editable full-view preset: at a smaller display size, choose scale to

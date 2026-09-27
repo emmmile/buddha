@@ -52,11 +52,6 @@
           <label>B max<input name="highb" type="number" min="1" step="1" value="512" required></label>
         </div>
       </fieldset>
-      <fieldset>
-        <legend>Exclusion map</legend>
-        <label class="path">Map path<input name="exclusion_map" value="./exclusion.map"></label>
-        <label>Map size<input name="exclusion_size" type="number" min="2" step="2" value="4096" required></label>
-      </fieldset>
       <div class="actions">
         <button type="submit">Start</button>
         <button type="button" class="secondary" id="stop">Stop</button>
@@ -97,8 +92,7 @@
       form.elements.cim.value = 0;
       form.elements.scale.value = Math.min(width, height) / 4;
       for (const [name, value] of Object.entries({lowr: 512, highr: 8192,
-           lowg: 128, highg: 2048, lowb: 32, highb: 512,
-           exclusion_size: 4096, exclusion_map: './exclusion.map'}))
+           lowg: 128, highg: 2048, lowb: 32, highb: 512}))
         form.elements[name].value = value;
     }
 
@@ -113,7 +107,7 @@
       event.preventDefault();
       const data = Object.fromEntries(new FormData(form));
       for (const name of ['cre', 'cim', 'scale', 'lowr', 'lowg', 'lowb',
-                          'highr', 'highg', 'highb', 'exclusion_size'])
+                          'highr', 'highg', 'highb'])
         data[name] = Number(data[name]);
       Object.assign(data, viewportPixels());
       try {
@@ -139,7 +133,6 @@
         const size = status.width ? `${status.width} × ${status.height}` : '—';
         statusLine.textContent = `${status.phase} · ${size} · ${rate} M/s overall · ${batchRate} M/s batches · ${status.preview_seconds.toFixed(1)} s previews · ${status.samples.toLocaleString()} samples`;
         if (status.error) message.textContent = status.error;
-        else if (status.warning) message.textContent = status.warning;
         if (status.frame_render_id === activeRenderId && status.frame_revision !== lastFrameRevision && !frameLoading) {
           frameLoading = true;
           const renderId = activeRenderId;
@@ -153,7 +146,7 @@
               image.height = status.height;
               image.getContext('2d').putImageData(new ImageData(pixels, status.width, status.height), 0, 0);
               lastFrameRevision = status.frame_revision;
-              if (!status.warning) message.textContent = `Showing render ${activeRenderId}`;
+              message.textContent = `Showing render ${activeRenderId}`;
             }
           } catch (error) {
             message.textContent = 'Preview: ' + error.message;
