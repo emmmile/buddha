@@ -140,6 +140,8 @@ current Metal sampler renders overview and shallow-zoom views; a raw RGBA
 preview updates while it runs. Start or Stop from the page, and press `Ctrl-C` in the
 terminal to exit. Use `--no-open` to print the URL without opening a browser.
 The browser renderer loads the committed `data/exclusion.map` automatically.
+Drag the image to pan; scroll or pinch to zoom around the pointer. Resizing the
+window starts a new display-sized render after a short pause.
 The headless `buddha++` and `buddha-metal` binaries remain available for large
 renders and automation.
 

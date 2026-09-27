@@ -141,6 +141,7 @@ struct render_session {
     uint64_t samples = 0;
     double batch_seconds = 0;
     double preview_seconds = 0;
+
     render_session(uint64_t render_id, const request_settings &c) : id(render_id) {
         if (!std::filesystem::is_regular_file(BUDDHA_EXCLUSION_MAP))
             throw std::runtime_error("default exclusion map is missing: " BUDDHA_EXCLUSION_MAP);
@@ -151,6 +152,28 @@ struct render_session {
             buddha_metal::make_parameters(image->s, image->core.size), image->core.data.data(),
             image->core.data.size(), image->raw.data(), buddha_metal::histogram_bytes(image->raw));
         start = last_preview = std::chrono::steady_clock::now();
+    }
+
+    double elapsed() const {
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    }
+
+    void advance(std::random_device &random) {
+        const auto begin = std::chrono::steady_clock::now();
+        auto command = gpu->dispatch(0, batch_samples, random(), random());
+        buddha_metal::persistent_renderer::wait(command);
+        samples += batch_samples;
+        batch_seconds +=
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
+    }
+
+    std::shared_ptr<const std::vector<uint8_t>> capture_frame() {
+        const auto begin = std::chrono::steady_clock::now();
+        auto frame = std::make_shared<const std::vector<uint8_t>>(make_rgba(*image));
+        const auto end = std::chrono::steady_clock::now();
+        preview_seconds += std::chrono::duration<double>(end - begin).count();
+        last_preview = end;
+        return frame;
     }
 };
 
@@ -167,6 +190,7 @@ struct state {
     double elapsed = 0;
     double batch_seconds = 0;
     double preview_seconds = 0;
+    double cre = 0, cim = 0, scale = 0;
     uint32_t output_width = 0, output_height = 0;
     std::string phase = "idle";
     std::string error;
@@ -223,43 +247,29 @@ void render_worker(state &shared) {
 
         try {
             @autoreleasepool {
-                const auto batch_start = std::chrono::steady_clock::now();
-                auto command = session->gpu->dispatch(0, batch_samples, random(), random());
-                buddha_metal::persistent_renderer::wait(command);
-                const auto batch_end = std::chrono::steady_clock::now();
-                session->samples += batch_samples;
-                session->batch_seconds +=
-                    std::chrono::duration<double>(batch_end - batch_start).count();
-                const double elapsed =
-                    std::chrono::duration<double>(batch_end - session->start).count();
+                session->advance(random);
                 bool preview = false;
                 {
                     std::lock_guard lock(shared.mutex);
                     if (shared.render_id == session->id && !shared.pending) {
                         shared.samples = session->samples;
-                        shared.elapsed = elapsed;
+                        shared.elapsed = session->elapsed();
                         shared.batch_seconds = session->batch_seconds;
                         shared.preview_seconds = session->preview_seconds;
                         preview = shared.stop || shared.frame_render_id != session->id ||
-                                  batch_end - session->last_preview >= std::chrono::seconds(1);
+                                  std::chrono::steady_clock::now() - session->last_preview >=
+                                      std::chrono::seconds(1);
                     }
                 }
                 if (preview) {
-                    const auto preview_start = std::chrono::steady_clock::now();
-                    auto frame =
-                        std::make_shared<const std::vector<uint8_t>>(make_rgba(*session->image));
-                    const auto preview_end = std::chrono::steady_clock::now();
-                    session->preview_seconds +=
-                        std::chrono::duration<double>(preview_end - preview_start).count();
+                    auto frame = session->capture_frame();
                     std::lock_guard lock(shared.mutex);
                     if (shared.render_id == session->id && !shared.pending) {
                         shared.frame = std::move(frame);
                         shared.frame_render_id = session->id;
                         ++shared.frame_revision;
                         shared.preview_seconds = session->preview_seconds;
-                        shared.elapsed =
-                            std::chrono::duration<double>(preview_end - session->start).count();
-                        session->last_preview = preview_end;
+                        shared.elapsed = session->elapsed();
                     }
                 }
             }
@@ -296,6 +306,7 @@ std::string status_json(state &shared) {
         << ",\"frame_revision\":" << shared.frame_revision << ",\"phase\":\"" << shared.phase
         << "\",\"samples\":" << shared.samples << ",\"elapsed\":" << shared.elapsed
         << ",\"width\":" << shared.output_width << ",\"height\":" << shared.output_height
+        << ",\"cre\":" << shared.cre << ",\"cim\":" << shared.cim << ",\"scale\":" << shared.scale
         << ",\"batch_seconds\":" << shared.batch_seconds
         << ",\"preview_seconds\":" << shared.preview_seconds << ",\"error\":\""
         << escape_json(shared.error) << "\"}";
@@ -418,6 +429,9 @@ void handle(int fd, state &shared, const std::string &html, uint16_t port) {
                 shared.preview_seconds = 0;
                 shared.output_width = c.output_width;
                 shared.output_height = c.output_height;
+                shared.cre = c.cre;
+                shared.cim = c.cim;
+                shared.scale = c.scale;
                 shared.phase = "starting";
                 shared.error.clear();
             }

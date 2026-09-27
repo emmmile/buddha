@@ -182,6 +182,14 @@ Metal reduction and tone-mapping pass. Add pointer navigation, resize
 debouncing, validation feedback, and a reusable render-session boundary. Keep
 the existing CLI unchanged.
 
+The first local measurement with a valid exclusion map put preview conversion
+at about 2.5% of elapsed rendering time, so the CPU conversion remains for now.
+The browser maps image x to imaginary and image y to real, matching the TIFF
+rotation. Dragging changes the center, while scrolling or pinching scales around
+the pointer anchor. A resize keeps the shorter axis' complex span and starts a
+new render after a debounce. The native `render_session` owns the Metal command
+and frame capture operations.
+
 ### 2. Display controls and transport
 
 Add channel colors, brightness, contrast, saturation, and clarity. Define
