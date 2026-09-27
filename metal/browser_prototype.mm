@@ -19,14 +19,12 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <charconv>
 #include <cmath>
 #include <condition_variable>
 #include <csignal>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <iterator>
 #include <memory>
@@ -72,24 +70,11 @@ request_settings parse_settings(const std::string &body) {
     return c;
 }
 
-uint32_t parse_color(const std::string &color) {
-    if (color.size() != 7 || color[0] != '#')
-        throw std::invalid_argument("channel colors must use #RRGGBB");
-    uint32_t value = 0;
-    const auto [end, error] = std::from_chars(color.data() + 1, color.data() + 7, value, 16);
-    if (error != std::errc{} || end != color.data() + 7)
-        throw std::invalid_argument("channel colors must use #RRGGBB");
-    return value;
-}
-
 buddha_browser::display_settings parse_display(const std::string &body) {
     std::istringstream input(body);
     boost::property_tree::ptree json;
     boost::property_tree::read_json(input, json);
     buddha_browser::display_settings display;
-    display.colors = {parse_color(json.get<std::string>("red")),
-                      parse_color(json.get<std::string>("green")),
-                      parse_color(json.get<std::string>("blue"))};
     display.brightness = json.get<int>("brightness");
     display.contrast = json.get<int>("contrast");
     display.saturation = json.get<int>("saturation");
@@ -176,6 +161,7 @@ struct render_session {
     uint64_t samples = 0;
     double batch_seconds = 0;
     double preview_seconds = 0;
+    uint64_t preview_count = 0;
 
     render_session(uint64_t render_id, const request_settings &c) : id(render_id) {
         if (!std::filesystem::is_regular_file(BUDDHA_EXCLUSION_MAP))
@@ -208,6 +194,7 @@ struct render_session {
         auto frame = std::make_shared<const std::vector<uint8_t>>(make_rgba(*image, display));
         const auto end = std::chrono::steady_clock::now();
         preview_seconds += std::chrono::duration<double>(end - begin).count();
+        ++preview_count;
         last_preview = end;
         return frame;
     }
@@ -229,6 +216,7 @@ struct state {
     double elapsed = 0;
     double batch_seconds = 0;
     double preview_seconds = 0;
+    uint64_t preview_count = 0;
     double cre = 0, cim = 0, scale = 0;
     uint32_t output_width = 0, output_height = 0;
     std::string phase = "idle";
@@ -247,6 +235,7 @@ void publish_frame(state &shared, render_session &session,
         shared.frame_display_revision = display_revision;
         ++shared.frame_revision;
         shared.preview_seconds = session.preview_seconds;
+        shared.preview_count = session.preview_count;
         if (shared.phase == "running")
             shared.elapsed = session.elapsed();
     }
@@ -343,6 +332,7 @@ void render_worker(state &shared) {
                         shared.elapsed = session->elapsed();
                         shared.batch_seconds = session->batch_seconds;
                         shared.preview_seconds = session->preview_seconds;
+                        shared.preview_count = session->preview_count;
                         preview = shared.stop || shared.frame_render_id != session->id ||
                                   shared.frame_display_revision != shared.display_revision ||
                                   std::chrono::steady_clock::now() - session->last_preview >=
@@ -382,12 +372,6 @@ std::string escape_json(const std::string &value) {
     return out;
 }
 
-std::string color_hex(uint32_t color) {
-    std::ostringstream out;
-    out << '#' << std::hex << std::setfill('0') << std::setw(6) << color;
-    return out.str();
-}
-
 std::string status_json(state &shared) {
     std::lock_guard lock(shared.mutex);
     std::ostringstream out;
@@ -396,9 +380,7 @@ std::string status_json(state &shared) {
         << ",\"frame_revision\":" << shared.frame_revision << ",\"phase\":\"" << shared.phase
         << "\",\"display_revision\":" << shared.display_revision
         << ",\"frame_display_revision\":" << shared.frame_display_revision
-        << ",\"display\":{\"red\":\"" << color_hex(shared.display.colors[0]) << "\",\"green\":\""
-        << color_hex(shared.display.colors[1]) << "\",\"blue\":\""
-        << color_hex(shared.display.colors[2]) << "\",\"brightness\":" << shared.display.brightness
+        << ",\"display\":{\"brightness\":" << shared.display.brightness
         << ",\"contrast\":" << shared.display.contrast
         << ",\"saturation\":" << shared.display.saturation
         << ",\"clarity\":" << shared.display.clarity << ",\"texture\":" << shared.display.texture
@@ -407,7 +389,8 @@ std::string status_json(state &shared) {
         << ",\"width\":" << shared.output_width << ",\"height\":" << shared.output_height
         << ",\"cre\":" << shared.cre << ",\"cim\":" << shared.cim << ",\"scale\":" << shared.scale
         << ",\"batch_seconds\":" << shared.batch_seconds
-        << ",\"preview_seconds\":" << shared.preview_seconds << ",\"error\":\""
+        << ",\"preview_seconds\":" << shared.preview_seconds
+        << ",\"preview_count\":" << shared.preview_count << ",\"error\":\""
         << escape_json(shared.error) << "\"}";
     return out.str();
 }
@@ -526,6 +509,7 @@ void handle(int fd, state &shared, const std::string &html, uint16_t port) {
                 shared.elapsed = 0;
                 shared.batch_seconds = 0;
                 shared.preview_seconds = 0;
+                shared.preview_count = 0;
                 shared.output_width = c.output_width;
                 shared.output_height = c.output_height;
                 shared.cre = c.cre;

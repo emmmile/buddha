@@ -142,7 +142,7 @@ terminal to exit. Use `--no-open` to print the URL without opening a browser.
 The browser renderer loads the committed `data/exclusion.map` automatically.
 Drag the image to pan; scroll or pinch to zoom around the pointer. Resizing the
 window starts a new display-sized render after a short pause.
-Channel colors, brightness, contrast, saturation, clarity, and texture update the
+Brightness, contrast, saturation, clarity, and texture update the
 preview from the current histogram, including after Stop, without restarting
 the sampler. Brightness lifts midtones while preserving black and white;
 clarity affects broad midtone contrast, while texture affects fine detail.

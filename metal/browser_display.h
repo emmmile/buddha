@@ -11,16 +11,14 @@
 namespace buddha_browser {
 
 struct display_settings {
-    std::array<uint32_t, 3> colors{0xff0000, 0x00ff00, 0x0000ff};
     int brightness = 25; // -100..100, highlight-preserving midtone lift
-    int contrast = 25;   // -100..100, slope 0..2 about the midpoint
+    int contrast = 10;   // -100..100, slope 0..2 about the midpoint
     int saturation = 50; // -100..100, factor 0..2 about Rec. 709 luminance
-    int clarity = 25;    // -100..100, broad midtone contrast
-    int texture = 0;     // -100..100, fine detail
+    int clarity = 50;    // -100..100, broad midtone contrast
+    int texture = 50;    // -100..100, fine detail
 
     bool is_neutral() const {
-        return colors == std::array<uint32_t, 3>{0xff0000, 0x00ff00, 0x0000ff} && brightness == 0 &&
-               contrast == 0 && saturation == 0 && clarity == 0 && texture == 0;
+        return brightness == 0 && contrast == 0 && saturation == 0 && clarity == 0 && texture == 0;
     }
 };
 
@@ -87,32 +85,21 @@ inline void apply_display(std::vector<uint8_t> &rgba, size_t width, size_t heigh
     if (display.is_neutral())
         return;
 
-    std::array<std::array<float, 3>, 3> color{};
-    for (size_t channel = 0; channel < 3; ++channel)
-        for (size_t component = 0; component < 3; ++component)
-            color[channel][component] =
-                float((display.colors[channel] >> (16 - component * 8)) & 0xff) / 255.0f;
-
     const float brightness_gain = std::exp2(float(display.brightness) / 50.0f);
     const float contrast = 1.0f + float(display.contrast) / 100.0f;
     const float saturation = 1.0f + float(display.saturation) / 100.0f;
     const size_t pixels = width * height;
     for (size_t i = 0; i < pixels; ++i) {
         const size_t offset = i * 4;
-        const std::array<float, 3> source{byte_to_unit(rgba[offset]),
-                                          byte_to_unit(rgba[offset + 1]),
-                                          byte_to_unit(rgba[offset + 2])};
-        std::array<float, 3> mixed{};
-        for (size_t component = 0; component < 3; ++component) {
-            for (size_t channel = 0; channel < 3; ++channel)
-                mixed[component] += source[channel] * color[channel][component];
-            mixed[component] = (mixed[component] - 0.5f) * contrast + 0.5f;
-        }
-        const float gray = luminance(mixed[0], mixed[1], mixed[2]);
+        std::array<float, 3> channels{byte_to_unit(rgba[offset]), byte_to_unit(rgba[offset + 1]),
+                                      byte_to_unit(rgba[offset + 2])};
+        for (auto &channel : channels)
+            channel = (channel - 0.5f) * contrast + 0.5f;
+        const float gray = luminance(channels[0], channels[1], channels[2]);
         for (size_t component = 0; component < 3; ++component)
-            rgba[offset + component] = unit_to_byte(
-                lift_midtones(std::clamp(gray + (mixed[component] - gray) * saturation, 0.0f, 1.0f),
-                              brightness_gain));
+            rgba[offset + component] = unit_to_byte(lift_midtones(
+                std::clamp(gray + (channels[component] - gray) * saturation, 0.0f, 1.0f),
+                brightness_gain));
     }
 
     if (display.clarity == 0 && display.texture == 0)
@@ -127,7 +114,7 @@ inline void apply_display(std::vector<uint8_t> &rgba, size_t width, size_t heigh
     const auto broad =
         display.clarity ? smooth_blur(luma, width, height, 4, 3) : std::vector<float>{};
     const auto fine =
-        display.texture ? smooth_blur(luma, width, height, 1, 2) : std::vector<float>{};
+        display.texture ? smooth_blur(luma, width, height, 2, 2) : std::vector<float>{};
     for (size_t i = 0; i < pixels; ++i) {
         const size_t offset = i * 4;
         const float midtone = 4.0f * luma[i] * (1.0f - luma[i]);

@@ -26,7 +26,7 @@ run Metropolis on the CPU. The UI protocol should support either renderer.
    starts a new render; the previous image remains visible until the first new
    preview arrives. The UI uses the same 90-degree clockwise orientation as
    the TIFF output.
-5. Adjust colors and display controls without discarding the histogram.
+5. Adjust display controls without discarding the histogram.
 6. Stop, resume, or export the current image and, where supported, save a
    checkpoint with its render settings.
 
@@ -42,11 +42,11 @@ area. A full-size preview frame represents the entire image.
 | --- | --- |
 | Viewport size, center, scale, sampler, channel iteration ranges | Start a new histogram. |
 | Pan or zoom | Compute a new center and scale, then start a new histogram. The UI can transform the old frame while waiting. |
-| Channel colors, brightness, contrast, gamma, exposure | Recompute RGB from the current histogram. No orbit work. |
-| Clarity, sharpening, blur, or similar image filters | Apply to the display image after tone mapping. Define each filter precisely before adding its control. |
+| Brightness, contrast, saturation | Recompute RGB from the current histogram. No orbit work. |
+| Clarity and Texture | Apply to the display image after tone mapping. |
 
-Changing histogram settings must be explicit in the protocol. A change to an
-RGB control must never silently reset accumulated samples. The server returns
+Changing histogram settings must be explicit in the protocol. A change to a
+display control must never silently reset accumulated samples. The server returns
 the effective settings, including any clamped image size, so the UI and render
 state agree.
 
@@ -91,7 +91,7 @@ The current TIFF path scans the histogram to find a maximum for each channel,
 then applies contrast and lightness while mapping counts to RGB. Extract that
 mapping into a documented tone-mapping specification shared by export and
 preview paths. Preserve the mirrored histogram behavior for windows centered
-on the real axis. Add optional color and filter controls only after a baseline
+on the real axis. Add display controls only after a baseline
 preview matches the existing TIFF output closely enough to compare by eye.
 
 For Metal renders, schedule tone mapping after a completed render batch on the
@@ -192,7 +192,7 @@ and frame capture operations.
 
 ### 2. Display controls and transport
 
-Add channel colors, brightness, contrast, saturation, and clarity. Define
+Add brightness, contrast, saturation, clarity, and texture. Define
 clarity as a local-contrast adjustment with a stated radius and strength, then
 choose its implementation after comparing sample images. Verify that changing
 these controls does not restart sampling. Compare a stopped preview with the
@@ -202,15 +202,15 @@ transport.
 
 The first implementation keeps display controls on the native preview path.
 `POST /display` replaces only display settings, and a completed GPU batch (or a
-stopped session) produces a new frame from the existing histogram. Channel
-colors linearly mix the three tone-mapped source channels. Contrast and
+stopped session) produces a new frame from the existing histogram. Contrast and
 saturation are signed offsets around neutral zero. The editable defaults are
-Brightness +25, Contrast +25, Saturation +50, Clarity +25, and Texture 0.
+Brightness +25, Contrast +10, Saturation +50, Clarity +50, and Texture +50.
 Brightness uses a midtone curve with fixed black and white endpoints, so it
 does not multiply highlights into clipping. Clarity applies broad local
-contrast mostly to midtones; Texture affects a smaller detail scale. Both use
-multiple small box-blur passes to avoid the rectangular support of a single
-large box, and clarity suppresses its effect near black and white. Neutral
+contrast mostly to midtones; Texture affects a smaller detail scale with a
+two-pixel blur radius applied twice. Both use multiple small box-blur passes to
+avoid the rectangular support of a single large box, and clarity suppresses
+its effect near black and white. Neutral
 zero settings leave the existing TIFF-style mapping untouched. These curves
 approximate the behavior of photo editing controls; they are not exact
 Capture One or Photoshop algorithms. Edited previews are 8-bit display images;
@@ -220,7 +220,7 @@ done when session TIFF export arrives in milestone 4. Keep HTTP polling while
 its latency remains useful.
 
 At a 2-million-pixel preview size, the CPU display transform measured about
-35–50 ms with the default Clarity +25 and Texture either 0 or +25 on this
+50 ms with Clarity +50 alone and 65–70 ms with Texture also enabled on this
 development machine. This excludes histogram scanning, GPU readback, and
 browser presentation. A possible GPU path uses Metal Performance Shaders for
 the smooth blurs and a small custom Metal kernel for color, tone, and detail

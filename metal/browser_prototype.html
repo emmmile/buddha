@@ -15,7 +15,6 @@
     label { display: grid; grid-template-columns: 1fr 104px; align-items: center; gap: 4px; margin: 2px 0; font-size: .72rem; color: #b3bdc4; }
     input { width: 100%; height: 25px; margin: 0; padding: 2px 4px; border-radius: 0; border: 1px solid #3b454b; background: #1a1f22; color: #e3e8eb; font: inherit; }
     input:invalid { border-color: #af674f; }
-    input[type=color] { padding: 1px; height: 24px; }
     input[type=range] { padding: 0; height: 20px; border: 0; background: transparent; accent-color: #81a2b5; }
     label.slider { grid-template-columns: 1fr 77px 34px; }
     output { text-align: right; font-variant-numeric: tabular-nums; }
@@ -58,17 +57,14 @@
       </fieldset>
       <fieldset>
         <legend>Display</legend>
-        <label>Red channel<input name="red" type="color" value="#ff0000"></label>
-        <label>Green channel<input name="green" type="color" value="#00ff00"></label>
-        <label>Blue channel<input name="blue" type="color" value="#0000ff"></label>
         <label class="slider" title="Midtone lift with protected highlights">Brightness<input name="brightness" type="range" min="-100" max="100" value="25"><output id="brightness-value">+25</output></label>
-        <label class="slider">Contrast<input name="contrast" type="range" min="-100" max="100" value="25"><output id="contrast-value">+25</output></label>
+        <label class="slider">Contrast<input name="contrast" type="range" min="-100" max="100" value="10"><output id="contrast-value">+10</output></label>
         <label class="slider">Saturation<input name="saturation" type="range" min="-100" max="100" value="50"><output id="saturation-value">+50</output></label>
-        <label class="slider" title="Broad midtone local contrast">Clarity<input name="clarity" type="range" min="-100" max="100" value="25"><output id="clarity-value">+25</output></label>
-        <label class="slider" title="Fine detail without broad halos">Texture<input name="texture" type="range" min="-100" max="100" value="0"><output id="texture-value">0</output></label>
+        <label class="slider" title="Broad midtone local contrast">Clarity<input name="clarity" type="range" min="-100" max="100" value="50"><output id="clarity-value">+50</output></label>
+        <label class="slider" title="Fine detail without broad halos">Texture<input name="texture" type="range" min="-100" max="100" value="50"><output id="texture-value">+50</output></label>
       </fieldset>
       <div class="actions">
-        <button type="submit">Start</button>
+        <button type="submit" id="start">Start</button>
         <button type="button" class="secondary" id="stop">Stop</button>
         <button type="button" class="secondary" id="preset">Reset</button>
       </div>
@@ -80,6 +76,7 @@
   </main>
   <script>
     const form = document.getElementById('controls');
+    const startButton = document.getElementById('start');
     const viewport = document.getElementById('viewport');
     const image = document.getElementById('image');
     const message = document.getElementById('message');
@@ -119,13 +116,13 @@
       for (const [name, value] of Object.entries({lowr: 512, highr: 8192,
            lowg: 128, highg: 2048, lowb: 32, highb: 512}))
         form.elements[name].value = value;
-      for (const [name, value] of Object.entries({red: '#ff0000', green: '#00ff00',
-           blue: '#0000ff', brightness: 25, contrast: 25, saturation: 50, clarity: 25, texture: 0}))
+      for (const [name, value] of Object.entries({brightness: 25, contrast: 10,
+           saturation: 50, clarity: 50, texture: 50}))
         form.elements[name].value = value;
       updateDisplayLabels();
     }
 
-    const displayNames = ['red', 'green', 'blue', 'brightness', 'contrast', 'saturation', 'clarity', 'texture'];
+    const displayNames = ['brightness', 'contrast', 'saturation', 'clarity', 'texture'];
     function updateDisplayLabels() {
       for (const name of ['brightness', 'contrast', 'saturation', 'clarity', 'texture']) {
         const value = Number(form.elements[name].value);
@@ -133,10 +130,18 @@
       }
     }
 
+    function formatSamples(samples) {
+      const units = ['', 'K', 'M', 'G', 'T', 'P'];
+      let unit = 0;
+      while (samples >= 1000 && unit < units.length - 1) {
+        samples /= 1000;
+        ++unit;
+      }
+      return unit ? `${samples.toFixed(1)} ${units[unit]}` : `${samples}`;
+    }
+
     function displayData() {
-      return Object.fromEntries(displayNames.map(name =>
-        [name, ['red', 'green', 'blue'].includes(name) ? form.elements[name].value :
-         Number(form.elements[name].value)]));
+      return Object.fromEntries(displayNames.map(name => [name, Number(form.elements[name].value)]));
     }
 
     async function command(path, body) {
@@ -358,10 +363,12 @@
           displayInitialized = true;
         }
         activeRenderId = status.render_id;
+        startButton.textContent = ['starting', 'running', 'stopping'].includes(status.phase) ? 'Restart' : 'Start';
         const rate = status.elapsed > 0 ? (status.samples / status.elapsed / 1e6).toFixed(1) : '0.0';
         const batchRate = status.batch_seconds > 0 ? (status.samples / status.batch_seconds / 1e6).toFixed(1) : '0.0';
         const size = status.width ? `${status.width} × ${status.height}` : '—';
-        statusLine.textContent = `${status.phase} · ${size} · ${rate} M/s overall · ${batchRate} M/s batches · ${status.preview_seconds.toFixed(1)} s previews · ${status.samples.toLocaleString()} samples`;
+        const previewMs = status.preview_count ? (status.preview_seconds * 1000 / status.preview_count).toFixed(0) : '0';
+        statusLine.textContent = `${status.phase} · ${size} · ${rate} M/s overall · ${batchRate} M/s batches · ${previewMs} ms avg preview · ${formatSamples(status.samples)} samples`;
         if (status.error) message.textContent = status.error;
         if (status.frame_render_id === activeRenderId && status.frame_revision !== lastFrameRevision && !frameLoading) {
           frameLoading = true;

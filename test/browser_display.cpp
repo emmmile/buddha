@@ -9,8 +9,8 @@ int main() {
     using buddha_browser::display_settings;
     using buddha_browser::smooth_blur;
     const display_settings preset;
-    if (preset.brightness != 25 || preset.contrast != 25 || preset.saturation != 50 ||
-        preset.clarity != 25 || preset.texture != 0) {
+    if (preset.brightness != 25 || preset.contrast != 10 || preset.saturation != 50 ||
+        preset.clarity != 50 || preset.texture != 50) {
         std::cerr << "display preset changed unexpectedly\n";
         return 1;
     }
@@ -26,16 +26,6 @@ int main() {
         return 1;
     }
 
-    display.colors[0] = 0x0000ff;
-    display.colors[2] = 0xff0000;
-    pixels = original;
-    apply_display(pixels, 1, 1, display);
-    if (pixels[0] != 20 || pixels[1] != 40 || pixels[2] != 80) {
-        std::cerr << "channel colors did not remap the source channels\n";
-        return 1;
-    }
-
-    display.colors = {0xff0000, 0x00ff00, 0x0000ff};
     display.saturation = -100;
     pixels = original;
     apply_display(pixels, 1, 1, display);
