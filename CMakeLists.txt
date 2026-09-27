@@ -33,9 +33,21 @@ target_link_libraries(buddha++ PRIVATE core Threads::Threads)
 add_executable(exclusion exclusion.cpp)
 target_link_libraries(exclusion PRIVATE core Threads::Threads)
 
+# Strict IEEE arithmetic for consistency tests, so any mismatch is a code difference.
+set(BUDDHA_STRICT_FP -fno-fast-math -ffp-contract=off)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    list(APPEND BUDDHA_STRICT_FP -Wno-overriding-option)
+endif()
+
 include(CTest)
 if(BUILD_TESTING)
     add_executable(render-regression test/render_regression.cpp)
     target_link_libraries(render-regression PRIVATE core)
     add_test(NAME render-regression COMMAND render-regression)
+
+    # The CPU renderer against the kernel shared with buddha-metal.
+    add_executable(kernel-consistency test/kernel_consistency.cpp)
+    target_link_libraries(kernel-consistency PRIVATE core)
+    target_compile_options(kernel-consistency PRIVATE ${BUDDHA_STRICT_FP})
+    add_test(NAME kernel-consistency COMMAND kernel-consistency)
 endif()

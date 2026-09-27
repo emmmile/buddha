@@ -36,6 +36,10 @@ settings_parser::settings_parser(int argc, char **argv) {
                              "load an old checkpoint without settings validation", false,
                              &s.allow_legacy_checkpoint));
     options.push_back(Option("help", "produce help message"));
+    options.push_back(Option("sampler",
+                             "starting-point sampler: metropolis or naive (default: metropolis "
+                             "for buddha++, naive for buddha-metal)",
+                             "", &s.sampler));
     options.push_back(Option("exclusion-map,e", "specify the name of the exclusion map",
                              "exclusion.map", &s.exclusion));
     options.push_back(
@@ -51,6 +55,11 @@ settings_parser::settings_parser(int argc, char **argv) {
     if (vm.count("help")) {
         cout << desc << "\n";
         exit(0);
+    }
+
+    if (s.sampler != "" && s.sampler != "metropolis" && s.sampler != "naive") {
+        cerr << "invalid --sampler '" << s.sampler << "': use metropolis or naive\n";
+        exit(EXIT_FAILURE);
     }
 
     // A resumed render normally advances the same checkpoint.  Supplying

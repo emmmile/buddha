@@ -48,6 +48,7 @@
 #include <thread>
 
 #include "atomic_wrapper.h"
+#include "page_allocator.h"
 #include "mandelbrot.h"
 #include "settings.h"
 
@@ -65,7 +66,8 @@ class buddha {
   public:
     typedef uint32_t pixel;
     typedef complex<double> complex_type;
-    typedef vector<atomic_wrapper<pixel>> vector_type;
+    // Page-aligned so buddha-metal can share it with the GPU without a copy.
+    typedef vector<atomic_wrapper<pixel>, page_allocator<atomic_wrapper<pixel>>> vector_type;
     typedef boost::random::xoshiro256pp random_engine;
     // typedef std::atomic_uint_fast32_t pixel;
 
