@@ -162,6 +162,8 @@ struct render_session {
     double batch_seconds = 0;
     double preview_seconds = 0;
     uint64_t preview_count = 0;
+    double elapsed_before_pause = 0;
+    bool paused = false;
 
     render_session(uint64_t render_id, const request_settings &c) : id(render_id) {
         if (!std::filesystem::is_regular_file(BUDDHA_EXCLUSION_MAP))
@@ -176,7 +178,24 @@ struct render_session {
     }
 
     double elapsed() const {
-        return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        return elapsed_before_pause +
+               (paused ? 0
+                       : std::chrono::duration<double>(std::chrono::steady_clock::now() - start)
+                             .count());
+    }
+
+    void pause() {
+        if (!paused) {
+            elapsed_before_pause = elapsed();
+            paused = true;
+        }
+    }
+
+    void resume() {
+        if (paused) {
+            start = std::chrono::steady_clock::now();
+            paused = false;
+        }
     }
 
     void advance(std::random_device &random) {
@@ -205,6 +224,8 @@ struct state {
     std::condition_variable changed;
     std::optional<request_settings> pending;
     bool stop = false;
+    bool pause = false;
+    bool resume = false;
     bool shutdown = false;
     uint64_t render_id = 0;
     uint64_t frame_render_id = 0;
@@ -256,6 +277,7 @@ void render_worker(state &shared) {
             if (!running)
                 shared.changed.wait(lock, [&] {
                     return shared.shutdown || shared.pending.has_value() || shared.stop ||
+                           shared.pause || shared.resume ||
                            (session && shared.render_id == session->id &&
                             (shared.frame_render_id != session->id ||
                              shared.frame_display_revision != shared.display_revision));
@@ -270,10 +292,29 @@ void render_worker(state &shared) {
             } else {
                 if (shared.stop) {
                     shared.stop = false;
+                    shared.pause = false;
+                    shared.resume = false;
                     running = false;
                     shared.phase = "stopped";
-                    if (session)
+                    if (session) {
+                        session->pause();
                         shared.elapsed = session->elapsed();
+                    }
+                } else if (shared.pause) {
+                    shared.pause = false;
+                    running = false;
+                    shared.phase = "paused";
+                    if (session) {
+                        session->pause();
+                        shared.elapsed = session->elapsed();
+                    }
+                } else if (shared.resume) {
+                    shared.resume = false;
+                    if (session && shared.render_id == session->id) {
+                        session->resume();
+                        running = true;
+                        shared.phase = "running";
+                    }
                 }
                 if (!running && session && shared.render_id == session->id &&
                     (shared.frame_render_id != session->id ||
@@ -300,6 +341,8 @@ void render_worker(state &shared) {
                 if (shared.render_id == next_id) {
                     shared.phase = "error";
                     shared.error = e.what();
+                    shared.pause = false;
+                    shared.resume = false;
                 }
                 session.reset();
             }
@@ -314,6 +357,8 @@ void render_worker(state &shared) {
                 std::lock_guard lock(shared.mutex);
                 shared.phase = "error";
                 shared.error = e.what();
+                shared.pause = false;
+                shared.resume = false;
                 session.reset();
             }
             continue;
@@ -333,7 +378,8 @@ void render_worker(state &shared) {
                         shared.batch_seconds = session->batch_seconds;
                         shared.preview_seconds = session->preview_seconds;
                         shared.preview_count = session->preview_count;
-                        preview = shared.stop || shared.frame_render_id != session->id ||
+                        preview = shared.stop || shared.pause ||
+                                  shared.frame_render_id != session->id ||
                                   shared.frame_display_revision != shared.display_revision ||
                                   std::chrono::steady_clock::now() - session->last_preview >=
                                       std::chrono::seconds(1);
@@ -351,6 +397,8 @@ void render_worker(state &shared) {
             if (shared.render_id == session->id) {
                 shared.phase = "error";
                 shared.error = e.what();
+                shared.pause = false;
+                shared.resume = false;
             }
             session.reset();
             running = false;
@@ -505,6 +553,8 @@ void handle(int fd, state &shared, const std::string &html, uint16_t port) {
                 ++shared.render_id;
                 shared.pending = c;
                 shared.stop = false;
+                shared.pause = false;
+                shared.resume = false;
                 shared.samples = 0;
                 shared.elapsed = 0;
                 shared.batch_seconds = 0;
@@ -529,11 +579,33 @@ void handle(int fd, state &shared, const std::string &html, uint16_t port) {
             }
             shared.changed.notify_one();
             respond(fd, 200, "application/json", status_json(shared));
+        } else if (request.method == "POST" && request.path == "/pause") {
+            {
+                std::lock_guard lock(shared.mutex);
+                if (shared.phase != "running" && shared.phase != "starting")
+                    throw std::invalid_argument("no active render to pause");
+                shared.pause = true;
+                shared.phase = "pausing";
+            }
+            shared.changed.notify_one();
+            respond(fd, 200, "application/json", status_json(shared));
+        } else if (request.method == "POST" && request.path == "/resume") {
+            {
+                std::lock_guard lock(shared.mutex);
+                if (shared.phase != "paused")
+                    throw std::invalid_argument("no paused render to resume");
+                shared.resume = true;
+                shared.phase = "resuming";
+            }
+            shared.changed.notify_one();
+            respond(fd, 200, "application/json", status_json(shared));
         } else if (request.method == "POST" && request.path == "/stop") {
             {
                 std::lock_guard lock(shared.mutex);
                 shared.pending.reset();
                 shared.stop = true;
+                shared.pause = false;
+                shared.resume = false;
                 shared.phase = "stopping";
             }
             shared.changed.notify_one();

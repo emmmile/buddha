@@ -219,6 +219,12 @@ display-only adjustments. A byte-for-byte comparison from one histogram can be
 done when session TIFF export arrives in milestone 4. Keep HTTP polling while
 its latency remains useful.
 
+The primary button shows Start when idle or paused and Pause while sampling.
+Pause waits for the current batch and keeps the histogram; Start then resumes
+sampling from it. Stop ends the run, and the next Start creates a new histogram.
+The status bar shows the average native preview conversion time and formats
+sample totals with up to three significant digits.
+
 At a 2-million-pixel preview size, the CPU display transform measured about
 50 ms with Clarity +50 alone and 65–70 ms with Texture also enabled on this
 development machine. This excludes histogram scanning, GPU readback, and

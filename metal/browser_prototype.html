@@ -13,13 +13,21 @@
     fieldset { border: 0; border-top: 1px solid #30363b; margin: 6px 0; padding: 5px 0 2px; }
     legend { padding: 0 5px 0 0; color: #929da5; font-size: .68rem; text-transform: uppercase; }
     label { display: grid; grid-template-columns: 1fr 104px; align-items: center; gap: 4px; margin: 2px 0; font-size: .72rem; color: #b3bdc4; }
-    input { width: 100%; height: 25px; margin: 0; padding: 2px 4px; border-radius: 0; border: 1px solid #3b454b; background: #1a1f22; color: #e3e8eb; font: inherit; }
-    input:invalid { border-color: #af674f; }
-    input[type=range] { padding: 0; height: 20px; border: 0; background: transparent; accent-color: #81a2b5; }
+    input { width: 100%; margin: 0; color: #e3e8eb; font: inherit; }
+    input[type=number] { height: 22px; padding: 0 2px; border: 0; border-bottom: 1px solid #4b565d; border-radius: 0; background: transparent; text-align: right; appearance: textfield; }
+    input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { appearance: none; margin: 0; }
+    input[type=number]:focus { outline: 0; border-bottom-color: #9fb5c1; }
+    input[type=number]:invalid { border-bottom-color: #af674f; }
+    input[type=range] { height: 20px; padding: 0; border: 0; background: transparent; appearance: none; }
+    input[type=range]::-webkit-slider-runnable-track { height: 2px; background: #4b565d; }
+    input[type=range]::-webkit-slider-thumb { width: 8px; height: 12px; margin-top: -5px; border: 0; border-radius: 0; background: #9fb5c1; appearance: none; }
+    input[type=range]::-moz-range-track { height: 2px; background: #4b565d; }
+    input[type=range]::-moz-range-thumb { width: 8px; height: 12px; border: 0; border-radius: 0; background: #9fb5c1; }
     label.slider { grid-template-columns: 1fr 77px 34px; }
     output { text-align: right; font-variant-numeric: tabular-nums; }
     button { height: 27px; padding: 2px 7px; border: 1px solid #495c68; border-radius: 0; color: #e5edf1; background: #263b48; cursor: pointer; font: inherit; font-size: .72rem; }
     button:hover { background: #345365; }
+    button:disabled { opacity: .5; cursor: default; }
     button.secondary { background: #202629; border-color: #3b454b; }
     .actions { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 8px; }
     main { min-width: 0; display: flex; flex-direction: column; }
@@ -92,6 +100,8 @@
     let displayDirty = false;
     let displayTouched = false;
     let displayInitialized = false;
+    let renderDirty = false;
+    let currentPhase = 'idle';
     const pointers = new Map();
     let gesture;
 
@@ -122,6 +132,11 @@
       updateDisplayLabels();
     }
 
+    function updateStartButton() {
+      startButton.textContent = ['starting', 'running', 'pausing'].includes(currentPhase) ? 'Pause' : 'Start';
+      startButton.disabled = ['pausing', 'resuming', 'stopping'].includes(currentPhase);
+    }
+
     const displayNames = ['brightness', 'contrast', 'saturation', 'clarity', 'texture'];
     function updateDisplayLabels() {
       for (const name of ['brightness', 'contrast', 'saturation', 'clarity', 'texture']) {
@@ -137,8 +152,15 @@
         samples /= 1000;
         ++unit;
       }
-      return unit ? `${samples.toFixed(1)} ${units[unit]}` : `${samples}`;
+      samples = Number(samples.toPrecision(3));
+      if (samples >= 1000 && unit < units.length - 1) {
+        samples /= 1000;
+        ++unit;
+      }
+      return `${samples}${units[unit]}`;
     }
+
+    function format3(value) { return `${Number(value.toPrecision(3))}`; }
 
     function displayData() {
       return Object.fromEntries(displayNames.map(name => [name, Number(form.elements[name].value)]));
@@ -179,9 +201,12 @@
     }
 
     form.addEventListener('input', event => {
-      if (!displayNames.includes(event.target.name)) return;
-      updateDisplayLabels();
-      scheduleDisplay();
+      if (displayNames.includes(event.target.name)) {
+        updateDisplayLabels();
+        scheduleDisplay();
+      } else {
+        renderDirty = true;
+      }
     });
 
     function validSettings(report) {
@@ -207,9 +232,14 @@
         data[name] = Number(data[name]);
       Object.assign(data, viewportPixels());
       try {
+        currentPhase = 'starting';
+        updateStartButton();
         const status = await enqueueCommand('/render', data);
         if (currentRequest === requestNumber) {
           activeRenderId = status.render_id;
+          currentPhase = status.phase;
+          renderDirty = false;
+          updateStartButton();
           message.textContent = 'Starting render ' + activeRenderId + '…';
         }
       } catch (error) { message.textContent = error.message; }
@@ -222,18 +252,41 @@
 
     form.addEventListener('submit', event => {
       event.preventDefault();
-      startRender();
+      if (['starting', 'running'].includes(currentPhase)) {
+        currentPhase = 'pausing';
+        updateStartButton();
+        enqueueCommand('/pause').then(status => {
+          currentPhase = status.phase;
+          updateStartButton();
+        }).catch(error => { message.textContent = error.message; });
+      } else if (currentPhase === 'paused' && !renderDirty) {
+        currentPhase = 'resuming';
+        updateStartButton();
+        enqueueCommand('/resume').then(status => {
+          currentPhase = status.phase;
+          updateStartButton();
+        }).catch(error => { message.textContent = error.message; });
+      } else if (!['pausing', 'resuming', 'stopping'].includes(currentPhase)) {
+        startRender();
+      }
     });
 
     document.getElementById('stop').addEventListener('click', async () => {
       clearTimeout(renderTimer);
       ++requestNumber;
-      try { await enqueueCommand('/stop'); }
+      currentPhase = 'stopping';
+      updateStartButton();
+      try {
+        const status = await enqueueCommand('/stop');
+        currentPhase = status.phase;
+        updateStartButton();
+      }
       catch (error) { message.textContent = error.message; }
     });
     document.getElementById('preset').addEventListener('click', () => {
       clearTimeout(renderTimer);
       fullViewPreset();
+      renderDirty = true;
       scheduleDisplay();
     });
 
@@ -363,12 +416,13 @@
           displayInitialized = true;
         }
         activeRenderId = status.render_id;
-        startButton.textContent = ['starting', 'running', 'stopping'].includes(status.phase) ? 'Restart' : 'Start';
-        const rate = status.elapsed > 0 ? (status.samples / status.elapsed / 1e6).toFixed(1) : '0.0';
-        const batchRate = status.batch_seconds > 0 ? (status.samples / status.batch_seconds / 1e6).toFixed(1) : '0.0';
-        const size = status.width ? `${status.width} × ${status.height}` : '—';
-        const previewMs = status.preview_count ? (status.preview_seconds * 1000 / status.preview_count).toFixed(0) : '0';
-        statusLine.textContent = `${status.phase} · ${size} · ${rate} M/s overall · ${batchRate} M/s batches · ${previewMs} ms avg preview · ${formatSamples(status.samples)} samples`;
+        currentPhase = status.phase;
+        updateStartButton();
+        const rate = status.elapsed > 0 ? format3(status.samples / status.elapsed / 1e6) : '0';
+        const batchRate = status.batch_seconds > 0 ? format3(status.samples / status.batch_seconds / 1e6) : '0';
+        const size = status.width ? `${status.width}x${status.height} pixels` : '—';
+        const previewMs = status.preview_count ? format3(status.preview_seconds * 1000 / status.preview_count) : '0';
+        statusLine.textContent = `${status.phase} · ${size} · ${rate}M/s overall · ${batchRate}M/s batches · ${previewMs}ms avg preview · ${formatSamples(status.samples)} samples`;
         if (status.error) message.textContent = status.error;
         if (status.frame_render_id === activeRenderId && status.frame_revision !== lastFrameRevision && !frameLoading) {
           frameLoading = true;
