@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The commit hook's checks (whitespace, clang-format on changed C++ lines), applied to every
+      # change since the base: soft-reset to it so the whole change is staged, then run the hook.
+      - name: Lint
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          xcrun --find clang-format && xcrun clang-format --version
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "No base commit to compare with; skipping."
+            exit 0
+          fi
+          git reset --soft "$(git merge-base "$BASE" HEAD)"
+          python3 .githooks/pre-commit
+          git reset --soft "$GITHUB_SHA"
+
+      - name: Install dependencies
+        run: brew install boost libtiff zstd
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure

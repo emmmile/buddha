@@ -48,6 +48,9 @@ The hook runs `git diff --cached --check` for whitespace errors and requires
 `.clang-format`. The historical `legacy/` directory is excluded. Format any
 reported lines and stage them again before committing.
 
+CI (`.github/workflows/ci.yml`) runs the same hook on every change since the
+base commit, then builds on macOS and runs the tests.
+
 ## Run
 
 Start a render with explicit geometry, scale, and output stem:
