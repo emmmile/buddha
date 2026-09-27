@@ -10,6 +10,9 @@ std::uniform_real_distribution<double> uniform(0, 1);
 
 volatile int finish = 0;
 
+// Resolution of newly generated maps.
+constexpr uint64_t resolution = 8192;
+
 unsigned int loop(settings &s, mandelbrot<complex_type> &core, vector<unsigned int> &border,
                   unsigned int samples) {
     vector<complex_type> seq;
@@ -54,8 +57,9 @@ int main(int argc, char **argv) {
     settings s = parser();
     mandelbrot<complex_type> core(s);
 
+    // Refine the map at its stored resolution, or generate a new one.
     if (!core.load())
-        core.exclusion();
+        core.exclusion(resolution);
 
     std::thread t(refine, std::ref(core), std::ref(s));
 

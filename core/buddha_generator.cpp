@@ -198,7 +198,7 @@ void buddha_generator::naive() {
 }
 
 void buddha_generator::naive(uint32_t key0, uint32_t key1, uint32_t count) {
-    buddha_kernel::parameters p = s.kernel_parameters();
+    buddha_kernel::parameters p = s.kernel_parameters(uint32_t(core.size));
     p.key0 = key0;
     p.key1 = key1;
     p.count = count;

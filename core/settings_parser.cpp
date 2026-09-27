@@ -40,10 +40,9 @@ settings_parser::settings_parser(int argc, char **argv) {
                              "starting-point sampler: metropolis or naive (default: metropolis "
                              "for buddha++, naive for buddha-metal)",
                              "", &s.sampler));
-    options.push_back(Option("exclusion-map,e", "specify the name of the exclusion map",
-                             "exclusion.map", &s.exclusion));
-    options.push_back(
-        Option("exclusion-size", "specify the size of the exclusion map", 4096, &s.exclusion_size));
+    options.push_back(Option("exclusion-map,e",
+                             "exclusion map file (its resolution is stored in the file)",
+                             BUDDHA_EXCLUSION_MAP, &s.exclusion));
 
     for (uint i = 0; i < options.size(); ++i)
         options[i].add(desc.add_options());

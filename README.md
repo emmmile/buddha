@@ -90,6 +90,19 @@ the real axis, which retain the old histogram layout.
 Windows centered on the real axis use a mirrored histogram to save memory.
 An off-axis window (`--cim` other than zero) uses a full-height histogram.
 
+### Exclusion map
+
+Samples that fall inside the Mandelbrot set never escape, so both renderers
+skip them with an exclusion map. `data/exclusion.map` is an 8192² map
+computed with 65536 iterations. Every binary and test loads it by default;
+`--exclusion-map` (`-e`) selects another one. Each file stores its own
+resolution and iteration count, so no size option is needed. A warning is
+logged when the render uses more iterations than the map was computed with.
+
+`./build/exclusion -e new.map` generates an 8192² map with the given
+iterations (`-R`), then refines it until `Ctrl-C` saves it. Given an
+existing map, it refines that map instead.
+
 ## GPU rendering on Apple silicon (experimental)
 
 On macOS the build also produces `buddha-metal`, a Metal renderer that takes

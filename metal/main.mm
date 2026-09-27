@@ -62,8 +62,8 @@ int main(int argc, char **argv) {
                                          "indices; reduce the image size");
 
             id<MTLDevice> device = buddha_metal::default_device();
-            persistent_renderer gpu(device, buddha_metal::make_parameters(b.s), b.core.data.data(),
-                                    b.core.data.size(), b.raw.data(),
+            persistent_renderer gpu(device, buddha_metal::make_parameters(b.s, b.core.size),
+                                    b.core.data.data(), b.core.data.size(), b.raw.data(),
                                     buddha_metal::histogram_bytes(b.raw));
             const uint32_t cores = buddha_metal::gpu_core_count();
             const std::string layout =

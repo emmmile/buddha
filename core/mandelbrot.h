@@ -1,34 +1,49 @@
 #ifndef MANDELBROT_H
 #define MANDELBROT_H
 
+#include <bit>
+#include <cstring>
 #include <random>
 #include <boost/random/xoshiro.hpp>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/binary_iarchive.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/zstd.hpp>
-#include <boost/serialization/vector.hpp>
 #include <boost/filesystem.hpp>
 #include "timer.h"
 
 #include "mandelbrot_base.h"
-namespace bar = boost::archive;
 namespace bio = boost::iostreams;
 using namespace std;
 
+// Exclusion map file, zstd-compressed and little-endian:
+//   "BUDDHAEX"         magic
+//   uint32 version     exclusion_format_version
+//   uint32 iterations  iteration limit the map was computed with
+//   uint64 size        resolution: the map has size x size/2 cells
+//   cells              one bit per cell, cell i in bit i % 8 of byte i / 8
+constexpr char exclusion_magic[8] = {'B', 'U', 'D', 'D', 'H', 'A', 'E', 'X'};
+constexpr uint32_t exclusion_format_version = 1;
+
 template <class C> struct mandelbrot : public mandelbrot_base<C> {
-    const uint64_t size;
+    // Resolution and cells of the exclusion map; empty (size 0) excludes nothing.
+    uint64_t size = 0;
+    uint32_t iterations = 0;
     vector<uint8_t> data;
 
     typedef mandelbrot_base<C> base;
-    mandelbrot(const settings &s) : base(s), size(s.exclusion_size) {
-        if (size == 0 || size % 2 != 0)
-            throw std::invalid_argument("exclusion map size must be a positive even number");
-        data.resize(size * size / 2);
+    mandelbrot(const settings &s) : base(s) {}
+
+    // An all-outside map of the given resolution.
+    void resize(uint64_t resolution) {
+        if (resolution == 0 || resolution % 2 != 0 || resolution > 65536)
+            throw std::invalid_argument("exclusion map size must be an even number in [2, 65536]");
+        size = resolution;
+        data.assign(size * size / 2, 0);
     }
 
-    void exclusion() {
+    void exclusion(uint64_t resolution) {
         // compute the exclusion map
+        resize(resolution);
+        iterations = this->s.high;
         BOOST_LOG_TRIVIAL(debug) << "generating " << size << "x" << size << " exclusion map";
 
         timer time;
@@ -158,47 +173,62 @@ template <class C> struct mandelbrot : public mandelbrot_base<C> {
         bio::filtering_stream<bio::input> f;
         f.push(bio::zstd_decompressor());
         f.push(iss);
-        bar::binary_iarchive ia(f);
 
-        BOOST_LOG_TRIVIAL(debug) << "loading " << size << "x" << size << " exclusion map";
         timer time;
-        uint64_t saved;
-        ia >> saved;
-        if (saved != size * size / 2) {
-            BOOST_LOG_TRIVIAL(debug) << "unable to load exclusion map from '" << this->s.exclusion
-                                     << "' (different size)";
-            return false;
+        const auto invalid = [&](const string &why) {
+            return std::runtime_error("invalid exclusion map '" + this->s.exclusion + "' (" + why +
+                                      "); regenerate it with the exclusion tool");
+        };
+        char magic[sizeof exclusion_magic];
+        uint32_t version = 0, computed = 0;
+        uint64_t resolution = 0;
+        if (!read(f, magic) || memcmp(magic, exclusion_magic, sizeof magic) != 0)
+            throw invalid("not an exclusion map, or an old format without resolution");
+        if (!read(f, version) || version != exclusion_format_version)
+            throw invalid("unsupported version " + std::to_string(version));
+        if (!read(f, computed) || !read(f, resolution))
+            throw invalid("truncated header");
+        try {
+            resize(resolution);
+        } catch (const std::invalid_argument &e) {
+            throw invalid(e.what());
         }
-        vector<bool> packed;
-        ia >> packed;
-        if (packed.size() != data.size())
-            throw std::runtime_error("invalid exclusion map size");
-        for (size_t i = 0; i < data.size(); ++i)
-            data[i] = packed[i];
+        iterations = computed;
 
-        BOOST_LOG_TRIVIAL(debug) << "successfully loaded exclusion map in " << time.elapsed()
-                                 << " s";
+        vector<uint8_t> packed((data.size() + 7) / 8);
+        if (!f.read(reinterpret_cast<char *>(packed.data()), std::streamsize(packed.size())))
+            throw invalid("truncated cells");
+        for (size_t i = 0; i < data.size(); ++i)
+            data[i] = (packed[i / 8] >> (i % 8)) & 1;
+
+        BOOST_LOG_TRIVIAL(info) << "loaded " << size << "x" << size << " exclusion map ("
+                                << iterations << " iterations) in " << time.elapsed() << " s";
+        if (this->s.high > iterations)
+            BOOST_LOG_TRIVIAL(warning) << "the exclusion map was computed with " << iterations
+                                       << " iterations, fewer than the " << this->s.high
+                                       << " rendered: it may exclude points that escape late";
         return true;
     }
 
-    void save() {
-        // if ( boost::filesystem::exists( this->s.exclusion ) )
-        //	return;
-
+    void save() const {
         std::ofstream oss(this->s.exclusion, std::ios::binary);
         bio::filtering_stream<bio::output> f;
         f.push(bio::zstd_compressor());
         f.push(oss);
-        bar::binary_oarchive oa(f);
 
         BOOST_LOG_TRIVIAL(debug) << "saving " << size << "x" << size << " exclusion map";
         timer time;
-        uint64_t saved = size * size / 2;
-        oa << saved;
-        vector<bool> packed(data.size());
+        vector<uint8_t> packed((data.size() + 7) / 8);
         for (size_t i = 0; i < data.size(); ++i)
-            packed[i] = data[i];
-        oa << packed;
+            packed[i / 8] |= uint8_t((data[i] != 0) << (i % 8));
+        f.write(exclusion_magic, sizeof exclusion_magic);
+        write(f, exclusion_format_version);
+        write(f, iterations);
+        write(f, size);
+        f.write(reinterpret_cast<const char *>(packed.data()), std::streamsize(packed.size()));
+        f.reset();
+        if (!oss)
+            throw std::runtime_error("unable to save exclusion map to '" + this->s.exclusion + "'");
 
         BOOST_LOG_TRIVIAL(debug) << "successfully saved exclusion map in " << time.elapsed()
                                  << " s";
@@ -232,6 +262,17 @@ template <class C> struct mandelbrot : public mandelbrot_base<C> {
         }
 
         return base::evaluate(seq, contribute, calculated);
+    }
+
+  private:
+    static_assert(std::endian::native == std::endian::little, "exclusion maps are little-endian");
+
+    template <class T> static bool read(std::istream &in, T &value) {
+        return bool(in.read(reinterpret_cast<char *>(&value), sizeof value));
+    }
+
+    template <class T> static void write(std::ostream &out, const T &value) {
+        out.write(reinterpret_cast<const char *>(&value), sizeof value);
     }
 };
 

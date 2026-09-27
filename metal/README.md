@@ -17,7 +17,8 @@ cmake --build build --target buddha-metal --parallel
 ```
 
 Press `Ctrl-C` (or send `SIGTERM`) to stop and save. The exclusion map is
-loaded exactly as `buddha++` loads it (create one with the `exclusion` tool);
+loaded exactly as `buddha++` loads it (by default the committed
+`data/exclusion.map`);
 `--threads` sets only the checkpoint compression threads.
 
 How it differs from `buddha++`:
