@@ -258,9 +258,10 @@ time to a useful preview at representative zoom levels.
 Add checkpoint and image export from the current session. Measure render
 throughput with the UI closed, connected but idle, and showing previews. Track
 preview latency and browser memory at representative display sizes. Report
-histogram-to-preview and display-only recolor timings separately. Build frames
-only while a client requests them, and change frame encoding or preview
-frequency in response to those measurements.
+histogram-to-preview and display-only recolor timings separately. Change frame
+encoding or preview frequency in response to those measurements. The worker
+already builds frames only while a client has polled within the last three
+seconds; a returning poll wakes it.
 
 ## Target architecture decisions
 

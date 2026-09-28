@@ -103,9 +103,7 @@ struct render_session {
             [in_flight waitUntilCompleted];
     }
 
-    double elapsed() const {
-        return elapsed_before_pause + (paused ? 0 : seconds_since(start));
-    }
+    double elapsed() const { return elapsed_before_pause + (paused ? 0 : seconds_since(start)); }
 
     session_stats current_stats() const {
         session_stats current = stats;
@@ -204,12 +202,33 @@ struct state {
     std::string phase = "idle";
     std::string error;
     std::shared_ptr<const std::vector<uint8_t>> frame;
+    std::chrono::steady_clock::time_point client_seen; // last /status or /frame.rgba request
 };
 
-// Call with the mutex held: the published frame lacks the session's latest completed batch or the
-// current display settings.
+// The page polls once a second. Without a recent poll, no one is watching, so the worker builds
+// no frames; the next poll wakes it and a frame follows within about two batches.
+constexpr auto client_timeout = std::chrono::seconds(3);
+
+// Call with the mutex held.
+bool client_active(const state &shared) {
+    return std::chrono::steady_clock::now() - shared.client_seen < client_timeout;
+}
+
+void note_client(state &shared) {
+    bool returned = false;
+    {
+        std::lock_guard lock(shared.mutex);
+        returned = !client_active(shared);
+        shared.client_seen = std::chrono::steady_clock::now();
+    }
+    if (returned)
+        shared.changed.notify_one();
+}
+
+// Call with the mutex held: a client is watching, and the published frame lacks the session's
+// latest completed batch or the current display settings.
 bool needs_frame(const state &shared, const render_session &session) {
-    return shared.render_id == session.id && !shared.pending &&
+    return shared.render_id == session.id && !shared.pending && client_active(shared) &&
            (shared.frame_render_id != session.id || shared.frame_samples != session.stats.samples ||
             shared.frame_display_revision != shared.display_revision);
 }
@@ -250,7 +269,8 @@ void render_worker(state &shared) {
             if (!running)
                 shared.changed.wait(lock, [&] {
                     return shared.shutdown || shared.pending.has_value() || shared.stop ||
-                           shared.pause || shared.resume || (session && needs_frame(shared, *session));
+                           shared.pause || shared.resume ||
+                           (session && needs_frame(shared, *session));
                 });
             if (shared.shutdown)
                 return;
@@ -322,7 +342,7 @@ void render_worker(state &shared) {
                         if (shared.render_id == session->id && !shared.pending) {
                             shared.stats = session->current_stats();
                             // A pause or stop captures after the worker has seen it, above.
-                            capture = !shared.stop && !shared.pause &&
+                            capture = !shared.stop && !shared.pause && client_active(shared) &&
                                       (shared.frame_render_id != session->id ||
                                        shared.frame_display_revision != shared.display_revision ||
                                        std::chrono::steady_clock::now() - session->last_capture >=
@@ -391,7 +411,6 @@ std::string status_json(state &shared) {
         << escape_json(shared.error) << "\"}";
     return out.str();
 }
-
 
 struct http_request {
     std::string method, path, query, body;
@@ -487,15 +506,17 @@ void handle(int fd, state &shared, const std::string &html, uint16_t port) {
         if (request.method == "GET" && request.path == "/") {
             respond(fd, 200, "text/html; charset=utf-8", html);
         } else if (request.method == "GET" && request.path == "/status") {
+            note_client(shared);
             respond(fd, 200, "application/json", status_json(shared));
         } else if (request.method == "GET" && request.path == "/frame.rgba") {
+            note_client(shared);
             std::shared_ptr<const std::vector<uint8_t>> frame;
             bool stale = false;
             {
                 std::lock_guard lock(shared.mutex);
                 frame = shared.frame;
                 stale = !request.query.empty() &&
-                    request.query != "revision=" + std::to_string(shared.frame_revision);
+                        request.query != "revision=" + std::to_string(shared.frame_revision);
             }
             if (stale)
                 respond(fd, 409, "text/plain", "preview revision changed");
