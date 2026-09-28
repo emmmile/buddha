@@ -1,5 +1,6 @@
 // Exercise the plain C++ worker without Metal or HTTP.
 #include "session.h"
+#include <atomic>
 #include <cstdlib>
 #define CHECK(condition)                                                                           \
     do {                                                                                           \
@@ -12,9 +13,11 @@
 #include <iostream>
 
 namespace buddha_browser {
+// Batches queued in the current fake sampler, and the most seen at once.
+std::atomic<uint32_t> queued{0}, max_queued{0};
+
 class fake_sampler final : public sampler {
     buddha image_;
-    bool in_flight_ = false;
 
   public:
     explicit fake_sampler(const request_settings &request)
@@ -23,14 +26,15 @@ class fake_sampler final : public sampler {
               s.exclusion.clear();
               return s;
           }()) {}
+    ~fake_sampler() override { queued = 0; }
     void dispatch(uint32_t, uint32_t, uint32_t) override {
-        CHECK(!in_flight_);
-        in_flight_ = true;
+        CHECK(queued < batches_in_flight);
+        max_queued = std::max(max_queued.load(), ++queued);
     }
     double finish() override {
-        CHECK(in_flight_);
+        CHECK(queued > 0);
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        in_flight_ = false;
+        --queued;
         image_.raw[0].store(image_.raw[0].load() + 1);
         return 0.002;
     }
@@ -96,9 +100,12 @@ int main() {
     CHECK(until(shared, [](const state &s) {
         return s.phase == "paused" && s.frame_samples == s.stats.samples;
     }));
+    CHECK(max_queued == batches_in_flight);
     uint64_t paused_samples, preview_count;
     {
         std::lock_guard lock(shared.mutex);
+        // The paused frame waited for every queued batch.
+        CHECK(queued == 0);
         paused_samples = shared.stats.samples;
         preview_count = shared.stats.preview_count;
         shared.display.brightness = 40;
@@ -124,6 +131,7 @@ int main() {
     CHECK(until(shared, [](const state &s) {
         return s.phase == "stopped" && s.frame_samples == s.stats.samples;
     }));
+    CHECK(queued == 0);
     start(2);
     CHECK(until(shared, [](const state &s) { return s.frame_render_id == 2; }));
     std::this_thread::sleep_for(std::chrono::milliseconds(20));

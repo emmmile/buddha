@@ -1,5 +1,6 @@
 #include "sampler.h"
 #include "persistent_renderer.h"
+#include <deque>
 #include <filesystem>
 #include <stdexcept>
 
@@ -7,7 +8,7 @@ namespace buddha_browser {
 class metal_sampler final : public sampler {
     std::unique_ptr<buddha> image_;
     std::unique_ptr<buddha_metal::persistent_renderer> gpu_;
-    id<MTLCommandBuffer> in_flight_ = nil;
+    std::deque<id<MTLCommandBuffer>> in_flight_;
 
   public:
     explicit metal_sampler(const request_settings &request) {
@@ -22,19 +23,19 @@ class metal_sampler final : public sampler {
             buddha_metal::histogram_bytes(image_->raw));
     }
     ~metal_sampler() override {
-        if (in_flight_)
-            [in_flight_ waitUntilCompleted];
+        for (id<MTLCommandBuffer> command : in_flight_)
+            [command waitUntilCompleted];
     }
     void dispatch(uint32_t samples, uint32_t key0, uint32_t key1) override {
         @autoreleasepool {
-            in_flight_ = gpu_->dispatch(0, samples, key0, key1);
+            in_flight_.push_back(gpu_->dispatch(0, samples, key0, key1));
         }
     }
     double finish() override {
-        if (!in_flight_)
+        if (in_flight_.empty())
             return 0;
-        id<MTLCommandBuffer> command = in_flight_;
-        in_flight_ = nil;
+        id<MTLCommandBuffer> command = in_flight_.front();
+        in_flight_.pop_front();
         @autoreleasepool {
             buddha_metal::persistent_renderer::wait(command);
             return command.GPUEndTime - command.GPUStartTime;
