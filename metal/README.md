@@ -165,3 +165,19 @@ threads; dispatches are 2^28 samples. Large batches shrink each dispatch's
 tail, when lanes wait for the last long orbits. Other GPUs are untested. The
 kernel spends about half as many steps again re-iterating escaping orbits,
 because orbits are not stored on the GPU.
+
+## Local browser preview
+
+`buddha-browser` uses the Metal sampler in `metal/browser_sampler.mm`. Its
+loopback HTTP transport, request validation, and plain C++ render worker live in
+`server/`; the page lives in `web/`. CMake embeds the HTML, CSS, and JavaScript
+modules into the executable, so it can be launched from any working directory:
+
+```sh
+./build/buddha-browser
+```
+
+The `server/sampler.h` interface dispatches and finishes one batch, exposes the
+histogram only at a safe point, and reports the sampler name. The Metal sampler
+waits for any in-flight command before freeing its GPU-visible histogram. The
+CPU sampler planned for browser milestone 3 can implement this interface.
