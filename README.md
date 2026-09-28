@@ -45,8 +45,10 @@ git config core.hooksPath .githooks
 
 The hook runs `git diff --cached --check` for whitespace errors and requires
 `clang-format` for staged C++ files. It checks only changed C++ lines against
-`.clang-format`. The historical `legacy/` directory is excluded. Format any
-reported lines and stage them again before committing.
+`.clang-format`. The historical `legacy/` directory is excluded. When web
+assets change, it also requires Deno 2.9.7 to format check the staged HTML,
+CSS, and JavaScript and lint the staged JavaScript. Format or lint them locally
+with `deno fmt web` and `deno lint web`, then stage the changes again.
 
 CI (`.github/workflows/ci.yml`) runs the same hook on every change since the
 base commit, then builds on macOS and runs the tests.

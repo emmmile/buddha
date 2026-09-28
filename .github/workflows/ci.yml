@@ -13,7 +13,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      # The commit hook's checks (whitespace, clang-format on changed C++ lines), applied to every
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+
+      # The commit hook's checks (whitespace, C++ formatting, and web formatting/lint), applied to every
       # change since the base: soft-reset to it so the whole change is staged, then run the hook.
       - name: Lint
         env:

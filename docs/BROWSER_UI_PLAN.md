@@ -287,9 +287,9 @@ controls/status (`controls.js`). CMake embeds all five files in `buddha-browser`
 no page files are loaded from the build directory at run time. The current HTTP
 API and native image pipeline remain the protocol and display source of truth.
 
-`server/browser_settings.h` validates requests, `server/browser_server.cpp`
+`web/server/browser_settings.h` validates requests, `web/server/browser_server.cpp`
 handles loopback HTTP and JSON, and the plain C++ worker/session is in
-`server/session.h`. `server/sampler.h` defines the batch boundary and histogram
+`web/server/session.h`. `web/server/sampler.h` defines the batch boundary and histogram
 access used by the worker. The only implementation today is
 `metal/browser_sampler.mm`, which owns the persistent renderer and waits for
 in-flight Metal work before releasing the histogram. A fake sampler drives

@@ -54,13 +54,13 @@ if(BUILD_TESTING)
     # Tone mapping, display adjustments and preview/TIFF orientation, with buddha-browser's
     # floating-point flags.
     add_executable(image-pipeline-test test/image_pipeline.cpp)
-    target_include_directories(image-pipeline-test PRIVATE server)
+    target_include_directories(image-pipeline-test PRIVATE web/server)
     target_link_libraries(image-pipeline-test PRIVATE core)
     target_compile_options(image-pipeline-test PRIVATE -fno-fast-math)
     add_test(NAME image-pipeline-test COMMAND image-pipeline-test)
 
     add_executable(browser-session-test test/browser_session.cpp)
-    target_include_directories(browser-session-test PRIVATE server)
+    target_include_directories(browser-session-test PRIVATE web/server)
     target_link_libraries(browser-session-test PRIVATE core Threads::Threads)
     target_compile_options(browser-session-test PRIVATE -fno-fast-math)
     add_test(NAME browser-session-test COMMAND browser-session-test)
@@ -108,10 +108,10 @@ if(APPLE)
                 web/embed_source.cmake
         COMMENT "Embedding the browser page")
     add_custom_target(web-source DEPENDS ${BUDDHA_WEB_GENERATED})
-    add_metal_executable(buddha-browser server/browser_server.cpp metal/browser_sampler.mm
+    add_metal_executable(buddha-browser web/server/browser_server.cpp metal/browser_sampler.mm
                          metal/browser_open.mm)
     add_dependencies(buddha-browser web-source)
-    target_include_directories(buddha-browser PRIVATE server)
+    target_include_directories(buddha-browser PRIVATE web/server)
     target_compile_options(buddha-browser PRIVATE -fno-fast-math)
     target_link_libraries(buddha-browser PRIVATE "-framework AppKit")
 
