@@ -50,8 +50,9 @@ assets change, it also requires Deno 2.9.7 to format check the staged HTML,
 CSS, and JavaScript and lint the staged JavaScript. Format or lint them locally
 with `deno fmt web` and `deno lint web`, then stage the changes again.
 
-CI (`.github/workflows/ci.yml`) runs the same hook on every change since the
-base commit, then builds on macOS and runs the tests.
+CI (`.github/workflows/ci.yml`) runs web formatting and linting in an Ubuntu
+job. A separate macOS job runs the hook's whitespace and C++ checks on every
+change since the base commit, then builds and runs the native tests.
 
 ## Run
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check staged whitespace, changed C++ formatting, and browser asset quality."""
 
+import argparse
 import re
 import shutil
 import subprocess
@@ -45,13 +46,17 @@ def check_web(paths):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--skip-web", action="store_true", help="CI checks web assets in its Ubuntu job")
+    args = parser.parse_args()
+
     whitespace = subprocess.run(["git", "diff", "--cached", "--check"])
     if whitespace.returncode:
         return whitespace.returncode
 
     paths = git("diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR").stdout
     changed_paths = [path for path in paths.split(b"\0") if path]
-    web_failed = check_web(changed_paths)
+    web_failed = False if args.skip_web else check_web(changed_paths)
     sources = [
         path.decode("utf-8", "surrogateescape")
         for path in changed_paths
