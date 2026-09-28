@@ -26,6 +26,25 @@ template <class F> bool throws(F f) {
     return false;
 }
 
+void tone_mapping_test() {
+    constexpr uint32_t maximum = 1024;
+    constexpr float contrast = 0.8f;
+    constexpr float lightness = 1.0f;
+    constexpr double scale = 2048.0;
+    const float previous_multiplier = std::log(scale) / powf(maximum, contrast) * 70.0 * lightness;
+    const float shared_multiplier = buddha_tone::multiplier(maximum, scale, contrast, lightness);
+    require(shared_multiplier == previous_multiplier, "TIFF tone multiplier changed");
+    for (uint32_t count : {0u, 1u, 2u, 17u, 256u, maximum}) {
+        const float previous =
+            std::min(powf(count, contrast) * previous_multiplier * 256.0f, 65535.0f);
+        const uint16_t expected = uint16_t(int(previous));
+        require(buddha_tone::channel16(count, shared_multiplier, contrast) == expected,
+                "shared 16-bit tone mapping changed");
+        require(buddha_tone::channel8(count, shared_multiplier, contrast) == expected >> 8,
+                "preview differs from the TIFF high byte");
+    }
+}
+
 // Writes a zstd-compressed checkpoint from a serialisation callback.
 template <class F> void write_checkpoint(const std::string &path, F serialise) {
     std::ostringstream bytes(std::ios::binary);
@@ -278,6 +297,7 @@ void checkpoint_test() {
 } // namespace
 
 int main() {
+    tone_mapping_test();
     geometry_test();
     exclusion_test();
     checkpoint_test();

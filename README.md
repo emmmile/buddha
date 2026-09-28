@@ -125,6 +125,32 @@ Checkpoints record the sampler, so a Metropolis checkpoint cannot be continued
 by `buddha-metal`, nor a naive one by `buddha++` without `--sampler naive`.
 See [metal/README.md](metal/README.md) for details and benchmarks.
 
+### Local browser prototype
+
+On macOS, build and launch the separate interactive prototype with:
+
+```sh
+cmake --build build --target buddha-browser --parallel
+./build/buddha-browser
+```
+
+It serves a page on `127.0.0.1` and opens it in the default browser. The
+viewport determines the render resolution, capped at two million pixels. The
+current Metal sampler renders overview and shallow-zoom views; a raw RGBA
+preview updates while it runs. Start or Stop from the page, and press `Ctrl-C` in the
+terminal to exit. Use `--no-open` to print the URL without opening a browser.
+The browser renderer loads the committed `data/exclusion.map` automatically.
+Drag the image to pan; scroll or pinch to zoom around the pointer. Resizing the
+window starts a new display-sized render after a short pause.
+Brightness, contrast, saturation, clarity, and texture update the
+preview from the current histogram, including after Stop, without restarting
+the sampler. Brightness lifts midtones while preserving black and white;
+clarity affects broad midtone contrast, while texture affects fine detail.
+Start toggles to Pause while sampling; Start after Pause continues the same
+histogram. Stop ends the run, so the next Start begins a new histogram.
+The headless `buddha++` and `buddha-metal` binaries remain available for large
+renders and automation.
+
 ## Historical Qt GUI
 
 The original interactive Qt navigator is preserved on the

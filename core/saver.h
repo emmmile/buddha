@@ -1,6 +1,7 @@
 
 #include "settings.h"
 #include "buddha.h"
+#include "tone_mapping.h"
 
 #include <boost/gil/image.hpp>
 #include <boost/gil/typedefs.hpp>
@@ -25,27 +26,18 @@ struct rgb_view {
     rgb_view(buddha *b, settings *s, const point_t &sz)
         : _img_size(sz), b(b), s(s), maxr(0), maxg(0), maxb(0) {
         for (size_t j = 0; j < 3 * s->size; j += 3) {
-            if (b->raw[j + 0].load() > maxr)
-                maxr = b->raw[j + 0].load();
-            if (b->raw[j + 1].load() > maxg)
-                maxg = b->raw[j + 1].load();
-            if (b->raw[j + 2].load() > maxb)
-                maxb = b->raw[j + 2].load();
+            maxr = std::max(maxr, b->raw[j + 0].load());
+            maxg = std::max(maxg, b->raw[j + 1].load());
+            maxb = std::max(maxb, b->raw[j + 2].load());
         }
 
         BOOST_LOG_TRIVIAL(info) << "maximum red channel:   " << maxr;
         BOOST_LOG_TRIVIAL(info) << "maximum green channel: " << maxg;
         BOOST_LOG_TRIVIAL(info) << "maximum blue channel:  " << maxb;
 
-        rmul = maxr > 0
-                   ? log(s->scale) / (float)powf(maxr, s->realContrast) * 70.0 * s->realLightness
-                   : 0.0;
-        gmul = maxg > 0
-                   ? log(s->scale) / (float)powf(maxg, s->realContrast) * 70.0 * s->realLightness
-                   : 0.0;
-        bmul = maxb > 0
-                   ? log(s->scale) / (float)powf(maxb, s->realContrast) * 70.0 * s->realLightness
-                   : 0.0;
+        rmul = buddha_tone::multiplier(maxr, s->scale, s->realContrast, s->realLightness);
+        gmul = buddha_tone::multiplier(maxg, s->scale, s->realContrast, s->realLightness);
+        bmul = buddha_tone::multiplier(maxb, s->scale, s->realContrast, s->realLightness);
         // rmul = 1.0 / maxr;
         // gmul = 1.0 / maxg;
         // bmul = 1.0 / maxb;
@@ -53,17 +45,12 @@ struct rgb_view {
 
     result_type operator()(const point_t &p) const {
         uint64_t x = p.x;
-        uint64_t y = s->symmetric_image && p.y >= s->histogram_height ? s->h - p.y - 1 : p.y;
-        uint64_t i = y * 3 * s->w + 3 * x + 0;
+        uint64_t i = buddha_tone::histogram_index(x, p.y, s->w, s->h, s->symmetric_image,
+                                                  s->histogram_height);
 
-        int d = 16; // how to compute bit depth from result type????
-
-        int rr = min(powf(b->raw[i + 0].load(), s->realContrast) * rmul * (1 << (d / 2)),
-                     (float)(1 << d) - 1);
-        int gg = min(powf(b->raw[i + 1].load(), s->realContrast) * gmul * (1 << (d / 2)),
-                     (float)(1 << d) - 1);
-        int bb = min(powf(b->raw[i + 2].load(), s->realContrast) * bmul * (1 << (d / 2)),
-                     (float)(1 << d) - 1);
+        int rr = buddha_tone::channel16(b->raw[i + 0].load(), rmul, s->realContrast);
+        int gg = buddha_tone::channel16(b->raw[i + 1].load(), gmul, s->realContrast);
+        int bb = buddha_tone::channel16(b->raw[i + 2].load(), bmul, s->realContrast);
         // int rr = min( pow(b->raw[i + 0] * rmul, 0.8) * (1 << d) * 2, (double) (1 << d) - 1);
         // int gg = min( pow(b->raw[i + 1] * gmul, 0.8) * (1 << d) * 2, (double) (1 << d) - 1);
         // int bb = min( pow(b->raw[i + 2] * bmul, 0.8) * (1 << d) * 2, (double) (1 << d) - 1);

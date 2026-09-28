@@ -50,6 +50,10 @@ if(BUILD_TESTING)
     target_link_libraries(kernel-consistency PRIVATE core)
     target_compile_options(kernel-consistency PRIVATE ${BUDDHA_STRICT_FP})
     add_test(NAME kernel-consistency COMMAND kernel-consistency)
+
+    add_executable(browser-display-test test/browser_display.cpp)
+    target_include_directories(browser-display-test PRIVATE metal)
+    add_test(NAME browser-display-test COMMAND browser-display-test)
 endif()
 
 if(APPLE)
@@ -82,6 +86,14 @@ if(APPLE)
 
     # GPU renderer (naive sampling) with buddha++'s options, exclusion map, checkpoints and TIFF.
     add_metal_executable(buddha-metal metal/main.mm)
+
+    # Minimal local browser prototype. The HTML is copied next to the executable at configure time.
+    configure_file(metal/browser_prototype.html browser_prototype.html COPYONLY)
+    add_metal_executable(buddha-browser metal/browser_prototype.mm)
+    target_compile_definitions(buddha-browser PRIVATE
+        BUDDHA_BROWSER_HTML_PATH="${CMAKE_CURRENT_BINARY_DIR}/browser_prototype.html")
+    target_compile_options(buddha-browser PRIVATE -fno-fast-math)
+    target_link_libraries(buddha-browser PRIVATE "-framework AppKit")
 
     if(BUILD_TESTING)
         # The GPU kernel against the shared lane on the CPU; skipped without a Metal device.
