@@ -105,7 +105,8 @@ inline void write_tiff(buddha *b, settings *s, const string &filename) {
     vector<uint16_t> row(size_t(width) * 3);
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
-            rgb16_pixel_t pixel = renderer(point_t(y, s->h - x - 1));
+            const auto source = buddha_tone::output_source(x, y, s->h);
+            rgb16_pixel_t pixel = renderer(point_t(source.x, source.y));
             row[3 * x + 0] = at_c<0>(pixel);
             row[3 * x + 1] = at_c<1>(pixel);
             row[3 * x + 2] = at_c<2>(pixel);
