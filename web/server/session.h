@@ -17,6 +17,8 @@ namespace buddha_browser {
 using buddha_image::adjustments;
 
 constexpr uint32_t batch_samples = 1U << 27;
+// While running, keep this many batches queued so the GPU never waits for the worker.
+constexpr uint32_t batches_in_flight = 2;
 
 inline double seconds_since(std::chrono::steady_clock::time_point begin) {
     return std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
@@ -27,7 +29,7 @@ struct session_stats {
     uint64_t samples = 0;
     double elapsed = 0;
     double batch_seconds = 0;   // GPU execution time of completed batches
-    double capture_seconds = 0; // histogram copies; the GPU waits for these
+    double capture_seconds = 0; // histogram copies, taken while batches run
     uint64_t capture_count = 0;
     double preview_seconds = 0; // frames from a new capture, built while the next batch runs
     uint64_t preview_count = 0;
@@ -42,6 +44,7 @@ struct render_session {
     std::chrono::steady_clock::time_point start, last_capture;
     double elapsed_before_pause = 0;
     bool paused = false;
+    uint32_t in_flight = 0; // dispatched batches not yet finished
 
     buddha_image::tone_mapper tone;
     std::vector<uint32_t> snapshot;
@@ -77,18 +80,26 @@ struct render_session {
         }
     }
 
-    void dispatch(std::random_device &random) {
-        sampler->dispatch(batch_samples, random(), random());
+    void fill(std::random_device &random) {
+        for (; in_flight < batches_in_flight; ++in_flight)
+            sampler->dispatch(batch_samples, random(), random());
     }
 
-    // A completed batch is the only safe point for reading the histogram.
+    // Waits for the oldest batch.
     void finish() {
         stats.batch_seconds += sampler->finish();
         stats.samples += batch_samples;
+        --in_flight;
     }
 
-    // Copies the histogram between batches. The copy, not the conversion, is the only preview
-    // work the GPU waits for.
+    // Waits for every batch, after which the histogram is exact.
+    void drain() {
+        while (in_flight)
+            finish();
+    }
+
+    // Copies the histogram, possibly while batches write it: the copy then includes part of the
+    // running batch, which is harmless for a preview. Drain first for an exact copy.
     void capture() {
         if (snapshot_samples == stats.samples)
             return;
@@ -210,6 +221,7 @@ inline void render_worker(state &shared) {
         std::optional<request_settings> next;
         uint64_t next_id = 0;
         bool refresh = false;
+        const char *halt = nullptr; // the phase of a pause or stop that arrived while running
         {
             std::unique_lock lock(shared.mutex);
             if (!running)
@@ -227,13 +239,18 @@ inline void render_worker(state &shared) {
                 running = false;
             } else {
                 if (shared.stop || shared.pause) {
-                    shared.phase = shared.stop ? "stopped" : "paused";
+                    const char *phase = shared.stop ? "stopped" : "paused";
                     shared.stop = shared.pause = shared.resume = false;
-                    running = false;
-                    if (session) {
-                        session->pause();
-                        shared.stats = session->current_stats();
+                    if (running && session) {
+                        halt = phase; // published once the queued batches finish
+                    } else {
+                        shared.phase = phase;
+                        if (session) {
+                            session->pause();
+                            shared.stats = session->current_stats();
+                        }
                     }
+                    running = false;
                 } else if (shared.resume) {
                     shared.resume = false;
                     if (session && shared.render_id == session->id) {
@@ -267,19 +284,33 @@ inline void render_worker(state &shared) {
             }
             continue;
         }
-        if (!session || (!running && !refresh))
+        if (!session || (!running && !refresh && !halt))
             continue;
 
         try {
             {
+                if (halt) {
+                    // Wait for the queued batches outside the lock, so the paused or stopped
+                    // frame and statistics include them.
+                    session->drain();
+                    session->pause();
+                    std::lock_guard lock(shared.mutex);
+                    if (shared.render_id == session->id && !shared.pending) {
+                        shared.phase = halt;
+                        shared.stats = session->current_stats();
+                    }
+                    refresh = needs_frame(shared, *session);
+                }
                 if (!running) {
                     // Paused or stopped: the GPU is idle, so capture and convert directly.
-                    session->capture();
-                    publish_frame(shared, *session);
+                    if (refresh) {
+                        session->capture();
+                        publish_frame(shared, *session);
+                    }
                 } else {
-                    session->dispatch(random);
+                    session->fill(random);
                     if (session->has_unconverted_capture())
-                        publish_frame(shared, *session); // overlaps with the batch
+                        publish_frame(shared, *session); // overlaps with the batches
                     session->finish();
                     bool capture = false;
                     {
@@ -298,7 +329,7 @@ inline void render_worker(state &shared) {
                         }
                     }
                     if (capture)
-                        session->capture();
+                        session->capture(); // the next batch keeps the GPU busy meanwhile
                 }
             }
         } catch (const std::exception &e) {

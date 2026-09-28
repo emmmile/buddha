@@ -46,9 +46,10 @@ template <class Body> void parallel_for(size_t count, size_t grain, const Body &
         body(begin, std::min(count, begin + grain));
 }
 
-// Copies a histogram that nothing is writing, for example between two Metal batches, so it can
-// be converted while the next batch runs. atomic_wrapper::load() is relaxed; the caller has
-// already synchronized with the writers (waitUntilCompleted, or joined CPU threads).
+// Copies a histogram so it can be converted while sampling continues. atomic_wrapper::load() is
+// relaxed, so writers may still be running: each count is one the writers stored, but counts
+// may be from slightly different moments. Synchronize with the writers first (waitUntilCompleted,
+// or joined CPU threads) for an exact copy.
 template <class Histogram> void capture(const Histogram &raw, std::vector<uint32_t> &counts) {
     counts.resize(raw.size());
     parallel_for(raw.size(), size_t(1) << 18, [&](size_t begin, size_t end) {

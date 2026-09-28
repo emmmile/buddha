@@ -177,7 +177,9 @@ modules into the executable, so it can be launched from any working directory:
 ./build/buddha-browser
 ```
 
-The `web/server/sampler.h` interface dispatches and finishes one batch, exposes the
-histogram only at a safe point, and reports the sampler name. The Metal sampler
-waits for any in-flight command before freeing its GPU-visible histogram. The
+The `web/server/sampler.h` interface queues batches and finishes the oldest one,
+exposes the histogram, and reports the sampler name. The worker keeps two batches
+queued so the GPU never waits for it, and copies the histogram for previews while
+they run; Pause and Stop wait for both before the final, exact frame. The Metal
+sampler waits for any in-flight command before freeing its GPU-visible histogram. The
 CPU sampler planned for browser milestone 3 can implement this interface.
