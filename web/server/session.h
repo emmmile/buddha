@@ -287,6 +287,9 @@ inline void render_worker(state &shared) {
                         if (shared.render_id == session->id && !shared.pending) {
                             shared.stats = session->current_stats();
                             // A pause or stop captures after the worker has seen it, above.
+                            // A changed display revision also captures the completed batch;
+                            // the next iteration publishes it even if the old snapshot was
+                            // already converted.
                             capture = !shared.stop && !shared.pause && client_active(shared) &&
                                       (shared.frame_render_id != session->id ||
                                        shared.frame_display_revision != shared.display_revision ||

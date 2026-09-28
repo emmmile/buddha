@@ -76,6 +76,18 @@ int main() {
     start(1);
     CHECK(until(shared,
                 [](const state &s) { return s.frame_render_id == 1 && s.stats.samples > 0; }));
+    // A display change during sampling must publish a new frame even when the previous
+    // histogram snapshot has already been converted.
+    uint64_t running_display_revision;
+    {
+        std::lock_guard lock(shared.mutex);
+        shared.display.contrast = 30;
+        running_display_revision = ++shared.display_revision;
+        shared.changed.notify_one();
+    }
+    CHECK(until(shared, [&](const state &s) {
+        return s.phase == "running" && s.frame_display_revision == running_display_revision;
+    }));
     {
         std::lock_guard lock(shared.mutex);
         shared.pause = true;
