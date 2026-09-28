@@ -214,12 +214,13 @@ avoid the rectangular support of a single large box, and clarity suppresses
 its effect near black and white. Neutral
 zero settings leave the existing TIFF-style mapping untouched. These curves
 approximate the behavior of photo editing controls; they are not exact
-Capture One or Photoshop algorithms. The prototype currently quantizes the
-base preview to 8 bits before applying the controls. Before session export,
-move tone mapping and adjustments into one float pipeline, then quantize its
-output to 8-bit RGBA for the browser or 16-bit RGB for TIFF. The existing
-headless TIFF path remains available. Compare both outputs from one histogram
-when session export arrives in milestone 4.
+Capture One or Photoshop algorithms. Tone mapping and adjustments share one
+float pipeline (`core/image_pipeline.h`): histogram counts become float RGB in
+output orientation, the adjustments run on that image, and only the result is
+quantized, to 8-bit RGBA for the browser or 16-bit RGB for TIFF. At neutral
+settings both quantizers reproduce the headless TIFF samples exactly. The
+existing headless TIFF path still streams rows from the histogram. Compare
+both outputs from one histogram when session export arrives in milestone 4.
 
 The primary button shows Start when idle or paused and Pause while sampling.
 Pause waits for the current batch and keeps the histogram; Start then resumes
@@ -227,16 +228,20 @@ sampling from it. Stop ends the run, and the next Start creates a new histogram.
 The status bar reports new-histogram preview and display-only recolor averages
 separately, and formats sample totals with up to three significant digits.
 
-At a 2-million-pixel preview size, the CPU display transform measured about
-32 ms with Clarity +50 alone and 39 ms with Texture also enabled after making
-the vertical blur pass row-major. This excludes histogram scanning and tone
-mapping, HTTP transfer, and browser presentation. Measure end-to-end latency
-before considering a GPU display path.
+The worker copies the histogram after a completed batch, dispatches the next
+batch, and builds the preview from the copy while the GPU runs; it never reads
+the histogram while a batch may write it. Paused and stopped sessions convert
+directly, since the GPU is idle. Tone mapping walks the histogram in bands of
+output rows, reads `pow` results from a table for counts below 65,536, and
+runs the tone, adjustment and blur passes across CPU cores with libdispatch.
 
-With a paused 2-million-pixel session, caching the unadjusted base frame gave
-about 88 ms for a new histogram preview and 43 ms for a display-only recolor.
-Five display requests reached a completed native frame in 45–70 ms; sample
-count stayed unchanged. These are local measurements, not browser paint times.
+On an M5 Pro (5+10 CPU cores, 16-core GPU) at 1920 × 1040 with the default
+display settings, the histogram copy takes about 0.3 ms of GPU idle time per
+preview. A new-histogram preview takes about 6 ms off the GPU's critical path,
+and a display-only recolor about 3.3 ms, reaching a published frame about
+3.6 ms after the request. Sampling ran at 99.8% of GPU batch throughput with
+previews once per second, up from about 96.5% with serial conversion. These
+are native measurements, not browser paint times.
 
 ### 3. Zoom sampler and session recovery
 
@@ -253,9 +258,10 @@ time to a useful preview at representative zoom levels.
 Add checkpoint and image export from the current session. Measure render
 throughput with the UI closed, connected but idle, and showing previews. Track
 preview latency and browser memory at representative display sizes. Report
-histogram-to-preview and display-only recolor timings separately. Build frames
-only while a client requests them, and change frame encoding or preview
-frequency in response to those measurements.
+histogram-to-preview and display-only recolor timings separately. Change frame
+encoding or preview frequency in response to those measurements. The worker
+already builds frames only while a client has polled within the last three
+seconds; a returning poll wakes it.
 
 ## Target architecture decisions
 

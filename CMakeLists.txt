@@ -51,9 +51,13 @@ if(BUILD_TESTING)
     target_compile_options(kernel-consistency PRIVATE ${BUDDHA_STRICT_FP})
     add_test(NAME kernel-consistency COMMAND kernel-consistency)
 
-    add_executable(browser-display-test test/browser_display.cpp)
-    target_include_directories(browser-display-test PRIVATE metal)
-    add_test(NAME browser-display-test COMMAND browser-display-test)
+    # Tone mapping, display adjustments and preview/TIFF orientation, with buddha-browser's
+    # floating-point flags.
+    add_executable(image-pipeline-test test/image_pipeline.cpp)
+    target_include_directories(image-pipeline-test PRIVATE metal)
+    target_link_libraries(image-pipeline-test PRIVATE core)
+    target_compile_options(image-pipeline-test PRIVATE -fno-fast-math)
+    add_test(NAME image-pipeline-test COMMAND image-pipeline-test)
 endif()
 
 if(APPLE)
@@ -101,5 +105,14 @@ if(APPLE)
         target_compile_options(metal-consistency PRIVATE ${BUDDHA_STRICT_FP})
         add_test(NAME metal-consistency COMMAND metal-consistency)
         set_tests_properties(metal-consistency PROPERTIES SKIP_RETURN_CODE 77)
+
+        # buddha-browser's worker lifecycle over HTTP (about 20 s); skipped without a Metal device.
+        find_package(Python3 COMPONENTS Interpreter)
+        if(Python3_FOUND)
+            add_test(NAME browser-lifecycle
+                     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/browser_lifecycle.py
+                             $<TARGET_FILE:buddha-browser>)
+            set_tests_properties(browser-lifecycle PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
+        endif()
     endif()
 endif()
