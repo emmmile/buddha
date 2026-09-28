@@ -90,6 +90,8 @@
     const message = document.getElementById('message');
     const statusLine = document.getElementById('status');
     let lastFrameRevision = 0;
+    let paintedRenderId = 0;
+    let paintedDisplayRevision = 0;
     let activeRenderId = 0;
     let frameLoading = false;
     let renderTimer;
@@ -186,7 +188,8 @@
       try {
         const status = await enqueueCommand('/display', displayData());
         void refreshUntil(s => s.render_id !== status.render_id ||
-          s.frame_display_revision >= status.display_revision);
+          (paintedRenderId === status.render_id &&
+           paintedDisplayRevision >= status.display_revision));
         return true;
       } catch (error) {
         displayDirty = true;
@@ -245,7 +248,7 @@
           renderDirty = false;
           updateStartButton();
           message.textContent = 'Starting render ' + activeRenderId + '…';
-          void refreshUntil(s => s.render_id !== renderId || s.frame_render_id === renderId);
+          void refreshUntil(s => s.render_id !== renderId || paintedRenderId === renderId);
         }
       } catch (error) { message.textContent = error.message; }
     }
@@ -435,6 +438,7 @@
           const renderId = activeRenderId;
           try {
             const frameResponse = await fetch(`/frame.rgba?revision=${status.frame_revision}`, {cache: 'no-store'});
+            if (frameResponse.status === 409) return status;
             if (!frameResponse.ok) throw new Error(await frameResponse.text());
             const pixels = new Uint8ClampedArray(await frameResponse.arrayBuffer());
             if (pixels.length !== status.width * status.height * 4) throw new Error('Invalid frame size');
@@ -443,6 +447,8 @@
               image.height = status.height;
               image.getContext('2d').putImageData(new ImageData(pixels, status.width, status.height), 0, 0);
               lastFrameRevision = status.frame_revision;
+              paintedRenderId = renderId;
+              paintedDisplayRevision = status.frame_display_revision;
               message.textContent = `Showing render ${activeRenderId}`;
             }
           } catch (error) {

@@ -458,7 +458,7 @@ std::string status_json(state &shared) {
 }
 
 struct http_request {
-    std::string method, path, body;
+    std::string method, path, query, body;
     std::string host, origin;
 };
 
@@ -480,8 +480,10 @@ http_request read_request(int fd) {
     if (request.path.empty())
         throw std::runtime_error("invalid HTTP request line");
     const size_t query = request.path.find('?');
-    if (query != std::string::npos)
+    if (query != std::string::npos) {
+        request.query = request.path.substr(query + 1);
         request.path.resize(query);
+    }
     size_t length = 0;
     std::string line;
     std::getline(header, line);
@@ -552,11 +554,16 @@ void handle(int fd, state &shared, const std::string &html, uint16_t port) {
             respond(fd, 200, "application/json", status_json(shared));
         } else if (request.method == "GET" && request.path == "/frame.rgba") {
             std::shared_ptr<const std::vector<uint8_t>> frame;
+            bool stale = false;
             {
                 std::lock_guard lock(shared.mutex);
                 frame = shared.frame;
+                stale = !request.query.empty() &&
+                    request.query != "revision=" + std::to_string(shared.frame_revision);
             }
-            if (!frame)
+            if (stale)
+                respond(fd, 409, "text/plain", "preview revision changed");
+            else if (!frame)
                 respond(fd, 404, "text/plain", "no preview yet");
             else
                 respond(fd, 200, "application/octet-stream", frame->data(), frame->size());
