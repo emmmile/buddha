@@ -278,3 +278,20 @@ seconds; a returning poll wakes it.
 Questions for iteration: the stop/restart latency target, the zoom level where
 the current Metal sampler ceases to be useful, and the exact mapping and useful
 ranges for the display controls.
+
+## Current implementation boundary
+
+The browser page now lives in `web/`: `index.html`, `style.css`, and plain ES
+modules for the HTTP API (`api.js`), canvas/view geometry (`geometry.js`), and
+controls/status (`controls.js`). CMake embeds all five files in `buddha-browser`;
+no page files are loaded from the build directory at run time. The current HTTP
+API and native image pipeline remain the protocol and display source of truth.
+
+`web/server/browser_settings.h` validates requests, `web/server/browser_server.cpp`
+handles loopback HTTP and JSON, and the plain C++ worker/session is in
+`web/server/session.h`. `web/server/sampler.h` defines the batch boundary and histogram
+access used by the worker. The only implementation today is
+`metal/browser_sampler.mm`, which owns the persistent renderer and waits for
+in-flight Metal work before releasing the histogram. A fake sampler drives
+`browser-session-test` without a GPU; `browser-lifecycle` still checks the full
+HTTP path. The CPU Metropolis sampler remains milestone 3 work.

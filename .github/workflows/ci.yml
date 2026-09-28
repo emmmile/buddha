@@ -6,6 +6,18 @@ on:
   pull_request:
 
 jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Format HTML, CSS, and JavaScript
+        run: deno fmt --check web
+      - name: Lint JavaScript
+        run: deno lint web
+
   macos:
     runs-on: macos-15
     steps:
@@ -13,7 +25,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # The commit hook's checks (whitespace, clang-format on changed C++ lines), applied to every
+      # The commit hook's native checks (whitespace and C++ formatting), applied to every
       # change since the base: soft-reset to it so the whole change is staged, then run the hook.
       - name: Lint
         env:
@@ -25,7 +37,7 @@ jobs:
             exit 0
           fi
           git reset --soft "$(git merge-base "$BASE" HEAD)"
-          python3 .githooks/pre-commit
+          python3 .githooks/pre-commit --skip-web
           git reset --soft "$GITHUB_SHA"
 
       - name: Install dependencies
