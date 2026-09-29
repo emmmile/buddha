@@ -1,10 +1,10 @@
 #ifndef BUDDHA_KERNEL_H
 #define BUDDHA_KERNEL_H
 
-// Rendering rules and the naive sampler, shared by the CPU renderer (C++) and buddha-metal
-// (Metal Shading Language, compiled at run time from this file). Keeping one definition stops the
-// two renderers from drifting apart; test/kernel_consistency.cpp and test/metal_consistency.mm
-// check the parts that are not shared.
+// Rendering rules and the naive and Metropolis samplers, shared by the CPU renderer (C++) and
+// buddha-metal (Metal Shading Language, compiled at run time from this file). Keeping one
+// definition stops the two renderers from drifting apart; test/kernel_consistency.cpp and
+// test/metal_consistency.mm check the parts that are not shared.
 //
 // The code is restricted to the common subset of C++ and MSL: no standard library in MSL builds,
 // explicit address spaces through BUDDHA_THREAD, and plain uint/float structs for buffers.
@@ -12,6 +12,7 @@
 #ifdef __METAL_VERSION__
 #define BUDDHA_THREAD thread
 #else
+#include <bit>
 #include <cfloat>
 #include <cmath>
 #include <cstdint>
@@ -169,6 +170,10 @@ struct totals {
     ulong redraw;     // steps spent re-iterating escaping orbits to draw them
     ulong escaped, excluded, periodic;
     ulong increments; // histogram channel increments, including weights
+    // Metropolis sampler only.
+    ulong proposals, accepted;
+    ulong seeds;  // seed candidates tried
+    ulong chains; // chains started
 };
 
 inline uint mix(uint value) {
@@ -233,6 +238,7 @@ template <class T> struct lane {
         end = count;
         mode = 0;
         t.iterations = t.redraw = t.escaped = t.excluded = t.periodic = t.increments = 0;
+        t.proposals = t.accepted = t.seeds = t.chains = 0;
     }
 
     // Returns false once the lane has no samples left.
@@ -304,6 +310,309 @@ template <class T> struct lane {
         step(rr, ii);
         ++i;
         return true;
+    }
+};
+
+// ---- Metropolis sampler ----
+//
+// A Metropolis-Hastings chain over starting points c, with target density L^a * C^b, where L is
+// the orbit's last index before escape and C the number of orbit points inside the window. Every
+// valid proposal is drawn once, accepted or not, and nothing reweights the samples: the image is
+// not the Buddhabrot but a view biased toward long orbits that stay in the window. The defaults
+// (a = 2, b = 1, chains of max(256 C, 2 L) proposals from seeds found by a random walk from the
+// origin) are those of buddha_generator::metropolis, the original CPU sampler.
+//
+// Like the naive lane, each advance() performs one orbit step, so GPU lanes never wait for each
+// other's chains. A lane's chain persists across dispatches in a state buffer.
+
+// Math from +, -, * and integer operations only: library log, sin and cos differ between the
+// CPU and the GPU, and one differing acceptance would send the two chains apart. The polynomials
+// are the single-precision Cephes ones.
+
+#ifdef __METAL_VERSION__
+inline uint leading_zeros(uint value) { return clz(value); }
+#else
+inline uint leading_zeros(uint value) { return uint(std::countl_zero(value)); }
+#endif
+
+// Natural logarithm of an integer n >= 1.
+inline float log_uint(uint n) {
+    BUDDHA_EXACT
+    int e = 31 - int(leading_zeros(n));
+    // n = 2^e * m, with m from the top 24 bits of n (exact in float), m in [1, 2).
+    const uint top = e > 23 ? n >> uint(e - 23) : n << uint(23 - e);
+    float m = float(top) * (1.0f / 8388608.0f);
+    if (m > 1.41421356f) {
+        m = m * 0.5f;
+        ++e;
+    }
+    const float x = m - 1.0f, z = x * x;
+    float y = 7.0376836292e-2f;
+    y = y * x - 1.1514610310e-1f;
+    y = y * x + 1.1676998740e-1f;
+    y = y * x - 1.2420140846e-1f;
+    y = y * x + 1.4249322787e-1f;
+    y = y * x - 1.6668057665e-1f;
+    y = y * x + 2.0000714765e-1f;
+    y = y * x - 2.4999993993e-1f;
+    y = y * x + 3.3333331174e-1f;
+    y = y * x * z;
+    const float fe = float(e);
+    y = y - 2.12194440e-4f * fe;
+    y = y - 0.5f * z;
+    return x + y + 0.693359375f * fe;
+}
+
+// Direction at a uniform angle, from a 24-bit random value: the top two bits pick a quadrant and
+// the rest an angle in [-pi/4, pi/4) within it.
+inline void direction(uint bits, BUDDHA_THREAD float &dx, BUDDHA_THREAD float &dy) {
+    BUDDHA_EXACT
+    const float f = float(bits & 0x3fffffu) * (1.0f / 4194304.0f);
+    const float x = (f - 0.5f) * 1.57079632679f, z = x * x;
+    float s = -1.9515295891e-4f;
+    s = s * z + 8.3321608736e-3f;
+    s = s * z - 1.6666654611e-1f;
+    s = s * z * x + x;
+    float c = 2.443315711809948e-5f;
+    c = c * z - 1.388731625493765e-3f;
+    c = c * z + 4.166664568298827e-2f;
+    c = c * z * z - 0.5f * z + 1.0f;
+    switch ((bits >> 22) & 3u) {
+    case 0:
+        dx = c;
+        dy = s;
+        break;
+    case 1:
+        dx = -s;
+        dy = c;
+        break;
+    case 2:
+        dx = -c;
+        dy = -s;
+        break;
+    default:
+        dx = s;
+        dy = -c;
+        break;
+    }
+}
+
+// Sampler settings beyond parameters, also a constant buffer: keep to uint and float fields.
+struct metropolis_parameters {
+    float radius;                 // mutation radius, in complex units
+    float exponent_l, exponent_c; // target density L^a * C^b
+    float chain_scale;            // proposals per chain: chain_scale * max(256 C, 2 L)
+    uint seeding;                 // seeding_walk or seeding_uniform
+    uint steps;                   // advance() calls per lane in a dispatch
+    uint padding0, padding1;
+};
+
+enum : uint {
+    seeding_walk = 0,    // random walk from the origin, restarted after walk_limit steps
+    seeding_uniform = 1, // uniform over [-2, 2]^2
+    walk_limit = 256,
+};
+
+template <class T> struct chain {
+    enum : uint { seek, propose, evaluate_seed, evaluate_proposal, redraw };
+
+    uint mode;
+    uint random; // generator state
+    uint i, last, contribute;
+    T cr, ci, zr, zi; // orbit being evaluated or redrawn
+    periodicity<T> period;
+    T current_r, current_i; // chain state
+    float current_log;      // a ln L + b ln C of the chain state
+    uint left;              // proposals left in the chain
+    T walk_r, walk_i;
+    uint walk_steps;
+
+    void begin(uint lane, uint key) {
+        mode = seek;
+        random = mix(lane * 0x9e3779b9u ^ mix(key));
+        i = last = contribute = 0;
+        cr = ci = zr = zi = current_r = current_i = walk_r = walk_i = T(0);
+        period.reset();
+        current_log = 0.0f;
+        left = 0;
+        walk_steps = 0;
+    }
+
+    uint next24() {
+        random = random * 747796405u + 2891336453u;
+        return mix(random) >> 8;
+    }
+
+    float uniform01() {
+        BUDDHA_EXACT
+        return float(next24()) * (1.0f / 16777216.0f);
+    }
+
+    // -ln(u) for u uniform in (0, 1].
+    float exponential1() {
+        BUDDHA_EXACT
+        return 16.6355323f - log_uint(next24() + 1u); // 24 ln 2 - ln(k + 1)
+    }
+
+    void start(T r, T im) {
+        cr = zr = r;
+        ci = zi = im;
+        i = contribute = 0;
+        period.reset();
+    }
+
+    void step(T rr, T ii) {
+        BUDDHA_EXACT
+        const T next = rr - ii + cr;
+        zi = T(2) * zr * zi + ci;
+        zr = next;
+    }
+
+    // Picks the next seed candidate outside the exclusion map; false if none was found here.
+    template <class Map>
+    bool pick_seed(BUDDHA_THREAD const parameters &p, BUDDHA_THREAD const metropolis_parameters &m,
+                   BUDDHA_THREAD const Map &map, BUDDHA_THREAD totals &t) {
+        BUDDHA_EXACT
+        T r, im;
+        if (m.seeding == seeding_uniform) {
+            r = T(uniform01() * 4.0f - 2.0f);
+            im = T(uniform01() * 4.0f - 2.0f);
+        } else {
+            if (walk_steps == walk_limit) {
+                walk_r = walk_i = T(0);
+                walk_steps = 0;
+            }
+            // |N(0, 1)| approximated by four uniforms (Irwin-Hall).
+            const float sum = uniform01() + uniform01() + uniform01() + uniform01();
+            const float amplitude = fabs(sum - 2.0f) * 1.73205081f;
+            float dx, dy;
+            direction(next24(), dx, dy);
+            walk_r = walk_r + T(amplitude * dx);
+            walk_i = walk_i + T(amplitude * dy);
+            ++walk_steps;
+            r = walk_r;
+            im = walk_i;
+        }
+        ++t.seeds;
+        if (excluded(r, im, p.exclusion_size, map)) {
+            ++t.excluded;
+            return false;
+        }
+        start(r, im);
+        return true;
+    }
+
+    // The ending of an evaluated orbit: its log density, or false if it cannot be drawn
+    // (periodic, capped, excluded, L < 1 or no point in the window).
+    bool density(bool escaped_orbit, BUDDHA_THREAD const metropolis_parameters &m,
+                 BUDDHA_THREAD float &log_density) {
+        BUDDHA_EXACT
+        if (!escaped_orbit || i < 2 || contribute == 0)
+            return false;
+        log_density = m.exponent_l * log_uint(i - 1) + m.exponent_c * log_uint(contribute);
+        return true;
+    }
+
+    template <class Map, class Histogram>
+    void advance(BUDDHA_THREAD const parameters &p, BUDDHA_THREAD const metropolis_parameters &m,
+                 BUDDHA_THREAD const geometry<T> &g, BUDDHA_THREAD const Map &map,
+                 BUDDHA_THREAD Histogram &histogram, BUDDHA_THREAD totals &t) {
+        BUDDHA_EXACT
+        if (mode == seek) {
+            if (!pick_seed(p, m, map, t))
+                return;
+            mode = evaluate_seed;
+        } else if (mode == propose) {
+            if (left == 0) {
+                mode = seek;
+                return;
+            }
+            --left;
+            ++t.proposals;
+            const float amplitude = exponential1() * 0.5f * uniform01() * m.radius;
+            float dx, dy;
+            direction(next24(), dx, dy);
+            const T r = current_r + T(amplitude * dx), im = current_i + T(amplitude * dy);
+            if (excluded(r, im, p.exclusion_size, map)) {
+                ++t.excluded;
+                return;
+            }
+            start(r, im);
+            mode = evaluate_proposal;
+        }
+
+        const T rr = zr * zr, ii = zi * zi;
+        if (mode == redraw) {
+            if (i > last || escaped(rr + ii)) { // the second test only guards a diverged redraw
+                t.redraw += i;
+                mode = propose;
+                return;
+            }
+            if (i >= p.low)
+                t.increments +=
+                    draw(g, zr, zi, in_channel(i, p.lowr, p.highr), in_channel(i, p.lowg, p.highg),
+                         in_channel(i, p.lowb, p.highb), histogram);
+            step(rr, ii);
+            ++i;
+            return;
+        }
+
+        // Evaluating a seed or a proposal: escape, periodicity and points in the window.
+        uint x, y;
+        if (pixel(g, zr, zi, x, y))
+            ++contribute;
+        bool ended = false, escaped_orbit = false;
+        if (escaped(rr + ii)) {
+            ended = escaped_orbit = true;
+        } else if (period.cyclic(zr, zi, i)) {
+            ended = true;
+        } else {
+            step(rr, ii);
+            ended = ++i == p.high;
+        }
+        if (!ended)
+            return;
+        t.iterations += i;
+
+        float log_density = 0.0f;
+        const bool valid = density(escaped_orbit, m, log_density);
+        if (!valid)
+            ++t.periodic;
+        if (mode == evaluate_seed) {
+            if (!valid) {
+                mode = seek;
+                return;
+            }
+            current_r = cr;
+            current_i = ci;
+            current_log = log_density;
+            const float c = float(contribute) * 256.0f, l = float(i - 1) * 2.0f;
+            left = uint(m.chain_scale * (c > l ? c : l));
+            walk_r = walk_i = T(0); // the next seed search starts again from the origin
+            walk_steps = 0;
+            ++t.chains;
+            mode = propose;
+            return;
+        }
+
+        if (!valid) {
+            mode = propose;
+            return;
+        }
+        // Accept with probability min(1, f' / f), in logs: ln u < ln f' - ln f.
+        const float log_u = log_uint(next24() + 1u) - 16.6355323f;
+        if (log_u <= log_density - current_log) {
+            current_r = cr;
+            current_i = ci;
+            current_log = log_density;
+            ++t.accepted;
+        }
+        ++t.escaped;
+        last = i - 1 < p.high - 1 ? i - 1 : p.high - 1;
+        zr = cr;
+        zi = ci;
+        i = 0;
+        mode = redraw;
     }
 };
 

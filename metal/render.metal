@@ -55,3 +55,40 @@ kernel void render(constant parameters &params [[buffer(0)]],
     out[tid].periodic += l.t.periodic;
     out[tid].increments += l.t.increments;
 }
+
+// Metropolis chains: each thread advances its own chain (chain in buddha_kernel.h) a fixed number
+// of steps, so every thread does the same work, and saves it for the next dispatch.
+kernel void metropolis(constant parameters &params [[buffer(0)]],
+                       device const uchar *map [[buffer(1)]],
+                       device atomic_uint *raw [[buffer(2)]],
+                       device totals *out [[buffer(3)]],
+                       constant metropolis_parameters &settings [[buffer(4)]],
+                       device chain<float> *chains [[buffer(5)]],
+                       uint tid [[thread_position_in_grid]]) {
+    const parameters p = params;
+    const metropolis_parameters m = settings;
+    if (tid >= p.threads)
+        return;
+    const geometry<float> g = make_geometry<float>(p);
+    const device_map exclusion = {map};
+    device_histogram histogram = {raw, p.width};
+
+    chain<float> c = chains[tid];
+    totals t;
+    t.iterations = t.redraw = t.escaped = t.excluded = t.periodic = t.increments = 0;
+    t.proposals = t.accepted = t.seeds = t.chains = 0;
+    for (uint s = 0; s < m.steps; ++s)
+        c.advance(p, m, g, exclusion, histogram, t);
+    chains[tid] = c;
+
+    out[tid].iterations += t.iterations;
+    out[tid].redraw += t.redraw;
+    out[tid].escaped += t.escaped;
+    out[tid].excluded += t.excluded;
+    out[tid].periodic += t.periodic;
+    out[tid].increments += t.increments;
+    out[tid].proposals += t.proposals;
+    out[tid].accepted += t.accepted;
+    out[tid].seeds += t.seeds;
+    out[tid].chains += t.chains;
+}

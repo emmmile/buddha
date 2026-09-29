@@ -94,6 +94,62 @@ uint64_t check(id<MTLDevice> device, const std::string &name, const settings &s)
     return differing;
 }
 
+// Metropolis chains: the GPU runs threads chains over two dispatches, the CPU the same chains one
+// after another. Returns the number of histogram bins that differ.
+uint64_t check_metropolis(id<MTLDevice> device, const std::string &name, const settings &s,
+                          uint32_t seeding) {
+    mandelbrot<buddha::complex_type> core(s);
+    if (!core.load())
+        throw std::runtime_error("the committed exclusion map must load");
+
+    const uint32_t threads = 256, dispatches = 2, key = 0x2545f491U;
+    parameters p = make_parameters(s, core.size);
+    p.threads = threads;
+    buddha_kernel::metropolis_parameters m{};
+    m.radius = float(20.0 / s.scale);
+    m.exponent_l = 2;
+    m.exponent_c = 1;
+    m.chain_scale = 0.05f; // short chains, so the test also covers many seed searches
+    m.seeding = seeding;
+    m.steps = 20000;
+
+    buddha::vector_type cpu(3 * s.size), gpu(3 * s.size);
+    raw_histogram histogram{cpu, s.w};
+    const buddha_kernel::geometry<float> g = buddha_kernel::make_geometry<float>(p);
+    totals expected{};
+    for (uint32_t lane = 0; lane < threads; ++lane) {
+        metropolis_chain c;
+        c.begin(lane, key);
+        for (uint32_t step = 0; step < dispatches * m.steps; ++step)
+            c.advance(p, m, g, core.data, histogram, expected);
+    }
+
+    persistent_renderer renderer(device, p, core.data.data(), core.data.size(), gpu.data(),
+                                 histogram_bytes(gpu), threads);
+    renderer.begin_chains(key);
+    for (uint32_t d = 0; d < dispatches; ++d)
+        persistent_renderer::wait(renderer.dispatch_metropolis(m));
+    const totals actual = renderer.sum();
+
+    uint64_t differing = 0;
+    for (size_t i = 0; i < cpu.size(); ++i)
+        differing += cpu[i].load() != gpu[i].load();
+    std::cout << name << ": CPU " << expected.chains << " chains, " << expected.proposals
+              << " proposals, " << expected.accepted << " accepted, " << expected.increments
+              << " increments; GPU " << actual.chains << ", " << actual.proposals << ", "
+              << actual.accepted << ", " << actual.increments << "; " << differing
+              << " bins differ\n";
+    if (expected.chains == 0 || expected.accepted == 0 || expected.increments == 0)
+        throw std::runtime_error(name + ": the chains drew nothing");
+    if (actual.chains != expected.chains || actual.seeds != expected.seeds ||
+        actual.proposals != expected.proposals || actual.accepted != expected.accepted ||
+        actual.excluded != expected.excluded || actual.escaped != expected.escaped ||
+        actual.periodic != expected.periodic || actual.iterations != expected.iterations ||
+        actual.redraw != expected.redraw || actual.increments != expected.increments)
+        throw std::runtime_error(name + ": GPU counters differ from the chains on the CPU");
+    return differing;
+}
+
 } // namespace
 
 int main() {
@@ -110,6 +166,12 @@ int main() {
             differing +=
                 check(device, "mirrored, odd height", make_settings(256, 255, 64, -0.5, 0.0));
             differing += check(device, "off-axis", make_settings(256, 192, 256, -0.6, 0.4));
+            differing += check_metropolis(device, "metropolis, walk seeds",
+                                          make_settings(256, 255, 64, -0.5, 0.0),
+                                          buddha_kernel::seeding_walk);
+            differing += check_metropolis(device, "metropolis, uniform seeds, off-axis",
+                                          make_settings(256, 192, 256, -0.6, 0.4),
+                                          buddha_kernel::seeding_uniform);
             if (differing != 0)
                 throw std::runtime_error(std::to_string(differing) + " histogram bins differ");
         } catch (const std::exception &error) {

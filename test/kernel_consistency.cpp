@@ -13,6 +13,8 @@
 
 #include <boost/log/core.hpp>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -162,12 +164,36 @@ void check(const std::string &name, const settings &s) {
 
 } // namespace
 
+// The Metropolis sampler's own log and direction, which avoid library functions so the CPU and
+// GPU agree, against the library ones.
+void check_math() {
+    double log_error = 0;
+    for (uint32_t n = 1; n < (1U << 24); n += 1 + n / 4096)
+        log_error =
+            std::max(log_error, std::fabs(buddha_kernel::log_uint(n) - std::log(double(n))));
+    for (uint32_t n : {(1U << 24) + 1, 1U << 31, 0xffffffffU})
+        log_error =
+            std::max(log_error, std::fabs(buddha_kernel::log_uint(n) - std::log(double(n))));
+    double direction_error = 0;
+    for (uint32_t bits = 0; bits < (1U << 24); bits += 97) {
+        float dx, dy;
+        buddha_kernel::direction(bits, dx, dy);
+        const double angle =
+            (bits >> 22) * M_PI / 2 + ((bits & 0x3fffff) / 4194304.0 - 0.5) * M_PI / 2;
+        direction_error = std::max(
+            {direction_error, std::fabs(dx - std::cos(angle)), std::fabs(dy - std::sin(angle))});
+    }
+    std::cout << "log_uint error " << log_error << ", direction error " << direction_error << "\n";
+    require(log_error < 4e-6 && direction_error < 1e-6, "Metropolis math is inaccurate");
+}
+
 int main() {
     boost::log::core::get()->set_logging_enabled(false);
     try {
         check("mirrored, even height", make_settings(256, 256, 64, -0.5, 0.0));
         check("mirrored, odd height", make_settings(256, 255, 64, -0.5, 0.0));
         check("off-axis", make_settings(256, 192, 256, -0.6, 0.4));
+        check_math();
     } catch (const std::exception &error) {
         std::cerr << "kernel-consistency: " << error.what() << "\n";
         return EXIT_FAILURE;
