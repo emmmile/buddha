@@ -151,6 +151,11 @@ the sampler. Brightness lifts midtones while preserving black and white;
 clarity affects broad midtone contrast, while texture affects fine detail.
 Start toggles to Pause while sampling; Start after Pause continues the same
 histogram. Stop ends the run, so the next Start begins a new histogram.
+The Sampler section chooses naive sampling or Metropolis chains on the GPU (see
+`metal/README.md`), with the Metropolis mutation radius, density exponents,
+chain length and seeding; changing them starts a new histogram. The status
+line shows orbits, orbit and histogram-point rates and the sampler's main
+metric; Debug adds a second line of pipeline and sampler diagnostics.
 The headless `buddha++` and `buddha-metal` binaries remain available for large
 renders and automation.
 

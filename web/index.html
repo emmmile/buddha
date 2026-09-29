@@ -30,6 +30,28 @@
           </div>
         </fieldset>
         <fieldset>
+          <legend>Sampler</legend>
+          <label>Sampler<select name="sampler">
+              <option value="naive">Naive</option>
+              <option value="metropolis">Metropolis</option>
+            </select></label>
+          <div id="metropolis-settings">
+            <label
+              title="Mutation radius, in percent of the view's shorter side">Radius %<input name="radius" type="number" min="0.001" max="100" step="any" value="1" required></label>
+            <label
+              title="Density exponent of the orbit length L (target L^a C^b)">Length exp.<input name="exponent_l" type="number" min="0" max="8" step="any" value="1" required></label>
+            <label
+              title="Density exponent of the orbit points in the window C (target L^a C^b)">Window exp.<input name="exponent_c" type="number" min="0" max="8" step="any" value="1" required></label>
+            <label
+              title="Proposals per chain, as a multiple of max(256 C, 2 L)">Chain length ×<input name="chain_scale" type="number" min="0.001" max="100" step="any" value="1" required></label>
+            <label
+              title="How chains find their first point">Seeds<select name="seeding">
+                <option value="walk">Random walk</option>
+                <option value="uniform">Uniform</option>
+              </select></label>
+          </div>
+        </fieldset>
+        <fieldset>
           <legend>Display</legend>
           <label class="slider"
             title="Midtone lift with protected highlights">Brightness<input name="brightness" type="range" min="-100" max="100" value="25"><output id="brightness-value">+25</output></label>
@@ -53,7 +75,13 @@
       <div id="viewport" title="Drag to pan; scroll or pinch to zoom">
         <canvas id="image" aria-label="Progressive Buddhabrot preview"></canvas>
       </div>
-      <footer><span id="message">Ready</span><span id="status"></span></footer>
+      <footer>
+        <div class="line">
+          <span id="message">Ready</span><span id="status"></span>
+          <label class="toggle" title="Show pipeline and sampler diagnostics"><input type="checkbox" id="debug">Debug</label>
+        </div>
+        <div class="line" id="debug-status" hidden></div>
+      </footer>
     </main>
     <script type="module" src="/controls.js"></script>
   </body>

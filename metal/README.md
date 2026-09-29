@@ -178,8 +178,35 @@ modules into the executable, so it can be launched from any working directory:
 ```
 
 The `web/server/sampler.h` interface queues batches and finishes the oldest one,
-exposes the histogram, and reports the sampler name. The worker keeps two batches
+exposes the histogram, and reports the sampler name and its metrics: orbits,
+orbits drawn, orbit steps and histogram points for every sampler, plus up to two
+of the sampler's own. The worker keeps two batches
 queued so the GPU never waits for it, and copies the histogram for previews while
 they run; Pause and Stop wait for both before the final, exact frame. The Metal
 sampler waits for any in-flight command before freeing its GPU-visible histogram. The
 CPU sampler planned for browser milestone 3 can implement this interface.
+
+### Metropolis chains
+
+The browser can also run Metropolis–Hastings chains on the GPU (`chain` in
+`core/buddha_kernel.h`, the `metropolis` kernel in `render.metal`). A chain
+mutates its current starting point by a small random step and accepts the
+proposal with probability `min(1, f'/f)`, where `f = L^a · C^b`, `L` is the
+orbit's escape iteration and `C` the number of orbit points in the window.
+Every valid proposal is drawn once, accepted or not, with no reweighting: the
+image is biased toward long orbits that cross the window, which is the look of
+the original CPU sampler (`buddha_generator::metropolis`). A chain runs
+`max(256 C, 2 L)` proposals, times a factor, from a seed found by a random walk
+from the origin or uniformly, then starts again.
+
+The earlier prototype ran one whole chain per GPU thread and was about 8.5×
+slower than the CPU, because chain lengths vary by over 25× and threads waited
+for the longest one. Here each thread is a lane that performs one orbit step
+per call, like the naive lane, and keeps its chain in a buffer between
+dispatches; a dispatch gives every lane the same number of steps.
+
+Accepting a proposal depends on logarithms, and mutations on sines and cosines.
+The kernel computes them with the single-precision Cephes polynomials, using
+only `+`, `-`, `*` and integer operations, so the CPU and GPU make identical
+decisions: `metal-consistency` runs the same chains on both and requires
+identical counters and histograms.

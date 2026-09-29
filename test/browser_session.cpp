@@ -27,10 +27,11 @@ class fake_sampler final : public sampler {
               return s;
           }()) {}
     ~fake_sampler() override { queued = 0; }
-    void dispatch(uint32_t, uint32_t, uint32_t) override {
+    void dispatch(uint32_t, uint32_t) override {
         CHECK(queued < batches_in_flight);
         max_queued = std::max(max_queued.load(), ++queued);
     }
+    sampler_metrics metrics() const override { return {}; }
     double finish() override {
         CHECK(queued > 0);
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -79,7 +80,7 @@ int main() {
     };
     start(1);
     CHECK(until(shared,
-                [](const state &s) { return s.frame_render_id == 1 && s.stats.samples > 0; }));
+                [](const state &s) { return s.frame_render_id == 1 && s.stats.batches > 0; }));
     // A display change during sampling must publish a new frame even when the previous
     // histogram snapshot has already been converted.
     uint64_t running_display_revision;
@@ -98,15 +99,15 @@ int main() {
         shared.changed.notify_one();
     }
     CHECK(until(shared, [](const state &s) {
-        return s.phase == "paused" && s.frame_samples == s.stats.samples;
+        return s.phase == "paused" && s.frame_batches == s.stats.batches;
     }));
     CHECK(max_queued == batches_in_flight);
-    uint64_t paused_samples, preview_count;
+    uint64_t paused_batches, preview_count;
     {
         std::lock_guard lock(shared.mutex);
         // The paused frame waited for every queued batch.
         CHECK(queued == 0);
-        paused_samples = shared.stats.samples;
+        paused_batches = shared.stats.batches;
         preview_count = shared.stats.preview_count;
         shared.display.brightness = 40;
         ++shared.display_revision;
@@ -116,20 +117,20 @@ int main() {
                 [](const state &s) { return s.frame_display_revision == s.display_revision; }));
     {
         std::lock_guard lock(shared.mutex);
-        CHECK(shared.stats.samples == paused_samples);
+        CHECK(shared.stats.batches == paused_batches);
         CHECK(shared.stats.preview_count == preview_count);
         CHECK(shared.stats.recolor_count > 0);
         shared.resume = true;
         shared.changed.notify_one();
     }
-    CHECK(until(shared, [&](const state &s) { return s.stats.samples > paused_samples; }));
+    CHECK(until(shared, [&](const state &s) { return s.stats.batches > paused_batches; }));
     {
         std::lock_guard lock(shared.mutex);
         shared.stop = true;
         shared.changed.notify_one();
     }
     CHECK(until(shared, [](const state &s) {
-        return s.phase == "stopped" && s.frame_samples == s.stats.samples;
+        return s.phase == "stopped" && s.frame_batches == s.stats.batches;
     }));
     CHECK(queued == 0);
     start(2);

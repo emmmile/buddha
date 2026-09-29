@@ -63,7 +63,7 @@ class Server:
         if self.last:
             check(s['frame_revision'] >= self.last['frame_revision'], 'frame revision went back')
         if self.last and self.last['render_id'] == s['render_id']:
-            check(s['samples'] >= self.last['samples'], 'sample count went back')
+            check(s['batches'] >= self.last['batches'], 'batch count went back')
         if self.last and s['frame_render_id'] != self.last['frame_render_id']:
             check(s['frame_render_id'] > self.last['frame_render_id'],
                   f"a frame from render {s['frame_render_id']} followed render "
@@ -99,7 +99,7 @@ class Server:
 
 def current(s):
     """The published frame shows the latest completed batch with the current display."""
-    return (s['frame_render_id'] == s['render_id'] and s['frame_samples'] == s['samples']
+    return (s['frame_render_id'] == s['render_id'] and s['frame_batches'] == s['batches']
             and s['frame_display_revision'] == s['display_revision'])
 
 
@@ -111,14 +111,14 @@ def lifecycle(server):
     s = server.until(lambda s: s['frame_render_id'] == first and s['phase'] == 'running',
                      'the first frame')
     server.frame(s)
-    server.until(lambda s: s['samples'] > s['frame_samples'] > 0, 'sampling past the frame')
+    server.until(lambda s: s['batches'] > s['frame_batches'] > 0, 'sampling past the frame')
 
     # Restart while running: the old frame stays until the new render's first frame, and no
     # frame of the old render follows it (Server.status checks the order).
     second = server.post('/render', dict(RENDER, cim=0.1))['render_id']
     check(second == first + 1, 'render ids are not consecutive')
     s = server.until(lambda s: s['frame_render_id'] == second, 'the restarted render frame')
-    check(s['frame_samples'] <= s['samples'], 'frame is ahead of the histogram')
+    check(s['frame_batches'] <= s['batches'], 'frame is ahead of the histogram')
     server.frame(s)
 
     # Display change while running: a frame with the new display follows.
@@ -129,13 +129,13 @@ def lifecycle(server):
     server.post('/pause')
     s = server.until(lambda s: s['phase'] == 'paused' and current(s), 'a paused final frame')
     time.sleep(0.5)
-    check(server.status()['samples'] == s['samples'], 'samples grew while paused')
+    check(server.status()['batches'] == s['batches'], 'batches grew while paused')
 
     # Display change while paused: a recolor, with no new histogram and no new samples.
     before = server.status()
     revision = server.post('/display', dict(DISPLAY, saturation=-20))['display_revision']
     s = server.until(lambda s: s['frame_display_revision'] == revision, 'a paused recolor')
-    check(s['samples'] == before['samples'], 'a display change added samples')
+    check(s['batches'] == before['batches'], 'a display change added batches')
     check(s['preview_count'] == before['preview_count'], 'a recolor rebuilt the base image')
     check(s['recolor_count'] > before['recolor_count'], 'a recolor was not counted')
     server.frame(s)
@@ -144,17 +144,17 @@ def lifecycle(server):
 
     # Resume: sampling continues from the same histogram.
     server.post('/resume')
-    server.until(lambda s: s['phase'] == 'running' and s['samples'] > before['samples'],
-                 'samples after resume')
+    server.until(lambda s: s['phase'] == 'running' and s['batches'] > before['batches'],
+                 'batches after resume')
 
     # Without a polling client the worker stops building frames. The status reads below mark
     # the client active for 3 s each, which allows at most a few captures a second apart.
     start = server.status()
     time.sleep(12)
     end = server.status()
-    batches = (end['samples'] - start['samples']) / (1 << 27)
+    batches = end['batches'] - start['batches']
     captures = end['capture_count'] - start['capture_count']
-    check(captures <= 5, f'{captures} captures in 12 s without a client ({batches:.0f} batches)')
+    check(captures <= 5, f'{captures} captures in 12 s without a client ({batches} batches)')
     s = server.until(lambda s: s['frame_revision'] > end['frame_revision'],
                      'a frame once the client returns')
 
@@ -164,13 +164,27 @@ def lifecycle(server):
     check(server.request('/resume', {})[0] == 400, 'a stopped render resumed')
     time.sleep(0.5)
     idle = server.status()
-    check(idle['samples'] == s['samples'], 'samples grew after stop')
+    check(idle['batches'] == s['batches'], 'batches grew after stop')
     check(idle['frame_revision'] == s['frame_revision'], 'frames were built after stop')
 
     # Starting again creates a new histogram.
     third = server.post('/render', RENDER)['render_id']
     s = server.until(lambda s: s['frame_render_id'] == third, 'a frame after stop and start')
-    check(s['frame_samples'] <= s['samples'] and s['render_id'] == third, 'new render state')
+    check(s['frame_batches'] <= s['batches'] and s['render_id'] == third, 'new render state')
+    check(s['orbits'] > 0 and 0 < s['drawn'] <= s['orbits'] and s['steps'] > 0 and s['points'] > 0,
+          'common sampler metrics')
+    check([m['name'] for m in s['sampler_metrics']] == ['excluded'], 'naive sampler metrics')
+
+    # Metropolis reports the same common metrics, then its own.
+    fourth = server.post('/render', dict(RENDER, sampler='metropolis'))['render_id']
+    s = server.until(lambda s: s['frame_render_id'] == fourth and s['batches'] > 0,
+                     'a Metropolis frame')
+    check(s['sampler'] == 'metropolis' and s['orbits'] > 0 and s['points'] > 0,
+          'common Metropolis metrics')
+    check([(m['name'], m['primary']) for m in s['sampler_metrics']] ==
+          [('accepted', True), ('chain', False)], 'Metropolis sampler metrics')
+    check(server.request('/render', dict(RENDER, sampler='metropolis', seeding='x'))[0] == 400,
+          'an unknown seeding accepted')
 
 
 def main():

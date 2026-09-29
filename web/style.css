@@ -60,6 +60,22 @@ input[type=number] {
   text-align: right;
   appearance: textfield;
 }
+select {
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid #4b565d;
+  border-radius: 0;
+  color: #e3e8eb;
+  background: transparent;
+  font: inherit;
+  text-align: right;
+}
+select:focus {
+  outline: 0;
+  border-bottom-color: #9fb5c1;
+}
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
   appearance: none;
@@ -167,13 +183,38 @@ main {
 }
 footer {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 2px;
   padding: 4px 7px;
   border-top: 1px solid #30363b;
   color: #929da5;
   font-size: .65rem;
   white-space: nowrap;
   overflow: hidden;
+}
+footer .line {
+  display: flex;
+  gap: 10px;
+  overflow: hidden;
+}
+footer .line[hidden] {
+  display: none;
+}
+#debug-status {
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+label.toggle {
+  display: flex;
+  gap: 3px;
+  margin: 0;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+label.toggle input {
+  width: auto;
+  margin: 0;
 }
 #message {
   flex: 0 1 auto;
