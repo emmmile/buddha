@@ -19,8 +19,10 @@
 
 namespace buddha_metal {
 
+using buddha_kernel::metropolis_parameters;
 using buddha_kernel::parameters;
 using buddha_kernel::totals;
+using metropolis_chain = buddha_kernel::chain<float>;
 
 constexpr uint32_t group_size = 256;
 
@@ -57,7 +59,7 @@ inline uint32_t gpu_core_count() {
 
 // Safe math keeps IEEE float semantics (no fast-math reassociation), like the CPU reference in
 // test/metal_consistency.mm.
-inline id<MTLComputePipelineState> compile(id<MTLDevice> device) {
+inline id<MTLComputePipelineState> compile(id<MTLDevice> device, NSString *name) {
     MTLCompileOptions *options = [[MTLCompileOptions alloc] init];
     if (@available(macOS 15.0, *))
         options.mathMode = MTLMathModeSafe;
@@ -68,7 +70,7 @@ inline id<MTLComputePipelineState> compile(id<MTLDevice> device) {
                                error:&error];
     if (library == nil)
         throw std::runtime_error("Metal compile failed: " + describe(error));
-    id<MTLFunction> function = [library newFunctionWithName:@"render"];
+    id<MTLFunction> function = [library newFunctionWithName:name];
     id<MTLComputePipelineState> state = [device newComputePipelineStateWithFunction:function
                                                                               error:&error];
     if (state == nil)
@@ -106,7 +108,7 @@ class persistent_renderer {
         if (histogram_bytes > device_.maxBufferLength)
             throw std::runtime_error("histogram exceeds the Metal device's maximum buffer "
                                      "length");
-        pipeline_ = compile(device_);
+        pipeline_ = compile(device_, @"render");
         queue_ = [device_ newCommandQueue];
         map_ = [device_ newBufferWithBytes:map
                                     length:map_bytes
@@ -166,17 +168,59 @@ class persistent_renderer {
             s.excluded += t[i].excluded;
             s.periodic += t[i].periodic;
             s.increments += t[i].increments;
+            s.proposals += t[i].proposals;
+            s.accepted += t[i].accepted;
+            s.seeds += t[i].seeds;
+            s.chains += t[i].chains;
         }
         return s;
+    }
+
+    // Starts one Metropolis chain per thread, seeded from key; the chains persist across
+    // dispatch_metropolis calls. Call only while no dispatch is running.
+    void begin_chains(uint32_t key) {
+        if (metropolis_ == nil) {
+            metropolis_ = compile(device_, @"metropolis");
+            chains_ = [device_ newBufferWithLength:threads_ * sizeof(metropolis_chain)
+                                           options:MTLResourceStorageModeShared];
+            if (chains_ == nil)
+                throw std::runtime_error("unable to create the Metropolis chain buffer");
+        }
+        auto *chains = static_cast<metropolis_chain *>(chains_.contents);
+        for (uint32_t i = 0; i < threads_; ++i)
+            chains[i].begin(i, key);
+    }
+
+    // Commits one dispatch advancing every chain m.steps orbit steps. Dispatches on the queue run
+    // in order, so each continues the chains where the previous one left them.
+    id<MTLCommandBuffer> dispatch_metropolis(const metropolis_parameters &m) {
+        if (metropolis_ == nil)
+            throw std::logic_error("begin_chains must be called before dispatch_metropolis");
+        parameters p = base_;
+        p.threads = threads_;
+        id<MTLCommandBuffer> command = [queue_ commandBuffer];
+        id<MTLComputeCommandEncoder> encoder = [command computeCommandEncoder];
+        [encoder setComputePipelineState:metropolis_];
+        [encoder setBytes:&p length:sizeof(p) atIndex:0];
+        [encoder setBuffer:map_ offset:0 atIndex:1];
+        [encoder setBuffer:raw_ offset:0 atIndex:2];
+        [encoder setBuffer:totals_ offset:0 atIndex:3];
+        [encoder setBytes:&m length:sizeof(m) atIndex:4];
+        [encoder setBuffer:chains_ offset:0 atIndex:5];
+        [encoder dispatchThreads:MTLSizeMake(threads_, 1, 1)
+            threadsPerThreadgroup:MTLSizeMake(group_size, 1, 1)];
+        [encoder endEncoding];
+        [command commit];
+        return command;
     }
 
   private:
     id<MTLDevice> device_;
     parameters base_;
     uint32_t threads_;
-    id<MTLComputePipelineState> pipeline_;
+    id<MTLComputePipelineState> pipeline_, metropolis_;
     id<MTLCommandQueue> queue_;
-    id<MTLBuffer> map_, raw_, totals_;
+    id<MTLBuffer> map_, raw_, totals_, chains_;
 };
 
 // Kernel parameters for a renderer settings object and exclusion map resolution

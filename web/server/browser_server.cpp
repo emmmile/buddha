@@ -45,7 +45,7 @@ std::string status_json(state &shared) {
     out << "{\"render_id\":" << shared.render_id
         << ",\"frame_render_id\":" << shared.frame_render_id
         << ",\"frame_revision\":" << shared.frame_revision
-        << ",\"frame_samples\":" << shared.frame_samples << ",\"phase\":\"" << shared.phase
+        << ",\"frame_batches\":" << shared.frame_batches << ",\"phase\":\"" << shared.phase
         << "\",\"display_revision\":" << shared.display_revision
         << ",\"frame_display_revision\":" << shared.frame_display_revision
         << ",\"display\":{\"brightness\":" << shared.display.brightness
@@ -54,7 +54,7 @@ std::string status_json(state &shared) {
         << ",\"clarity\":" << shared.display.clarity << ",\"texture\":" << shared.display.texture
         << "}"
         << ",\"sampler\":\"" << escape_json(shared.sampler_name) << "\""
-        << ",\"samples\":" << stats.samples << ",\"elapsed\":" << stats.elapsed
+        << ",\"batches\":" << stats.batches << ",\"elapsed\":" << stats.elapsed
         << ",\"width\":" << shared.output_width << ",\"height\":" << shared.output_height
         << ",\"cre\":" << shared.cre << ",\"cim\":" << shared.cim << ",\"scale\":" << shared.scale
         << ",\"batch_seconds\":" << stats.batch_seconds
@@ -63,8 +63,20 @@ std::string status_json(state &shared) {
         << ",\"preview_seconds\":" << stats.preview_seconds
         << ",\"preview_count\":" << stats.preview_count
         << ",\"recolor_seconds\":" << stats.recolor_seconds
-        << ",\"recolor_count\":" << stats.recolor_count << ",\"error\":\""
-        << escape_json(shared.error) << "\"}";
+        << ",\"recolor_count\":" << stats.recolor_count << ",\"orbits\":" << stats.metrics.orbits
+        << ",\"drawn\":" << stats.metrics.drawn << ",\"steps\":" << stats.metrics.steps
+        << ",\"points\":" << stats.metrics.points << ",\"sampler_metrics\":[";
+    const char *separator = "";
+    for (const sampler_metrics::value &value : stats.metrics.specific) {
+        if (!*value.name)
+            break;
+        out << separator << "{\"name\":\"" << escape_json(value.name)
+            << "\",\"amount\":" << value.amount << ",\"unit\":\"" << escape_json(value.unit)
+            << "\",\"primary\":" << (value.primary ? "true" : "false") << "}";
+        separator = ",";
+    }
+    out << "]"
+        << ",\"error\":\"" << escape_json(shared.error) << "\"}";
     return out.str();
 }
 

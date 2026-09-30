@@ -16,7 +16,6 @@ namespace buddha_browser {
 
 using buddha_image::adjustments;
 
-constexpr uint32_t batch_samples = 1U << 27;
 // While running, keep this many batches queued so the GPU never waits for the worker.
 constexpr uint32_t batches_in_flight = 2;
 
@@ -26,7 +25,7 @@ inline double seconds_since(std::chrono::steady_clock::time_point begin) {
 
 // Progress and timing counters, copied from the session to the status response in one piece.
 struct session_stats {
-    uint64_t samples = 0;
+    uint64_t batches = 0; // finished batches; a new count means a new histogram
     double elapsed = 0;
     double batch_seconds = 0;   // GPU execution time of completed batches
     double capture_seconds = 0; // histogram copies, taken while batches run
@@ -35,6 +34,7 @@ struct session_stats {
     uint64_t preview_count = 0;
     double recolor_seconds = 0; // display-only frames from the cached float image
     uint64_t recolor_count = 0;
+    sampler_metrics metrics;
 };
 
 struct render_session {
@@ -48,8 +48,8 @@ struct render_session {
 
     buddha_image::tone_mapper tone;
     std::vector<uint32_t> snapshot;
-    std::optional<uint64_t> snapshot_samples; // stats.samples when snapshot was captured
-    std::optional<uint64_t> base_samples;     // snapshot_samples when base was tone-mapped
+    std::optional<uint64_t> snapshot_batches; // stats.batches when snapshot was captured
+    std::optional<uint64_t> base_batches;     // snapshot_batches when base was tone-mapped
     buddha_image::float_image base, adjusted;
     buddha_image::adjustment_buffers buffers;
 
@@ -82,14 +82,15 @@ struct render_session {
 
     void fill(std::random_device &random) {
         for (; in_flight < batches_in_flight; ++in_flight)
-            sampler->dispatch(batch_samples, random(), random());
+            sampler->dispatch(random(), random());
     }
 
     // Waits for the oldest batch.
     void finish() {
         stats.batch_seconds += sampler->finish();
-        stats.samples += batch_samples;
+        ++stats.batches;
         --in_flight;
+        stats.metrics = sampler->metrics();
     }
 
     // Waits for every batch, after which the histogram is exact.
@@ -101,17 +102,17 @@ struct render_session {
     // Copies the histogram, possibly while batches write it: the copy then includes part of the
     // running batch, which is harmless for a preview. Drain first for an exact copy.
     void capture() {
-        if (snapshot_samples == stats.samples)
+        if (snapshot_batches == stats.batches)
             return;
         const auto begin = std::chrono::steady_clock::now();
         buddha_image::capture(sampler->image().raw, snapshot);
-        snapshot_samples = stats.samples;
+        snapshot_batches = stats.batches;
         stats.capture_seconds += seconds_since(begin);
         ++stats.capture_count;
         last_capture = begin;
     }
 
-    bool has_unconverted_capture() const { return snapshot_samples != base_samples; }
+    bool has_unconverted_capture() const { return snapshot_batches != base_batches; }
 
     // Builds a frame from the latest capture. It reads only the snapshot, so it may run while a
     // batch writes the histogram.
@@ -120,7 +121,7 @@ struct render_session {
         const bool new_histogram = has_unconverted_capture();
         if (new_histogram) {
             tone.map(snapshot, sampler->image().s, base);
-            base_samples = snapshot_samples;
+            base_batches = snapshot_batches;
         }
         buddha_image::adjust(base, display, adjusted, buffers);
         auto rgba = std::make_shared<std::vector<uint8_t>>();
@@ -148,7 +149,7 @@ struct state {
     uint64_t render_id = 0;
     uint64_t frame_render_id = 0;
     uint64_t frame_revision = 0;
-    uint64_t frame_samples = 0;
+    uint64_t frame_batches = 0;
     uint64_t display_revision = 0;
     uint64_t frame_display_revision = 0;
     adjustments display;
@@ -186,7 +187,7 @@ inline void note_client(state &shared) {
 // latest completed batch or the current display settings.
 inline bool needs_frame(const state &shared, const render_session &session) {
     return shared.render_id == session.id && !shared.pending && client_active(shared) &&
-           (shared.frame_render_id != session.id || shared.frame_samples != session.stats.samples ||
+           (shared.frame_render_id != session.id || shared.frame_batches != session.stats.batches ||
             shared.frame_display_revision != shared.display_revision);
 }
 
@@ -206,7 +207,7 @@ inline void publish_frame(state &shared, render_session &session) {
         shared.display_revision == display_revision) {
         shared.frame = std::move(frame);
         shared.frame_render_id = session.id;
-        shared.frame_samples = *session.base_samples;
+        shared.frame_batches = *session.base_batches;
         shared.frame_display_revision = display_revision;
         ++shared.frame_revision;
         shared.stats = session.current_stats();

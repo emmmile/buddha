@@ -7,6 +7,8 @@ const viewport = document.getElementById("viewport");
 const image = document.getElementById("image");
 const message = document.getElementById("message");
 const statusLine = document.getElementById("status");
+const debugLine = document.getElementById("debug-status");
+const debugToggle = document.getElementById("debug");
 let lastFrameRevision = 0;
 let paintedRenderId = 0;
 let paintedDisplayRevision = 0;
@@ -41,6 +43,18 @@ function fullViewPreset() {
   }
   for (
     const [name, value] of Object.entries({
+      radius: 1,
+      exponent_l: 1,
+      exponent_c: 1,
+      chain_scale: 1,
+      seeding: "walk",
+    })
+  ) {
+    form.elements[name].value = value;
+  }
+  updateSamplerSettings();
+  for (
+    const [name, value] of Object.entries({
       brightness: 25,
       contrast: 10,
       saturation: 50,
@@ -51,6 +65,11 @@ function fullViewPreset() {
     form.elements[name].value = value;
   }
   updateDisplayLabels();
+}
+
+function updateSamplerSettings() {
+  document.getElementById("metropolis-settings").hidden =
+    form.elements.sampler.value !== "metropolis";
 }
 
 function updateStartButton() {
@@ -137,6 +156,7 @@ form.addEventListener("input", (event) => {
     updateDisplayLabels();
     scheduleDisplay();
   } else {
+    if (event.target.name === "sampler") updateSamplerSettings();
     renderDirty = true;
   }
 });
@@ -173,6 +193,10 @@ async function startRender() {
       "highr",
       "highg",
       "highb",
+      "radius",
+      "exponent_l",
+      "exponent_c",
+      "chain_scale",
     ]
   ) {
     data[name] = Number(data[name]);
@@ -248,6 +272,58 @@ document.getElementById("preset").addEventListener("click", () => {
   scheduleDisplay();
 });
 
+function perSecond(amount, seconds) {
+  return seconds > 0 ? formatSamples(amount / seconds) : "0";
+}
+
+function formatMetric(m) {
+  return `${format3(m.amount)}${m.unit === "%" ? "%" : ` ${m.unit}`} ${m.name}`;
+}
+
+// Metrics common to every sampler, then the sampler's primary ones.
+function statusText(status) {
+  const size = status.width ? `${status.width}x${status.height}` : "—";
+  const primary = (status.sampler_metrics || []).filter((m) => m.primary);
+  return [
+    status.phase,
+    size,
+    `${formatSamples(status.orbits)} orbits`,
+    `${perSecond(status.orbits, status.elapsed)} orbits/s`,
+    `${perSecond(status.points, status.elapsed)} points/s`,
+    ...primary.map(formatMetric),
+  ].join(" · ");
+}
+
+// Pipeline timings and the remaining sampler metrics.
+function debugText(status) {
+  const average = (seconds, count) =>
+    count ? `${format3(seconds * 1000 / count)}ms` : "—";
+  const others = (status.sampler_metrics || []).filter((m) => !m.primary);
+  return [
+    `${status.sampler || "—"} sampler`,
+    `${status.batches} batches`,
+    `GPU ${perSecond(status.orbits, status.batch_seconds)} orbits/s`,
+    `${status.orbits ? format3(100 * status.drawn / status.orbits) : 0}% drawn`,
+    `${status.orbits ? format3(status.steps / status.orbits) : 0} steps/orbit`,
+    ...others.map(formatMetric),
+    `preview ${average(status.preview_seconds, status.preview_count)}`,
+    `capture ${average(status.capture_seconds, status.capture_count)}`,
+    `recolor ${average(status.recolor_seconds, status.recolor_count)}`,
+  ].join(" · ");
+}
+
+function setDebug(enabled) {
+  debugToggle.checked = enabled;
+  debugLine.hidden = !enabled;
+  try {
+    localStorage.setItem("debug", enabled ? "1" : "0");
+  } catch {
+    // Storage may be unavailable; the toggle still works for this page.
+  }
+}
+
+debugToggle.addEventListener("change", () => setDebug(debugToggle.checked));
+
 async function poll() {
   try {
     const status = await getStatus();
@@ -263,30 +339,8 @@ async function poll() {
     activeRenderId = status.render_id;
     currentPhase = status.phase;
     updateStartButton();
-    const rate = status.elapsed > 0
-      ? format3(status.samples / status.elapsed / 1e6)
-      : "0";
-    const batchRate = status.batch_seconds > 0
-      ? format3(status.samples / status.batch_seconds / 1e6)
-      : "0";
-    const captureMs = status.capture_count
-      ? ` · ${
-        format3(status.capture_seconds * 1000 / status.capture_count)
-      }ms avg capture`
-      : "";
-    const size = status.width ? `${status.width}x${status.height} pixels` : "—";
-    const previewMs = status.preview_count
-      ? format3(status.preview_seconds * 1000 / status.preview_count)
-      : "0";
-    const recolorMs = status.recolor_count
-      ? ` · ${
-        format3(status.recolor_seconds * 1000 / status.recolor_count)
-      }ms avg recolor`
-      : "";
-    statusLine.textContent =
-      `${status.phase} · ${size} · ${rate}M/s overall · ${batchRate}M/s GPU · ${previewMs}ms avg preview${captureMs}${recolorMs} · ${
-        formatSamples(status.samples)
-      } samples`;
+    statusLine.textContent = statusText(status);
+    debugLine.textContent = debugText(status);
     if (status.error) message.textContent = status.error;
     if (
       status.frame_render_id === activeRenderId &&
@@ -343,5 +397,10 @@ attachGeometry({
   getActiveRenderId: () => activeRenderId,
 });
 fullViewPreset();
+try {
+  setDebug(localStorage.getItem("debug") === "1");
+} catch {
+  setDebug(false);
+}
 poll();
 setInterval(poll, 1000);
