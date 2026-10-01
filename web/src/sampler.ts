@@ -6,11 +6,14 @@ const TARGET_MS = 25;
 const MIN_STEPS = 16;
 const MAX_STEPS = 1 << 14; // orbit steps per lane per dispatch, as the Metal browser sampler ran
 const IN_FLIGHT = 2;
+const CHAIN_BYTES = 104; // Chain in metropolis.wgsl
 
 // data/exclusion.map on the GPU (see exclusion.ts).
 export interface ExclusionMap {
   size: number;
   cells: GPUBuffer;
+  boundary: GPUBuffer; // indices of cells along the boundary of the set
+  boundaryCount: number;
 }
 const COUNTERS = [
   "seeds",
@@ -21,7 +24,11 @@ const COUNTERS = [
   "increments",
   "iterations",
   "redraw",
+  "solve",
 ] as const;
+// Counters, then the two timestamps at an 8-byte aligned offset.
+const COUNTER_BYTES = COUNTERS.length * 4;
+const TIMESTAMP_OFFSET = Math.ceil(COUNTER_BYTES / 8) * 8;
 
 export interface SamplerSettings {
   width: number;
@@ -39,7 +46,7 @@ export interface SamplerSettings {
   exponent_l: number;
   exponent_c: number;
   chain_scale: number;
-  seeding: number; // 0: random walk, 1: uniform
+  seeding: number; // 0: random walk, 1: uniform, 2: Newton
 }
 
 // Sums of buddha_kernel::totals over the render, plus batch count and GPU time.
@@ -84,11 +91,11 @@ export class Sampler {
     this.device = device;
     this.exclusion = exclusion;
     this.layout = device.createBindGroupLayout({
-      entries: [0, 1, 2, 3, 4].map((binding) => ({
+      entries: [0, 1, 2, 3, 4, 5].map((binding) => ({
         binding,
         visibility: GPUShaderStage.COMPUTE,
         buffer: {
-          type: binding === 0 ? "uniform" : binding === 4 ? "read-only-storage" : "storage",
+          type: binding === 0 ? "uniform" : binding >= 4 ? "read-only-storage" : "storage",
         },
       })),
     });
@@ -105,9 +112,12 @@ export class Sampler {
       size: 96,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-    this.chains = device.createBuffer({ size: THREADS * 80, usage: GPUBufferUsage.STORAGE });
+    this.chains = device.createBuffer({
+      size: THREADS * CHAIN_BYTES,
+      usage: GPUBufferUsage.STORAGE,
+    });
     this.stats = device.createBuffer({
-      size: COUNTERS.length * 4,
+      size: COUNTER_BYTES,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
     });
     if (timestamps) {
@@ -132,12 +142,17 @@ export class Sampler {
     this.histogram = histogram;
     this.group = this.device.createBindGroup({
       layout: this.layout,
-      entries: [this.params, histogram, this.chains, this.stats, this.exclusion.cells].map(
-        (buffer, binding) => ({
-          binding,
-          resource: { buffer },
-        })
-      ),
+      entries: [
+        this.params,
+        histogram,
+        this.chains,
+        this.stats,
+        this.exclusion.cells,
+        this.exclusion.boundary,
+      ].map((buffer, binding) => ({
+        binding,
+        resource: { buffer },
+      })),
     });
   }
 
@@ -208,6 +223,7 @@ export class Sampler {
       s.seeding,
       key,
       this.exclusion.size,
+      this.exclusion.boundaryCount,
     ]);
     // The view is rotated as the TIFF output is: Re grows downward, Im rightward.
     f.set(
@@ -246,7 +262,7 @@ export class Sampler {
     const readback =
       this.readbacks.pop() ??
       this.device.createBuffer({
-        size: 48,
+        size: TIMESTAMP_OFFSET + 16,
         usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
       });
     this.writeParams(0);
@@ -261,10 +277,10 @@ export class Sampler {
         endOfPassWriteIndex: 1,
       }
     );
-    encoder.copyBufferToBuffer(this.stats, 0, readback, 0, 32);
+    encoder.copyBufferToBuffer(this.stats, 0, readback, 0, COUNTER_BYTES);
     if (this.querySet && this.resolve) {
       encoder.resolveQuerySet(this.querySet, 0, 2, this.resolve, 0);
-      encoder.copyBufferToBuffer(this.resolve, 0, readback, 32, 16);
+      encoder.copyBufferToBuffer(this.resolve, 0, readback, TIMESTAMP_OFFSET, 16);
     }
     const generation = this.generation;
     const submitted = performance.now();
@@ -274,7 +290,7 @@ export class Sampler {
       .then(() => {
         const data = readback.getMappedRange();
         const counters = new Uint32Array(data, 0, COUNTERS.length);
-        const [begin, end] = new BigUint64Array(data, 32, 2);
+        const [begin, end] = new BigUint64Array(data, TIMESTAMP_OFFSET, 2);
         // Without timestamps, the time since the previous completion approximates the GPU time
         // of this dispatch while another one is queued behind it.
         const now = performance.now();

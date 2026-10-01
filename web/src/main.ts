@@ -47,6 +47,8 @@ const samplerNumbers = [
   "exponent_c",
   "chain_scale",
 ] as const;
+// Seeding modes, in the order of the shader's p.seeding.
+const seedings = ["walk", "uniform", "newton"];
 const displayNames = ["exposure", "gamma", "saturation", "texture", "sharpness"] as const;
 const defaults: Record<string, number | string> = {
   lowr: 512,
@@ -215,7 +217,7 @@ function samplerSettings(): SamplerSettings {
   const { span, ...settings } = Object.fromEntries(
     samplerNumbers.map((name) => [name, Number(field(form, name).value)])
   ) as Record<(typeof samplerNumbers)[number], number>;
-  const seeding = field(form, "seeding").value === "uniform" ? 1 : 0;
+  const seeding = Math.max(0, seedings.indexOf(field(form, "seeding").value));
   return { ...settings, scale: Math.min(width, height) / span, seeding, width, height };
 }
 
@@ -383,6 +385,8 @@ const measures: [string, (p: Progress) => string][] = [
   ["accepted", ({ m }) => `${share(m.accepted, m.proposals)}%`],
   // Orbits that reached the image, of all computed (seed attempts and proposals).
   ["drawn", ({ m, orbits }) => `${share(m.escaped, orbits)}%`],
+  // Seed attempts per chain started: the cost of finding seeds, which Newton seeding cuts.
+  ["seeds/chain", ({ m }) => (m.chains ? format3(m.seeds / m.chains) : "0")],
   // GPU time over wall-clock time while running; estimated (~) without timestamp queries.
   [
     "GPU busy",
