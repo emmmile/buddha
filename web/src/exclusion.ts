@@ -7,10 +7,12 @@
 //   cells              one bit per cell, cell i in bit i % 8 of byte i / 8
 // Read as little-endian 32-bit words, cell i is bit i % 32 of word i / 32.
 import { decompress } from "fzstd";
-import mapUrl from "../../data/exclusion.map?url";
 import type { ExclusionMap } from "./sampler";
 
 const HEADER = 24;
+
+// Not a "?url" import: the dev server takes .map files for source maps and serves them raw.
+const mapUrl = new URL("../../data/exclusion.map", import.meta.url);
 
 export async function loadExclusionMap(
   device: GPUDevice
