@@ -1,6 +1,5 @@
-// The float image pipeline shared by the browser preview and, later, session TIFF export.
+// The float image pipeline behind TIFF output.
 
-#include "browser_settings.h"
 #include "buddha.h"
 #include "image_pipeline.h"
 #include "saver.h"
@@ -193,15 +192,33 @@ std::vector<uint16_t> read_tiff(const std::string &path, uint32_t &width, uint32
     return pixels;
 }
 
-// A browser preview and a TIFF of the same histogram: same size and orientation, and the preview
-// is the TIFF's high byte at neutral display settings.
+// Settings for an output image of the given size, which shows the histogram rotated 90 degrees
+// clockwise (buddha_tone::output_index).
+settings output_settings(uint32_t output_width, uint32_t output_height, double cim) {
+    settings s{};
+    s.w = output_height;
+    s.h = output_width;
+    s.cre = -0.5;
+    s.cim = cim;
+    s.scale = 2.0;
+    s.lowr = s.lowg = s.lowb = 0;
+    s.highr = s.highg = s.highb = 100;
+    s.contrast = 100;
+    s.lightness = 100;
+    s.threads = 1;
+    s.sampler = "naive";
+    s.exclusion = "";
+    s.no_image = true;
+    s.indirect_settings();
+    return s;
+}
+
+// A preview and a TIFF of the same histogram: same size and orientation, and the preview is the
+// TIFF's high byte at neutral display settings.
 void orientation_test(uint32_t output_width, uint32_t output_height, double cim) {
     const std::string name = std::to_string(output_width) + "x" + std::to_string(output_height) +
                              (cim == 0 ? " symmetric" : " off-axis");
-    buddha_browser::request_settings request{output_width, output_height, -0.5, cim, 2.0, 0, 0, 0,
-                                             100,          100,           100};
-    settings s = buddha_browser::make_settings(request);
-    s.exclusion = "";
+    settings s = output_settings(output_width, output_height, cim);
     require(s.symmetric_image == (cim == 0), name + ": unexpected symmetry");
     buddha b(s);
     for (size_t i = 0; i < b.raw.size(); ++i)

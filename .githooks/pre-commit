@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check staged whitespace, changed C++ formatting, and browser asset quality."""
+"""Check staged whitespace, changed C++ formatting, and the browser explorer."""
 
 import argparse
 import re
@@ -15,30 +15,31 @@ def git(*args):
 
 
 def check_web(paths):
-    changed = [path for path in paths if path.startswith(b"web/") and path.endswith((b".html", b".css", b".js"))]
-    if not changed:
+    """Format check, lint and type check the staged explorer with web/'s own tools."""
+    if not any(path.startswith(b"web/") for path in paths):
         return False
 
-    deno = shutil.which("deno")
-    if not deno:
-        print("Deno is required to format and lint staged web assets", file=sys.stderr)
+    tools = Path("web/node_modules/.bin")
+    if not tools.is_dir():
+        print("Run `corepack yarn install` in web/ to check staged web files", file=sys.stderr)
         return True
 
-    assets = [path for path in git("ls-files", "--cached", "-z", "--", "web").stdout.split(b"\0")
-              if path.endswith((b".html", b".css", b".js"))]
+    staged = [path for path in git("ls-files", "--cached", "-z", "--", "web").stdout.split(b"\0") if path]
     with tempfile.TemporaryDirectory(prefix="buddha-web-check-") as directory:
         root = Path(directory)
-        for asset in assets:
-            target = root / asset.decode("utf-8", "surrogateescape")
+        for path in staged:
+            name = path.decode("utf-8", "surrogateescape")
+            target = root / name
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(git("show", f":{asset.decode('utf-8', 'surrogateescape')}").stdout)
+            target.write_bytes(git("show", f":{name}").stdout)
+        (root / "web" / "node_modules").symlink_to(Path("web/node_modules").resolve())
 
         failed = False
-        for command in ([deno, "fmt", "--check", str(root / "web")],
-                        [deno, "lint", str(root / "web")]):
-            result = subprocess.run(command, capture_output=True, text=True)
+        for command in (["prettier", "--check", "."], ["eslint", "."], ["tsc"]):
+            executable = str((tools / command[0]).resolve())
+            result = subprocess.run([executable, *command[1:]], cwd=root / "web", capture_output=True, text=True)
             if result.returncode:
-                print(f"Staged web assets failed {' '.join(command[1:3])}:", file=sys.stderr)
+                print(f"Staged web files failed {command[0]}:", file=sys.stderr)
                 sys.stderr.write(result.stdout)
                 sys.stderr.write(result.stderr)
                 failed = True

@@ -19,7 +19,7 @@ aside {
   border-right: 1px solid #30363b;
 }
 h1 {
-  font-size: .9rem;
+  font-size: 0.9rem;
   font-weight: 600;
   margin: 2px 0 10px;
 }
@@ -32,7 +32,7 @@ fieldset {
 legend {
   padding: 0 5px 0 0;
   color: #929da5;
-  font-size: .68rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
 }
 label {
@@ -41,7 +41,7 @@ label {
   align-items: center;
   gap: 4px;
   margin: 2px 0;
-  font-size: .72rem;
+  font-size: 0.72rem;
   color: #b3bdc4;
 }
 input {
@@ -50,7 +50,7 @@ input {
   color: #e3e8eb;
   font: inherit;
 }
-input[type=number] {
+input[type="number"] {
   height: 22px;
   padding: 0 2px;
   border: 0;
@@ -72,34 +72,46 @@ select {
   font: inherit;
   text-align: right;
 }
+textarea {
+  width: 100%;
+  margin: 4px 0 0;
+  padding: 3px;
+  border: 1px solid #30363b;
+  border-radius: 0;
+  color: #b3bdc4;
+  background: #0b0d0e;
+  font: inherit;
+  font-size: 0.65rem;
+  resize: vertical;
+}
 select:focus {
   outline: 0;
   border-bottom-color: #9fb5c1;
 }
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
   appearance: none;
   margin: 0;
 }
-input[type=number]:focus {
+input[type="number"]:focus {
   outline: 0;
   border-bottom-color: #9fb5c1;
 }
-input[type=number]:invalid {
+input[type="number"]:invalid {
   border-bottom-color: #af674f;
 }
-input[type=range] {
+input[type="range"] {
   height: 20px;
   padding: 0;
   border: 0;
   background: transparent;
   appearance: none;
 }
-input[type=range]::-webkit-slider-runnable-track {
+input[type="range"]::-webkit-slider-runnable-track {
   height: 2px;
   background: #4b565d;
 }
-input[type=range]::-webkit-slider-thumb {
+input[type="range"]::-webkit-slider-thumb {
   width: 8px;
   height: 12px;
   margin-top: -5px;
@@ -108,11 +120,11 @@ input[type=range]::-webkit-slider-thumb {
   background: #9fb5c1;
   appearance: none;
 }
-input[type=range]::-moz-range-track {
+input[type="range"]::-moz-range-track {
   height: 2px;
   background: #4b565d;
 }
-input[type=range]::-moz-range-thumb {
+input[type="range"]::-moz-range-thumb {
   width: 8px;
   height: 12px;
   border: 0;
@@ -135,13 +147,13 @@ button {
   background: #263b48;
   cursor: pointer;
   font: inherit;
-  font-size: .72rem;
+  font-size: 0.72rem;
 }
 button:hover {
   background: #345365;
 }
 button:disabled {
-  opacity: .5;
+  opacity: 0.5;
   cursor: default;
 }
 button.secondary {
@@ -188,7 +200,7 @@ footer {
   padding: 4px 7px;
   border-top: 1px solid #30363b;
   color: #929da5;
-  font-size: .65rem;
+  font-size: 0.65rem;
   white-space: nowrap;
   overflow: hidden;
 }

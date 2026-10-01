@@ -1,74 +1,220 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Buddha browser prototype</title>
-    <link rel="stylesheet" href="/style.css">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Buddha++ Explorer</title>
   </head>
   <body>
     <aside>
-      <h1>Buddha · preview</h1>
+      <h1>Buddha · explorer</h1>
       <form id="controls">
         <fieldset>
           <legend>Window</legend>
           <div class="pair">
-            <label>Center Re<input name="cre" type="number" step="any" value="0" required></label>
-            <label>Center Im<input name="cim" type="number" step="any" value="0" required></label>
+            <label>Center Re<input name="cre" type="number" step="any" value="0" required /></label>
+            <label>Center Im<input name="cim" type="number" step="any" value="0" required /></label>
           </div>
-          <label>Scale<input name="scale" type="number" min="0.000001" step="any" title="Pixels per complex unit" required></label>
+          <label
+            >Scale<input
+              name="scale"
+              type="number"
+              min="0.000001"
+              step="any"
+              title="Pixels per complex unit"
+              required
+          /></label>
         </fieldset>
         <fieldset>
           <legend>Channel iterations</legend>
           <div class="pair">
-            <label>R min<input name="lowr" type="number" min="0" max="99999" step="1" value="512" required></label>
-            <label>R max<input name="highr" type="number" min="1" max="100000" step="1" value="8192" required></label>
-            <label>G min<input name="lowg" type="number" min="0" max="99999" step="1" value="128" required></label>
-            <label>G max<input name="highg" type="number" min="1" max="100000" step="1" value="2048" required></label>
-            <label>B min<input name="lowb" type="number" min="0" max="99999" step="1" value="32" required></label>
-            <label>B max<input name="highb" type="number" min="1" max="100000" step="1" value="512" required></label>
+            <label
+              >R min<input
+                name="lowr"
+                type="number"
+                min="0"
+                max="99999"
+                step="1"
+                value="512"
+                required
+            /></label>
+            <label
+              >R max<input
+                name="highr"
+                type="number"
+                min="1"
+                max="100000"
+                step="1"
+                value="8192"
+                required
+            /></label>
+            <label
+              >G min<input
+                name="lowg"
+                type="number"
+                min="0"
+                max="99999"
+                step="1"
+                value="128"
+                required
+            /></label>
+            <label
+              >G max<input
+                name="highg"
+                type="number"
+                min="1"
+                max="100000"
+                step="1"
+                value="2048"
+                required
+            /></label>
+            <label
+              >B min<input
+                name="lowb"
+                type="number"
+                min="0"
+                max="99999"
+                step="1"
+                value="32"
+                required
+            /></label>
+            <label
+              >B max<input
+                name="highb"
+                type="number"
+                min="1"
+                max="100000"
+                step="1"
+                value="512"
+                required
+            /></label>
           </div>
         </fieldset>
         <fieldset>
-          <legend>Sampler</legend>
-          <label>Sampler<select name="sampler">
-              <option value="naive">Naive</option>
-              <option value="metropolis">Metropolis</option>
-            </select></label>
-          <div id="metropolis-settings">
-            <label
-              title="Mutation radius, in percent of the view's shorter side">Radius %<input name="radius" type="number" min="0.001" max="100" step="any" value="1" required></label>
-            <label
-              title="Density exponent of the orbit length L (target L^a C^b)">Length exp.<input name="exponent_l" type="number" min="0" max="8" step="any" value="1" required></label>
-            <label
-              title="Density exponent of the orbit points in the window C (target L^a C^b)">Window exp.<input name="exponent_c" type="number" min="0" max="8" step="any" value="1" required></label>
-            <label
-              title="Proposals per chain, as a multiple of max(256 C, 2 L)">Chain length ×<input name="chain_scale" type="number" min="0.001" max="100" step="any" value="1" required></label>
-            <label
-              title="How chains find their first point">Seeds<select name="seeding">
-                <option value="walk">Random walk</option>
-                <option value="uniform">Uniform</option>
-              </select></label>
-          </div>
+          <legend>Metropolis sampler</legend>
+          <label title="Mutation radius, in percent of the view's shorter side"
+            >Radius %<input
+              name="radius"
+              type="number"
+              min="0.001"
+              max="100"
+              step="any"
+              value="1"
+              required
+          /></label>
+          <label title="Density exponent of the orbit length L (target L^a C^b)"
+            >Length exp.<input
+              name="exponent_l"
+              type="number"
+              min="0"
+              max="8"
+              step="any"
+              value="1"
+              required
+          /></label>
+          <label title="Density exponent of the orbit points in the window C (target L^a C^b)"
+            >Window exp.<input
+              name="exponent_c"
+              type="number"
+              min="0"
+              max="8"
+              step="any"
+              value="1"
+              required
+          /></label>
+          <label title="Proposals per chain, as a multiple of max(256 C, 2 L)"
+            >Chain length ×<input
+              name="chain_scale"
+              type="number"
+              min="0.001"
+              max="100"
+              step="any"
+              value="1"
+              required
+          /></label>
+          <label title="How chains find their first point"
+            >Seeds<select name="seeding">
+              <option value="walk">Random walk</option>
+              <option value="uniform">Uniform</option>
+            </select></label
+          >
         </fieldset>
         <fieldset>
           <legend>Display</legend>
-          <label class="slider"
-            title="Midtone lift with protected highlights">Brightness<input name="brightness" type="range" min="-100" max="100" value="25"><output id="brightness-value">+25</output></label>
           <label
-            class="slider">Contrast<input name="contrast" type="range" min="-100" max="100" value="10"><output id="contrast-value">+10</output></label>
-          <label
-            class="slider">Saturation<input name="saturation" type="range" min="-100" max="100" value="50"><output id="saturation-value">+50</output></label>
+            class="slider"
+            title="Scale of the tone curve; values above 1 clip the brightest pixels"
+            >Exposure<input
+              name="exposure"
+              type="range"
+              min="0.25"
+              max="4"
+              step="0.05"
+              value="1.5" /><output id="exposure-value"></output
+          ></label>
+          <label class="slider" title="Exponent of the tone curve: lower values lift faint orbits"
+            >Gamma<input
+              name="gamma"
+              type="range"
+              min="0.1"
+              max="1"
+              step="0.01"
+              value="0.5" /><output id="gamma-value"></output
+          ></label>
+          <label class="slider" title="Midtone lift with protected highlights"
+            >Brightness<input
+              name="brightness"
+              type="range"
+              min="-100"
+              max="100"
+              value="0" /><output id="brightness-value"></output
+          ></label>
           <label class="slider"
-            title="Broad midtone local contrast">Clarity<input name="clarity" type="range" min="-100" max="100" value="50"><output id="clarity-value">+50</output></label>
+            >Contrast<input name="contrast" type="range" min="-100" max="100" value="0" /><output
+              id="contrast-value"></output
+          ></label>
           <label class="slider"
-            title="Fine detail without broad halos">Texture<input name="texture" type="range" min="-100" max="100" value="50"><output id="texture-value">+50</output></label>
+            >Saturation<input
+              name="saturation"
+              type="range"
+              min="-100"
+              max="100"
+              value="0" /><output id="saturation-value"></output
+          ></label>
+          <label class="slider" title="Broad midtone local contrast"
+            >Clarity<input name="clarity" type="range" min="-100" max="100" value="0" /><output
+              id="clarity-value"></output
+          ></label>
+          <label class="slider" title="Fine detail without broad halos"
+            >Texture<input name="texture" type="range" min="-100" max="100" value="0" /><output
+              id="texture-value"></output
+          ></label>
         </fieldset>
         <div class="actions">
-          <button type="submit" id="start">Start</button>
-          <button type="button" class="secondary" id="stop">Stop</button>
+          <button type="button" id="pause">Pause</button>
           <button type="button" class="secondary" id="preset">Reset</button>
         </div>
+        <fieldset>
+          <legend>Render with buddha++</legend>
+          <label title="Long side of the rendered TIFF, in pixels"
+            >Long side<input
+              name="render_size"
+              type="number"
+              min="16"
+              max="50000"
+              step="1"
+              value="8192"
+              required
+          /></label>
+          <textarea
+            id="command"
+            readonly
+            rows="6"
+            title="The window, channels, exposure and gamma carry over; the Metropolis settings and the other display adjustments do not"></textarea>
+          <div class="actions">
+            <button type="button" class="secondary" id="copy">Copy command</button>
+          </div>
+        </fieldset>
       </form>
     </aside>
     <main>
@@ -77,12 +223,14 @@
       </div>
       <footer>
         <div class="line">
-          <span id="message">Ready</span><span id="status"></span>
-          <label class="toggle" title="Show pipeline and sampler diagnostics"><input type="checkbox" id="debug">Debug</label>
+          <span id="message">Starting…</span><span id="status"></span>
+          <label class="toggle" title="Show sampler diagnostics"
+            ><input type="checkbox" id="debug" />Debug</label
+          >
         </div>
         <div class="line" id="debug-status" hidden></div>
       </footer>
     </main>
-    <script type="module" src="/controls.js"></script>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
