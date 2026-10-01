@@ -40,8 +40,6 @@ void tone_mapping_test() {
         const uint16_t expected = uint16_t(int(previous));
         require(buddha_tone::channel16(count, shared_multiplier, contrast) == expected,
                 "shared 16-bit tone mapping changed");
-        require(buddha_tone::channel8(count, shared_multiplier, contrast) == expected >> 8,
-                "preview differs from the TIFF high byte");
     }
 }
 

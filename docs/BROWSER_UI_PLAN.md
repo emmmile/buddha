@@ -1,5 +1,8 @@
 # Browser UI plan
 
+> Superseded: the native `buddha-browser` server was replaced by the WebGPU
+> explorer in `web/` (see the README). This plan is kept for its history.
+
 ## Goal
 
 Build an interactive browser interface for the native Buddha++ renderer. Orbit

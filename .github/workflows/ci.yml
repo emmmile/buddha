@@ -8,15 +8,24 @@ on:
 jobs:
   web:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
     steps:
       - uses: actions/checkout@v4
-      - uses: denoland/setup-deno@v2
+      - uses: actions/setup-node@v4
         with:
-          deno-version: v2.9.7
-      - name: Format HTML, CSS, and JavaScript
-        run: deno fmt --check web
-      - name: Lint JavaScript
-        run: deno lint web
+          node-version: 22
+      - name: Install dependencies
+        run: |
+          corepack enable
+          yarn install --immutable
+      - name: Check formatting
+        run: yarn format:check
+      - name: Lint
+        run: yarn lint
+      - name: Type check and build
+        run: yarn build
 
   macos:
     runs-on: macos-15

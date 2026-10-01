@@ -45,13 +45,14 @@ git config core.hooksPath .githooks
 
 The hook runs `git diff --cached --check` for whitespace errors and requires
 `clang-format` for staged C++ files. It checks only changed C++ lines against
-`.clang-format`. The historical `legacy/` directory is excluded. When web
-assets change, it also requires Deno 2.9.7 to format check the staged HTML,
-CSS, and JavaScript and lint the staged JavaScript. Format or lint them locally
-with `deno fmt web` and `deno lint web`, then stage the changes again.
+`.clang-format`. The historical `legacy/` directory is excluded. When files in
+`web/` change, it runs Prettier, ESLint and the TypeScript compiler on the
+staged explorer, using the tools installed in `web/node_modules` (see
+[Browser explorer](#browser-explorer)). Fix problems locally with
+`yarn format` and `yarn lint` in `web/`, then stage the changes again.
 
-CI (`.github/workflows/ci.yml`) runs web formatting and linting in an Ubuntu
-job. A separate macOS job runs the hook's whitespace and C++ checks on every
+CI (`.github/workflows/ci.yml`) checks formatting, lints, type checks and
+builds the explorer in an Ubuntu job. A separate macOS job runs the hook's whitespace and C++ checks on every
 change since the base commit, then builds and runs the native tests.
 
 ## Run
@@ -128,36 +129,45 @@ Checkpoints record the sampler, so a Metropolis checkpoint cannot be continued
 by `buddha-metal`, nor a naive one by `buddha++` without `--sampler naive`.
 See [metal/README.md](metal/README.md) for details and benchmarks.
 
-### Local browser prototype
+### Browser explorer
 
-On macOS, build and launch the separate interactive prototype with:
+`web/` holds an interactive explorer that runs entirely in the browser on
+WebGPU, with no server. Use it to find a region, then render that region at
+full size with `buddha++`. It is plain TypeScript, without a UI framework,
+built with Vite. It needs Node 22 and Yarn 4, which corepack provides:
 
 ```sh
-cmake --build build --target buddha-browser --parallel
-./build/buddha-browser
+cd web
+corepack enable
+yarn install
+yarn dev      # development server with live reload
+yarn build    # static site in web/dist, publishable as is
+yarn check    # formatting, lint and type check
 ```
 
-It serves a page on `127.0.0.1` and opens it in the default browser. The
-viewport determines the render resolution, capped at two million pixels. The
-current Metal sampler renders overview and shallow-zoom views; a raw RGBA
-preview updates while it runs. Start or Stop from the page, and press `Ctrl-C` in the
-terminal to exit. Use `--no-open` to print the URL without opening a browser.
-The browser renderer loads the committed `data/exclusion.map` automatically.
-Drag the image to pan; scroll or pinch to zoom around the pointer. Resizing the
-window starts a new display-sized render after a short pause.
-Brightness, contrast, saturation, clarity, and texture update the
-preview from the current histogram, including after Stop, without restarting
-the sampler. Brightness lifts midtones while preserving black and white;
-clarity affects broad midtone contrast, while texture affects fine detail.
-Start toggles to Pause while sampling; Start after Pause continues the same
-histogram. Stop ends the run, so the next Start begins a new histogram.
-The Sampler section chooses naive sampling or Metropolis chains on the GPU (see
-`metal/README.md`), with the Metropolis mutation radius, density exponents,
-chain length and seeding; changing them starts a new histogram. The status
-line shows orbits, orbit and histogram-point rates and the sampler's main
-metric; Debug adds a second line of pipeline and sampler diagnostics.
-The headless `buddha++` and `buddha-metal` binaries remain available for large
-renders and automation.
+Open it in a browser with WebGPU, such as Chrome, Edge or Safari 26.
+
+The explorer runs Metropolis chains (`web/src/shaders/metropolis.wgsl`, a WGSL port of
+`chain` in `core/buddha_kernel.h`) into a display-sized histogram, capped at
+two million pixels. Drag to pan, and scroll or pinch to zoom around the
+pointer. The image follows the gesture. Changing the window, channel
+iterations or Metropolis settings starts a new histogram. Exposure (in stops)
+and gamma set the tone curve, the same one `buddha++` applies. Saturation, texture
+(midtone detail a few pixels across) and sharpness (a pixel-scale unsharp mask)
+adjust the preview on the GPU. None of the display controls restart sampling. The status line shows orbits, orbit and
+histogram-point rates and the acceptance rate, counted as the Metal sampler
+counts them, so the numbers compare directly with `metal/`. Debug adds GPU
+throughput, steps per orbit and chain length.
+
+*Export PNG* saves the image on screen at display resolution. The view,
+sampler and display settings, and the orbit and point counts, are embedded as
+PNG text chunks: `exiftool image.png` lists them, and the `buddha-explorer`
+entry holds them as JSON.
+
+Differences from the native kernel: orbits are single precision, like
+`buddha-metal`, so the page warns past that limit, and the histogram is not
+mirrored about the real axis. Starting points are rejected with the same
+exclusion map (`data/exclusion.map`, bundled into the build).
 
 ## Historical Qt GUI
 
@@ -170,8 +180,7 @@ renderer.
 
 ## Future work
 
-The preferred successor to the Qt GUI is a browser-based interface: interactive
-navigation and render controls in the browser, with progressive previews and
-checkpoint-aware long-running jobs. A WebGPU/WebAssembly implementation would
-also make GPU experimentation portable while retaining the reproducible
-renderer configuration described above.
+The browser explorer replaces the Qt GUI for navigation. Long renders stay on
+the command line. Possible next steps are exporting the explorer's settings to
+a file that `buddha++` can load, and bringing the Metropolis settings to the
+command line so a full render matches its preview.

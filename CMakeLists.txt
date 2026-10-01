@@ -50,20 +50,6 @@ if(BUILD_TESTING)
     target_link_libraries(kernel-consistency PRIVATE core)
     target_compile_options(kernel-consistency PRIVATE ${BUDDHA_STRICT_FP})
     add_test(NAME kernel-consistency COMMAND kernel-consistency)
-
-    # Tone mapping, display adjustments and preview/TIFF orientation, with buddha-browser's
-    # floating-point flags.
-    add_executable(image-pipeline-test test/image_pipeline.cpp)
-    target_include_directories(image-pipeline-test PRIVATE web/server)
-    target_link_libraries(image-pipeline-test PRIVATE core)
-    target_compile_options(image-pipeline-test PRIVATE -fno-fast-math)
-    add_test(NAME image-pipeline-test COMMAND image-pipeline-test)
-
-    add_executable(browser-session-test test/browser_session.cpp)
-    target_include_directories(browser-session-test PRIVATE web/server)
-    target_link_libraries(browser-session-test PRIVATE core Threads::Threads)
-    target_compile_options(browser-session-test PRIVATE -fno-fast-math)
-    add_test(NAME browser-session-test COMMAND browser-session-test)
 endif()
 
 if(APPLE)
@@ -97,38 +83,11 @@ if(APPLE)
     # GPU renderer (naive sampling) with buddha++'s options, exclusion map, checkpoints and TIFF.
     add_metal_executable(buddha-metal metal/main.mm)
 
-    # Embed the browser files in the executable, just as the Metal kernel is embedded.
-    set(BUDDHA_WEB_GENERATED ${CMAKE_CURRENT_BINARY_DIR}/generated/buddha_web_source.h)
-    add_custom_command(OUTPUT ${BUDDHA_WEB_GENERATED}
-        COMMAND ${CMAKE_COMMAND}
-                -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/web
-                -DOUTPUT=${BUDDHA_WEB_GENERATED}
-                -P ${CMAKE_CURRENT_SOURCE_DIR}/web/embed_source.cmake
-        DEPENDS web/index.html web/style.css web/api.js web/geometry.js web/controls.js
-                web/embed_source.cmake
-        COMMENT "Embedding the browser page")
-    add_custom_target(web-source DEPENDS ${BUDDHA_WEB_GENERATED})
-    add_metal_executable(buddha-browser web/server/browser_server.cpp metal/browser_sampler.mm
-                         metal/browser_open.mm)
-    add_dependencies(buddha-browser web-source)
-    target_include_directories(buddha-browser PRIVATE web/server)
-    target_compile_options(buddha-browser PRIVATE -fno-fast-math)
-    target_link_libraries(buddha-browser PRIVATE "-framework AppKit")
-
     if(BUILD_TESTING)
         # The GPU kernel against the shared lane on the CPU; skipped without a Metal device.
         add_metal_executable(metal-consistency test/metal_consistency.mm)
         target_compile_options(metal-consistency PRIVATE ${BUDDHA_STRICT_FP})
         add_test(NAME metal-consistency COMMAND metal-consistency)
         set_tests_properties(metal-consistency PROPERTIES SKIP_RETURN_CODE 77)
-
-        # buddha-browser's worker lifecycle over HTTP (about 20 s); skipped without a Metal device.
-        find_package(Python3 COMPONENTS Interpreter)
-        if(Python3_FOUND)
-            add_test(NAME browser-lifecycle
-                     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/browser_lifecycle.py
-                             $<TARGET_FILE:buddha-browser>)
-            set_tests_properties(browser-lifecycle PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
-        endif()
     endif()
 endif()

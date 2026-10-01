@@ -166,30 +166,13 @@ tail, when lanes wait for the last long orbits. Other GPUs are untested. The
 kernel spends about half as many steps again re-iterating escaping orbits,
 because orbits are not stored on the GPU.
 
-## Local browser preview
+## Metropolis chains
 
-`buddha-browser` uses the Metal sampler in `metal/browser_sampler.mm`. Its
-loopback HTTP transport, request validation, and plain C++ render worker live in
-`web/server/`; the page lives in `web/`. CMake embeds the HTML, CSS, and JavaScript
-modules into the executable, so it can be launched from any working directory:
 
-```sh
-./build/buddha-browser
-```
-
-The `web/server/sampler.h` interface queues batches and finishes the oldest one,
-exposes the histogram, and reports the sampler name and its metrics: orbits,
-orbits drawn, orbit steps and histogram points for every sampler, plus up to two
-of the sampler's own. The worker keeps two batches
-queued so the GPU never waits for it, and copies the histogram for previews while
-they run; Pause and Stop wait for both before the final, exact frame. The Metal
-sampler waits for any in-flight command before freeing its GPU-visible histogram. The
-CPU sampler planned for browser milestone 3 can implement this interface.
-
-### Metropolis chains
-
-The browser can also run Metropolis–Hastings chains on the GPU (`chain` in
-`core/buddha_kernel.h`, the `metropolis` kernel in `render.metal`). A chain
+The shared kernel also runs Metropolis–Hastings chains on the GPU (`chain` in
+`core/buddha_kernel.h`, the `metropolis` kernel in `render.metal`).
+`buddha-metal` does not use them yet. The browser explorer runs a WGSL port in
+`web/src/shaders/metropolis.wgsl`. A chain
 mutates its current starting point by a small random step and accepts the
 proposal with probability `min(1, f'/f)`, where `f = L^a · C^b`, `L` is the
 orbit's escape iteration and `C` the number of orbit points in the window.
