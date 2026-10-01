@@ -72,18 +72,6 @@ select {
   font: inherit;
   text-align: right;
 }
-textarea {
-  width: 100%;
-  margin: 4px 0 0;
-  padding: 3px;
-  border: 1px solid #30363b;
-  border-radius: 0;
-  color: #b3bdc4;
-  background: #0b0d0e;
-  font: inherit;
-  font-size: 0.65rem;
-  resize: vertical;
-}
 select:focus {
   outline: 0;
   border-bottom-color: #9fb5c1;

@@ -6,9 +6,12 @@
 const TEXTURE_BLUR = { radius: 2, passes: 2 };
 const SHARPNESS_BLUR = { radius: 1, passes: 1 };
 
+// Pixel layout of captured images, as ImageData expects.
+const CAPTURE_FORMAT: GPUTextureFormat = "rgba8unorm";
+
 // Exposure and gamma are the tone curve of buddha++; the adjustments range over -100..100.
 export interface DisplaySettings {
-  exposure: number;
+  exposure: number; // stops: the tone curve is scaled by 2^exposure
   gamma: number;
   saturation: number;
   texture: number;
@@ -26,6 +29,7 @@ export class Display {
   private tonePipeline: GPUComputePipeline;
   private blurPipeline: GPUComputePipeline;
   private shadePipeline: GPURenderPipeline;
+  private capturePipeline: GPURenderPipeline;
   private uniform: GPUBuffer;
   private maxima: GPUBuffer;
   private width = 0;
@@ -33,6 +37,7 @@ export class Display {
   private reduceGroup?: GPUBindGroup;
   private toneGroup?: GPUBindGroup;
   private shadeGroup?: GPUBindGroup;
+  private captureGroup?: GPUBindGroup;
   private textureGroups: GPUBindGroup[] = [];
   private sharpnessGroups: GPUBindGroup[] = [];
 
@@ -49,11 +54,14 @@ export class Display {
     this.reducePipeline = compute("reduce");
     this.tonePipeline = compute("tone");
     this.blurPipeline = compute("blur");
-    this.shadePipeline = device.createRenderPipeline({
-      layout: "auto",
-      vertex: { module, entryPoint: "fullscreen" },
-      fragment: { module, entryPoint: "shade", targets: [{ format }] },
-    });
+    const shade = (format: GPUTextureFormat) =>
+      device.createRenderPipeline({
+        layout: "auto",
+        vertex: { module, entryPoint: "fullscreen" },
+        fragment: { module, entryPoint: "shade", targets: [{ format }] },
+      });
+    this.shadePipeline = shade(format);
+    this.capturePipeline = shade(CAPTURE_FORMAT);
     this.uniform = device.createBuffer({
       size: 32,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -108,6 +116,13 @@ export class Display {
       11: textureBlur,
       12: sharpnessBlur,
     });
+    this.captureGroup = this.group(this.capturePipeline, {
+      0: this.uniform,
+      9: color,
+      10: luma,
+      11: textureBlur,
+      12: sharpnessBlur,
+    });
 
     // Each blur pass runs rows into scratch, then columns into the target; later passes start
     // from the target.
@@ -139,13 +154,18 @@ export class Display {
     this.sharpnessGroups = blur(SHARPNESS_BLUR, sharpnessBlur);
   }
 
-  draw(s: DisplaySettings) {
-    if (!this.reduceGroup || !this.toneGroup || !this.shadeGroup) return;
+  // Encodes the whole pipeline, rendering into view with the given shade pipeline and group.
+  private encode(
+    s: DisplaySettings,
+    view: GPUTextureView,
+    shadePipeline: GPURenderPipeline,
+    shadeGroup: GPUBindGroup
+  ) {
     const data = new ArrayBuffer(32);
     new Uint32Array(data, 0, 2).set([this.width, this.height]);
     new Float32Array(data, 8, 5).set([
       s.gamma,
-      s.exposure,
+      Math.pow(2, s.exposure),
       1 + s.saturation / 100,
       s.texture / 100,
       s.sharpness / 100,
@@ -157,10 +177,10 @@ export class Display {
     encoder.clearBuffer(this.maxima);
     const pass = encoder.beginComputePass();
     pass.setPipeline(this.reducePipeline);
-    pass.setBindGroup(0, this.reduceGroup);
+    pass.setBindGroup(0, this.reduceGroup!);
     pass.dispatchWorkgroups(groups);
     pass.setPipeline(this.tonePipeline);
-    pass.setBindGroup(0, this.toneGroup);
+    pass.setBindGroup(0, this.toneGroup!);
     pass.dispatchWorkgroups(groups);
     pass.setPipeline(this.blurPipeline);
     const blurs = [
@@ -174,19 +194,49 @@ export class Display {
     pass.end();
 
     const render = encoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: this.target.getCurrentTexture().createView(),
-          loadOp: "clear",
-          storeOp: "store",
-          clearValue: [0, 0, 0, 1],
-        },
-      ],
+      colorAttachments: [{ view, loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 1] }],
     });
-    render.setPipeline(this.shadePipeline);
-    render.setBindGroup(0, this.shadeGroup);
+    render.setPipeline(shadePipeline);
+    render.setBindGroup(0, shadeGroup);
     render.draw(3);
     render.end();
+    return encoder;
+  }
+
+  draw(s: DisplaySettings) {
+    if (!this.shadeGroup) return;
+    const view = this.target.getCurrentTexture().createView();
+    this.device.queue.submit([this.encode(s, view, this.shadePipeline, this.shadeGroup).finish()]);
+  }
+
+  // The image draw shows, read back from the GPU at display resolution.
+  async capture(s: DisplaySettings): Promise<ImageData> {
+    if (!this.captureGroup) throw new Error("Nothing to capture yet");
+    const { width, height } = this;
+    const texture = this.device.createTexture({
+      size: [width, height],
+      format: CAPTURE_FORMAT,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+    });
+    const bytesPerRow = Math.ceil((width * 4) / 256) * 256; // copies need 256-byte rows
+    const buffer = this.device.createBuffer({
+      size: bytesPerRow * height,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    const encoder = this.encode(s, texture.createView(), this.capturePipeline, this.captureGroup);
+    encoder.copyTextureToBuffer({ texture }, { buffer, bytesPerRow }, [width, height]);
     this.device.queue.submit([encoder.finish()]);
+    try {
+      await buffer.mapAsync(GPUMapMode.READ);
+      const rows = new Uint8Array(buffer.getMappedRange());
+      const pixels = new Uint8ClampedArray(width * height * 4);
+      for (let y = 0; y < height; ++y) {
+        pixels.set(rows.subarray(y * bytesPerRow, y * bytesPerRow + width * 4), y * width * 4);
+      }
+      return new ImageData(pixels, width, height);
+    } finally {
+      buffer.destroy();
+      texture.destroy();
+    }
   }
 }

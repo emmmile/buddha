@@ -1,10 +1,11 @@
 // Buddha++ explorer: Metropolis sampling and display entirely in the browser on WebGPU. Find a
-// region here, then render it at full size with the buddha++ command line.
+// region here, export it, then render it at full size with the buddha++ command line.
 import "./style.css";
 import { Display, type DisplaySettings } from "./display";
 import { loadExclusionMap } from "./exclusion";
 import { element, field } from "./form";
 import { attachGeometry, viewportPixelsFor } from "./geometry";
+import { encodePng } from "./png";
 import { Sampler, type SamplerSettings } from "./sampler";
 import displaySource from "./shaders/display.wgsl?raw";
 import metropolisSource from "./shaders/metropolis.wgsl?raw";
@@ -20,7 +21,7 @@ const message = element<HTMLSpanElement>("message");
 const statusLine = element<HTMLSpanElement>("status");
 const debugLine = element<HTMLDivElement>("debug-status");
 const debugToggle = element<HTMLInputElement>("debug");
-const commandBox = element<HTMLTextAreaElement>("command");
+const exportButton = element<HTMLButtonElement>("export");
 
 const samplerNumbers = [
   "cre",
@@ -50,11 +51,11 @@ const defaults: Record<string, number | string> = {
   exponent_c: 1,
   chain_scale: 1,
   seeding: "walk",
-  exposure: 1.5,
-  gamma: 0.5,
-  saturation: 0,
-  texture: 0,
-  sharpness: 0,
+  exposure: 0.2, // stops
+  gamma: 0.3,
+  saturation: 100,
+  texture: 25,
+  sharpness: 75,
 };
 
 const isDisplayName = (name: string) => (displayNames as readonly string[]).includes(name);
@@ -71,12 +72,13 @@ function fullViewPreset() {
 function updateDisplayLabels() {
   for (const name of displayNames) {
     const value = Number(field(form, name).value);
+    const signed = (text: string) => (value > 0 ? `+${text}` : text);
     element(`${name}-value`).textContent =
-      name === "exposure" || name === "gamma"
-        ? value.toFixed(2)
-        : value > 0
-          ? `+${value}`
-          : `${value}`;
+      name === "exposure"
+        ? signed(value.toFixed(2))
+        : name === "gamma"
+          ? value.toFixed(2)
+          : signed(String(value));
   }
 }
 
@@ -221,30 +223,56 @@ function restart() {
   displayDirty = displayForced = true;
 }
 
-// The buddha++ command that renders the current window. buddha++'s width runs along Re, the
-// explorer's vertical axis, and its TIFF is rotated like the explorer, so the image matches the
-// view. Exposure and gamma map to --lightness and --contrast of core/settings.cpp.
-function renderCommand() {
-  const s = samplerSettings();
-  const d = displaySettings();
-  const longSide = Number(field(form, "render_size").value);
-  if (!width || !(longSide > 0) || !validSettings(false)) return "";
-  const factor = longSide / Math.max(width, height);
-  const scale = s.scale * factor;
-  const clamp = (value: number) => Math.max(0, Math.min(200, Math.round(value)));
-  const contrast = clamp((d.gamma * 200) / 0.7);
-  // Exposure is ln(scale) * 70 * L / 256, with L = lightness / (201 - lightness) / 2.
-  const twiceL = (2 * d.exposure * 256) / (70 * Math.log(Math.max(scale, 2)));
-  return [
-    "./build/buddha++ --sampler metropolis",
-    `--cre ${s.cre} --cim ${s.cim} --scale ${Number(scale.toPrecision(15))}`,
-    `--width ${Math.round(height * factor)} --height ${Math.round(width * factor)}`,
-    `--red-min ${s.lowr} --red-max ${s.highr}`,
-    `--green-min ${s.lowg} --green-max ${s.highg}`,
-    `--blue-min ${s.lowb} --blue-max ${s.highb}`,
-    `--contrast ${contrast} --lightness ${clamp((201 * twiceL) / (1 + twiceL))}`,
-    "--out explorer",
-  ].join(" \\\n  ");
+// Everything needed to reproduce the exported image: the view, the sampler and display
+// settings, and how far sampling had got. Stored as JSON in the PNG.
+function exportMetadata() {
+  const m = gpu.sampler.metrics;
+  const { width: _w, height: _h, seeding, ...view } = samplerSettings();
+  return {
+    format: "buddha-explorer/1",
+    width,
+    height,
+    ...view,
+    seeding: seeding ? "uniform" : "walk",
+    display: displaySettings(),
+    orbits: m.seeds + m.proposals,
+    points: m.increments,
+    seconds: Number(gpu.sampler.elapsed().toFixed(1)),
+  };
+}
+
+function download(blob: Blob, name: string) {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+async function exportPng() {
+  exportButton.disabled = true;
+  try {
+    const created = new Date();
+    const settings = exportMetadata();
+    const image = await gpu.display.capture(displaySettings());
+    const png = await encodePng(image, {
+      Software: "Buddha++ explorer",
+      "Creation Time": created.toISOString(),
+      Description:
+        `Buddhabrot at ${settings.cre} ${settings.cim >= 0 ? "+" : "-"} ` +
+        `${Math.abs(settings.cim)}i, scale ${settings.scale}, ` +
+        `${formatSamples(settings.points)} points from ${formatSamples(settings.orbits)} orbits`,
+      "buddha-explorer": JSON.stringify(settings),
+    });
+    const local = new Date(created.getTime() - created.getTimezoneOffset() * 60000);
+    const name = `buddha-${local.toISOString().slice(0, 19).replace(/[:T]/g, "-")}.png`;
+    download(png, name);
+    message.textContent = `Saved ${name}`;
+  } catch (error) {
+    message.textContent = `Export failed: ${errorMessage(error)}`;
+  } finally {
+    exportButton.disabled = false;
+  }
 }
 
 // Metrics common to every sampler, then the Metropolis ones, as the native browser showed them.
@@ -288,7 +316,6 @@ function frame(now: number) {
     lastStatus = now;
     statusLine.textContent = statusText();
     debugLine.textContent = debugText();
-    commandBox.value = renderCommand();
   }
   requestAnimationFrame(frame);
 }
@@ -306,7 +333,7 @@ form.addEventListener("input", (event) => {
 });
 form.addEventListener("change", (event) => {
   const name = (event.target as HTMLInputElement).name;
-  if (!isDisplayName(name) && name !== "render_size" && validSettings(true)) restartLater();
+  if (!isDisplayName(name) && validSettings(true)) restartLater();
 });
 form.addEventListener("submit", (event) => event.preventDefault());
 
@@ -325,14 +352,7 @@ element("preset").addEventListener("click", () => {
   fullViewPreset();
   restartLater();
 });
-element("copy").addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText(renderCommand());
-    message.textContent = "Command copied";
-  } catch (error) {
-    message.textContent = errorMessage(error);
-  }
-});
+exportButton.addEventListener("click", exportPng);
 debugToggle.addEventListener("change", () => setDebug(debugToggle.checked));
 
 async function main() {

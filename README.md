@@ -151,19 +151,18 @@ The explorer runs Metropolis chains (`web/src/shaders/metropolis.wgsl`, a WGSL p
 `chain` in `core/buddha_kernel.h`) into a display-sized histogram, capped at
 two million pixels. Drag to pan, and scroll or pinch to zoom around the
 pointer. The image follows the gesture. Changing the window, channel
-iterations or Metropolis settings starts a new histogram. Exposure and gamma
-set the tone curve, the same one `buddha++` applies. Saturation, texture
+iterations or Metropolis settings starts a new histogram. Exposure (in stops)
+and gamma set the tone curve, the same one `buddha++` applies. Saturation, texture
 (midtone detail a few pixels across) and sharpness (a pixel-scale unsharp mask)
 adjust the preview on the GPU. None of the display controls restart sampling. The status line shows orbits, orbit and
 histogram-point rates and the acceptance rate, counted as the Metal sampler
 counts them, so the numbers compare directly with `metal/`. Debug adds GPU
 throughput, steps per orbit and chain length.
 
-*Render with buddha++* prints a `buddha++ --sampler metropolis` command for
-the current window at a chosen long side. Exposure and gamma become
-`--lightness` and `--contrast`. The Metropolis settings and the other display
-adjustments have no command-line equivalent, so the full render will not match
-the preview exactly.
+*Export PNG* saves the image on screen at display resolution. The view,
+sampler and display settings, and the orbit and point counts, are embedded as
+PNG text chunks: `exiftool image.png` lists them, and the `buddha-explorer`
+entry holds them as JSON.
 
 Differences from the native kernel: orbits are single precision, like
 `buddha-metal`, so the page warns past that limit, and the histogram is not
