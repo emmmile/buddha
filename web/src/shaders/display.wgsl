@@ -64,7 +64,7 @@ fn tone(@builtin(global_invocation_id) gid: vec3u) {
   luma[i] = dot(out, LUMA);
 }
 
-// ---- box blur: one axis of one pass of smooth_blur ----
+// ---- one axis of one box blur pass ----
 
 struct Blur {
   width: u32,

@@ -1,8 +1,7 @@
 // Display pipeline on the GPU (display.wgsl): channel maxima, tone curve and saturation, blurred
 // luminance for texture and sharpness, then the canvas.
 
-// Box blur radius and pass count: texture is smooth_blur's fine pass in core/image_pipeline.h,
-// sharpness a single 3x3 box.
+// Texture uses two 5x5 box passes; sharpness uses one 3x3 box.
 const TEXTURE_BLUR = { radius: 2, passes: 2 };
 const SHARPNESS_BLUR = { radius: 1, passes: 1 };
 

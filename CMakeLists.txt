@@ -50,12 +50,6 @@ if(BUILD_TESTING)
     target_link_libraries(kernel-consistency PRIVATE core)
     target_compile_options(kernel-consistency PRIVATE ${BUDDHA_STRICT_FP})
     add_test(NAME kernel-consistency COMMAND kernel-consistency)
-
-    # Tone mapping, display adjustments and TIFF orientation.
-    add_executable(image-pipeline-test test/image_pipeline.cpp)
-    target_link_libraries(image-pipeline-test PRIVATE core)
-    target_compile_options(image-pipeline-test PRIVATE -fno-fast-math)
-    add_test(NAME image-pipeline-test COMMAND image-pipeline-test)
 endif()
 
 if(APPLE)

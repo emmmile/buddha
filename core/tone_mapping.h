@@ -23,10 +23,6 @@ inline uint16_t channel16(uint32_t count, float multiplier, float contrast) {
     return uint16_t(scaled(std::pow(float(count), contrast), multiplier));
 }
 
-inline uint8_t channel8(uint32_t count, float multiplier, float contrast) {
-    return uint8_t(channel16(count, multiplier, contrast) >> 8);
-}
-
 inline uint64_t histogram_index(uint64_t raw_x, uint64_t raw_y, uint64_t width, uint64_t height,
                                 bool symmetric, uint64_t histogram_height) {
     if (symmetric && raw_y >= histogram_height)
@@ -34,21 +30,13 @@ inline uint64_t histogram_index(uint64_t raw_x, uint64_t raw_y, uint64_t width, 
     return (raw_y * width + raw_x) * 3;
 }
 
-// TIFF and preview images show the histogram rotated 90 degrees clockwise: the output is height
-// pixels wide and width pixels tall, and output (x, y) shows histogram column y, row
-// height - 1 - x.
+// TIFF output shows the histogram rotated 90 degrees clockwise: the output is height pixels wide
+// and width pixels tall, and output (x, y) shows histogram column y, row height - 1 - x.
 struct histogram_point {
     uint64_t x, y;
 };
 inline histogram_point output_source(uint64_t out_x, uint64_t out_y, uint64_t height) {
     return {out_y, height - out_x - 1};
-}
-
-// Index of the red count shown at output (x, y).
-inline uint64_t output_index(uint64_t out_x, uint64_t out_y, uint64_t width, uint64_t height,
-                             bool symmetric, uint64_t histogram_height) {
-    const auto source = output_source(out_x, out_y, height);
-    return histogram_index(source.x, source.y, width, height, symmetric, histogram_height);
 }
 
 } // namespace buddha_tone
