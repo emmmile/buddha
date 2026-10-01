@@ -3,7 +3,7 @@
 
 // Histogram -> float RGB (TIFF tone curve and orientation) -> display adjustments -> 8-bit RGBA
 // preview or 16-bit RGB. One float image carries the whole chain, so the output is quantized
-// once, at the end. The browser explorer runs its own WGSL port of the adjustments
+// once, at the end. The browser explorer has its own GPU display pipeline
 // (web/src/shaders/display.wgsl).
 
 #include "settings.h"

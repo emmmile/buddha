@@ -1,19 +1,18 @@
-// Display pipeline on the GPU (display.wgsl): channel maxima, tone curve and per-pixel
-// adjustments, blurred luminance for clarity and texture, then the canvas.
+// Display pipeline on the GPU (display.wgsl): channel maxima, tone curve and saturation, blurred
+// luminance for texture and sharpness, then the canvas.
 
-// smooth_blur passes of buddha_image::adjust: radius and pass count.
-const CLARITY_BLUR = { radius: 4, passes: 3 };
+// Box blur radius and pass count: texture is smooth_blur's fine pass in core/image_pipeline.h,
+// sharpness a single 3x3 box.
 const TEXTURE_BLUR = { radius: 2, passes: 2 };
+const SHARPNESS_BLUR = { radius: 1, passes: 1 };
 
-// Exposure and gamma set the tone curve; the adjustments use the native ranges, -100..100.
+// Exposure and gamma are the tone curve of buddha++; the adjustments range over -100..100.
 export interface DisplaySettings {
   exposure: number;
   gamma: number;
-  brightness: number;
-  contrast: number;
   saturation: number;
-  clarity: number;
   texture: number;
+  sharpness: number;
 }
 
 interface Target {
@@ -34,8 +33,8 @@ export class Display {
   private reduceGroup?: GPUBindGroup;
   private toneGroup?: GPUBindGroup;
   private shadeGroup?: GPUBindGroup;
-  private clarityGroups: GPUBindGroup[] = [];
   private textureGroups: GPUBindGroup[] = [];
+  private sharpnessGroups: GPUBindGroup[] = [];
 
   constructor(
     device: GPUDevice,
@@ -56,7 +55,7 @@ export class Display {
       fragment: { module, entryPoint: "shade", targets: [{ format }] },
     });
     this.uniform = device.createBuffer({
-      size: 48,
+      size: 32,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     this.maxima = device.createBuffer({
@@ -87,8 +86,8 @@ export class Display {
     const color = storage(pixels * 16);
     const luma = storage(pixels * 4);
     const scratch = storage(pixels * 4);
-    const broad = storage(pixels * 4);
-    const fine = storage(pixels * 4);
+    const textureBlur = storage(pixels * 4);
+    const sharpnessBlur = storage(pixels * 4);
 
     this.reduceGroup = this.group(this.reducePipeline, {
       0: this.uniform,
@@ -106,13 +105,13 @@ export class Display {
       0: this.uniform,
       9: color,
       10: luma,
-      11: broad,
-      12: fine,
+      11: textureBlur,
+      12: sharpnessBlur,
     });
 
     // Each blur pass runs rows into scratch, then columns into the target; later passes start
     // from the target.
-    const blur = ({ radius, passes }: typeof CLARITY_BLUR, target: GPUBuffer) => {
+    const blur = ({ radius, passes }: typeof TEXTURE_BLUR, target: GPUBuffer) => {
       const axis = (vertical: number) => {
         const uniform = this.device.createBuffer({
           size: 16,
@@ -136,22 +135,20 @@ export class Display {
       }
       return groups;
     };
-    this.clarityGroups = blur(CLARITY_BLUR, broad);
-    this.textureGroups = blur(TEXTURE_BLUR, fine);
+    this.textureGroups = blur(TEXTURE_BLUR, textureBlur);
+    this.sharpnessGroups = blur(SHARPNESS_BLUR, sharpnessBlur);
   }
 
   draw(s: DisplaySettings) {
     if (!this.reduceGroup || !this.toneGroup || !this.shadeGroup) return;
-    const data = new ArrayBuffer(48);
+    const data = new ArrayBuffer(32);
     new Uint32Array(data, 0, 2).set([this.width, this.height]);
-    new Float32Array(data, 8, 7).set([
+    new Float32Array(data, 8, 5).set([
       s.gamma,
       s.exposure,
-      Math.pow(2, s.brightness / 50),
-      1 + s.contrast / 100,
       1 + s.saturation / 100,
-      s.clarity / 100,
       s.texture / 100,
+      s.sharpness / 100,
     ]);
     this.device.queue.writeBuffer(this.uniform, 0, data);
 
@@ -167,8 +164,8 @@ export class Display {
     pass.dispatchWorkgroups(groups);
     pass.setPipeline(this.blurPipeline);
     const blurs = [
-      ...(s.clarity ? this.clarityGroups : []),
       ...(s.texture ? this.textureGroups : []),
+      ...(s.sharpness ? this.sharpnessGroups : []),
     ];
     for (const group of blurs) {
       pass.setBindGroup(0, group);

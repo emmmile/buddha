@@ -152,9 +152,9 @@ The explorer runs Metropolis chains (`web/src/shaders/metropolis.wgsl`, a WGSL p
 two million pixels. Drag to pan, and scroll or pinch to zoom around the
 pointer. The image follows the gesture. Changing the window, channel
 iterations or Metropolis settings starts a new histogram. Exposure and gamma
-set the tone curve. Brightness, contrast, saturation, clarity and texture port
-the native display adjustments (`core/image_pipeline.h`) to the GPU. None of
-the display controls restart sampling. The status line shows orbits, orbit and
+set the tone curve, the same one `buddha++` applies. Saturation, texture
+(midtone detail a few pixels across) and sharpness (a pixel-scale unsharp mask)
+adjust the preview on the GPU. None of the display controls restart sampling. The status line shows orbits, orbit and
 histogram-point rates and the acceptance rate, counted as the Metal sampler
 counts them, so the numbers compare directly with `metal/`. Debug adds GPU
 throughput, steps per orbit and chain length.

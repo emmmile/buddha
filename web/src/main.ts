@@ -37,15 +37,7 @@ const samplerNumbers = [
   "exponent_c",
   "chain_scale",
 ] as const;
-const displayNames = [
-  "exposure",
-  "gamma",
-  "brightness",
-  "contrast",
-  "saturation",
-  "clarity",
-  "texture",
-] as const;
+const displayNames = ["exposure", "gamma", "saturation", "texture", "sharpness"] as const;
 const defaults: Record<string, number | string> = {
   lowr: 512,
   highr: 8192,
@@ -60,11 +52,9 @@ const defaults: Record<string, number | string> = {
   seeding: "walk",
   exposure: 1.5,
   gamma: 0.5,
-  brightness: 0,
-  contrast: 0,
   saturation: 0,
-  clarity: 0,
   texture: 0,
+  sharpness: 0,
 };
 
 const isDisplayName = (name: string) => (displayNames as readonly string[]).includes(name);
