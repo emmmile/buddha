@@ -43,17 +43,39 @@ Install the repository's pre-commit hook once per clone:
 git config core.hooksPath .githooks
 ```
 
-The hook runs `git diff --cached --check` for whitespace errors and requires
-`clang-format` for staged C++ files. It checks only changed C++ lines against
-`.clang-format`. The historical `legacy/` directory is excluded. When files in
-`web/` change, it runs Prettier, ESLint and the TypeScript compiler on the
-staged explorer, using the tools installed in `web/node_modules` (see
-[Browser explorer](#browser-explorer)). Fix problems locally with
-`yarn format` and `yarn lint` in `web/`, then stage the changes again.
+The hook runs `git diff --cached --check` for whitespace errors, then checks
+each kind of staged file with its own formatter. The historical `legacy/`
+directory is excluded.
 
-CI (`.github/workflows/ci.yml`) checks formatting, lints, type checks and
-builds the explorer in an Ubuntu job. A separate macOS job runs the hook's whitespace and C++ checks on every
-change since the base commit, then builds and runs the native tests.
+- **C++, Objective-C++ and Metal:** `clang-format` checks only the changed
+  lines against `.clang-format`.
+- **Python** (including the hook itself): `ruff format --check` and
+  `ruff check`, configured by `ruff.toml`. It uses `ruff` if installed, or
+  `uvx ruff`. Fix with `uvx ruff format` and `uvx ruff check --fix`.
+- **The explorer (`web/`):** Prettier, ESLint and the TypeScript compiler, using
+  the tools installed in `web/node_modules` (see
+  [Browser explorer](#browser-explorer)). Fix with `yarn format` and
+  `yarn lint` in `web/`.
+- **TypeScript and JavaScript elsewhere** (such as the Deno scripts in
+  `docs/`): the explorer's Prettier with `web/.prettierrc`.
+
+All formatters use 100 columns. Stage the fixed files again after fixing.
+
+CI runs in two places:
+
+- **GitLab** (`.gitlab-ci.yml`), on merge requests and the default branch:
+  - a `web` job formats, lints, type checks and builds the explorer, and checks
+    TypeScript under `docs/` with its Prettier;
+  - a `lint` job runs the hook's whitespace, clang-format and ruff checks on
+    every change since the base commit.
+
+  Its free runners are Linux, and their images lack Boost 1.88, so it does not
+  build the native code. clang-format 21.1.8 from PyPI matches Xcode's
+  clang-format 21 on this repository.
+- **GitHub Actions** (`.github/workflows/ci.yml`):
+  - an Ubuntu job checks and builds the explorer;
+  - a macOS job runs the same hook checks, then builds and runs the native
+    tests.
 
 ## Run
 

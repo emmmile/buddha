@@ -34,13 +34,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      # The commit hook's native checks (whitespace and C++ formatting), applied to every
+      # The commit hook's native checks (whitespace, clang-format and ruff), applied to every
       # change since the base: soft-reset to it so the whole change is staged, then run the hook.
       - name: Lint
         env:
           BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: |
           xcrun --find clang-format && xcrun clang-format --version
+          pipx install ruff==0.16.10 && ruff --version
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             echo "No base commit to compare with; skipping."
             exit 0
