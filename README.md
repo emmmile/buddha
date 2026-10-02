@@ -170,15 +170,19 @@ yarn check    # formatting, lint and type check
 Open it in a browser with WebGPU, such as Chrome, Edge or Safari 26.
 
 The explorer runs Metropolis chains (`web/src/shaders/metropolis.wgsl`, a WGSL port of
-`chain` in `core/buddha_kernel.h`) into a display-sized histogram, capped at
-two million pixels. Drag to pan, and scroll or pinch to zoom around the
-pointer. The image follows the gesture. Changing the window, channel
-iterations or Metropolis settings starts a new histogram. Exposure (in stops)
+`chain` in `core/buddha_kernel.h`) into a histogram of one bin per device
+pixel of the canvas, scaled down only on screens larger than the GPU's buffer
+limits allow. The window is its centre and span, the complex units across the
+view's shorter side, so resizing the browser keeps the same region. Drag to
+pan, and scroll or pinch to zoom around the pointer. The image follows the
+gesture. Changing the window, channel iterations or Metropolis settings starts
+a new histogram, as does a resize once it settles. Exposure (in stops)
 and gamma set the tone curve, the same one `buddha++` applies. Saturation, texture
 (midtone detail a few pixels across) and sharpness (a pixel-scale unsharp mask)
-adjust the preview on the GPU. None of the display controls restart sampling. The status line shows orbits, orbit and
+adjust the preview on the GPU. None of the display controls restart sampling.
+The measures at the bottom of the settings panel show orbits, orbit and
 histogram-point rates and the acceptance rate, counted as the Metal sampler
-counts them, so the numbers compare directly with `metal/`. Debug adds GPU
+counts them, so the numbers compare directly with `metal/`, then GPU
 throughput, steps per orbit and chain length.
 
 *Export PNG* saves the image on screen at display resolution. The view,

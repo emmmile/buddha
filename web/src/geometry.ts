@@ -1,5 +1,7 @@
 // Canvas size and the clockwise-rotated complex-plane view. Navigation updates the window fields
-// and calls viewChanged after every move, so the sampler follows the gesture.
+// and calls viewChanged after every move, so the sampler follows the gesture. The view is its
+// centre and span, the complex units across the shorter side, so it does not depend on the size
+// of the window or on how many pixels render it.
 import { field } from "./form";
 
 export interface Size {
@@ -7,10 +9,11 @@ export interface Size {
   height: number;
 }
 
+// Sizes here are of the viewport on screen, in CSS pixels: the image fills it.
 interface View extends Size {
   cre: number;
   cim: number;
-  scale: number;
+  span: number;
 }
 
 interface Point {
@@ -24,17 +27,67 @@ interface Gesture extends Point {
   moved: boolean;
 }
 
-export function viewportPixelsFor(viewport: HTMLElement): Size {
-  const ratio = globalThis.devicePixelRatio || 1;
-  let width = Math.max(1, Math.round(viewport.clientWidth * ratio));
-  let height = Math.max(1, Math.round(viewport.clientHeight * ratio));
-  const limit = 2000000;
-  if (width * height > limit) {
-    const factor = Math.sqrt(limit / (width * height));
-    width = Math.max(1, Math.floor(width * factor));
-    height = Math.max(1, Math.floor(height * factor));
+export function sameSize(a: Size, b: Size) {
+  return a.width === b.width && a.height === b.height;
+}
+
+// The largest size of the same shape within limits.pixels pixels and limits.side on either side,
+// for screens larger than the GPU buffers or textures can hold.
+export function fitPixels(size: Size, limits: { pixels: number; side: number }): Size {
+  const factor = Math.min(
+    Math.sqrt(limits.pixels / (size.width * size.height)),
+    limits.side / size.width,
+    limits.side / size.height
+  );
+  if (factor >= 1) return size;
+  return {
+    width: Math.max(1, Math.floor(size.width * factor)),
+    height: Math.max(1, Math.floor(size.height * factor)),
+  };
+}
+
+// Calls changed with the size of element on screen in device pixels, now and whenever it changes,
+// including when only the pixel ratio does (browser zoom, another monitor). Browsers without
+// device-pixel-content-box get the CSS size times the ratio, rounded, and a media query for the
+// ratio. The canvas is sized by CSS and its backing store never takes part in layout, so setting
+// the backing store to this size cannot change it.
+export function observeDevicePixels(element: HTMLElement, changed: (size: Size) => void) {
+  let last: Size = { width: 0, height: 0 };
+  let css: Size | undefined;
+  const report = (size: Size) => {
+    if (!size.width || !size.height || sameSize(size, last)) return; // hidden, or no change
+    last = size;
+    changed(size);
+  };
+  const fromCss = () => {
+    if (!css) return;
+    const ratio = globalThis.devicePixelRatio || 1;
+    report({ width: Math.round(css.width * ratio), height: Math.round(css.height * ratio) });
+  };
+  const observer = new ResizeObserver(([entry]) => {
+    const device = entry.devicePixelContentBoxSize?.[0];
+    if (device) return report({ width: device.inlineSize, height: device.blockSize });
+    const box = entry.contentBoxSize[0];
+    css = { width: box.inlineSize, height: box.blockSize };
+    fromCss();
+  });
+  try {
+    observer.observe(element, { box: "device-pixel-content-box" });
+  } catch {
+    observer.observe(element);
   }
-  return { width, height };
+  // Only acts once the observer has fallen back to the CSS size.
+  const watchRatio = () => {
+    matchMedia(`(resolution: ${globalThis.devicePixelRatio || 1}dppx)`).addEventListener(
+      "change",
+      () => {
+        fromCss();
+        watchRatio();
+      },
+      { once: true }
+    );
+  };
+  watchRatio();
 }
 
 export function attachGeometry({
@@ -52,36 +105,47 @@ export function attachGeometry({
   let gesture: Gesture | undefined;
 
   function viewState(): View {
+    const rect = viewport.getBoundingClientRect();
     return {
-      ...viewportPixelsFor(viewport),
+      width: rect.width,
+      height: rect.height,
       cre: Number(field(form, "cre").value),
       cim: Number(field(form, "cim").value),
-      scale: Number(field(form, "scale").value),
+      span: Number(field(form, "span").value),
     };
   }
 
-  function imagePoint(clientX: number, clientY: number, view: View): Point {
+  // Complex units per CSS pixel at the given span.
+  const unit = (view: View, span = view.span) => span / Math.min(view.width, view.height);
+
+  function viewPoint(clientX: number, clientY: number): Point {
     const rect = viewport.getBoundingClientRect();
-    return {
-      x: ((clientX - rect.left) * view.width) / rect.width,
-      y: ((clientY - rect.top) * view.height) / rect.height,
-    };
+    return { x: clientX - rect.left, y: clientY - rect.top };
   }
 
   function complexPoint(point: Point, view: View) {
     // The TIFF orientation maps image y to real and image x to imaginary.
     return {
-      re: view.cre + (point.y - view.height / 2) / view.scale,
-      im: view.cim + (point.x - view.width / 2) / view.scale,
+      re: view.cre + (point.y - view.height / 2) * unit(view),
+      im: view.cim + (point.x - view.width / 2) * unit(view),
     };
   }
 
-  function setView(cre: number, cim: number, scale: number) {
-    if (![cre, cim, scale].every(Number.isFinite) || scale <= 0) return false;
+  function setView(cre: number, cim: number, span: number) {
+    if (![cre, cim, span].every(Number.isFinite) || span <= 0) return false;
     field(form, "cre").value = String(Number(cre.toPrecision(15)));
     field(form, "cim").value = String(Number(cim.toPrecision(15)));
-    field(form, "scale").value = String(Number(scale.toPrecision(15)));
+    field(form, "span").value = String(Number(span.toPrecision(15)));
     return true;
+  }
+
+  // Moves the view so that anchor, a complex point, lies under point at the new span.
+  function anchorView(anchor: { re: number; im: number }, point: Point, view: View, span: number) {
+    return setView(
+      anchor.re - (point.y - view.height / 2) * unit(view, span),
+      anchor.im - (point.x - view.width / 2) * unit(view, span),
+      span
+    );
   }
 
   function pointerMidpoint() {
@@ -120,13 +184,11 @@ export function attachGeometry({
     if (pointers.size === 1 && gesture.distance === undefined) {
       const point = [...pointers.values()][0];
       if (Math.hypot(point.x - gesture.x, point.y - gesture.y) <= 3 && !gesture.moved) return;
-      const start = imagePoint(gesture.x, gesture.y, view);
-      const now = imagePoint(point.x, point.y, view);
       if (
         setView(
-          view.cre - (now.y - start.y) / view.scale,
-          view.cim - (now.x - start.x) / view.scale,
-          view.scale
+          view.cre - (point.y - gesture.y) * unit(view),
+          view.cim - (point.x - gesture.x) * unit(view),
+          view.span
         )
       ) {
         gesture.moved = true;
@@ -134,16 +196,9 @@ export function attachGeometry({
       }
     } else if (pointers.size === 2 && gesture.distance) {
       const mid = pointerMidpoint();
-      const scale = (view.scale * mid.distance) / gesture.distance;
-      const anchor = complexPoint(imagePoint(gesture.x, gesture.y, view), view);
-      const now = imagePoint(mid.x, mid.y, view);
-      if (
-        setView(
-          anchor.re - (now.y - view.height / 2) / scale,
-          anchor.im - (now.x - view.width / 2) / scale,
-          scale
-        )
-      ) {
+      const span = (view.span * gesture.distance) / mid.distance;
+      const anchor = complexPoint(viewPoint(gesture.x, gesture.y), view);
+      if (anchorView(anchor, viewPoint(mid.x, mid.y), view, span)) {
         gesture.moved = true;
         viewChanged();
       }
@@ -165,34 +220,12 @@ export function attachGeometry({
       event.preventDefault();
       if (!validSettings(false)) return;
       const view = viewState();
-      const point = imagePoint(event.clientX, event.clientY, view);
+      const point = viewPoint(event.clientX, event.clientY);
       const anchor = complexPoint(point, view);
       const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 800 : 1);
-      const scale = view.scale * Math.exp(Math.max(-2, Math.min(2, -delta * 0.001)));
-      if (
-        setView(
-          anchor.re - (point.y - view.height / 2) / scale,
-          anchor.im - (point.x - view.width / 2) / scale,
-          scale
-        )
-      ) {
-        viewChanged();
-      }
+      const span = view.span * Math.exp(Math.max(-2, Math.min(2, delta * 0.001)));
+      if (anchorView(anchor, point, view, span)) viewChanged();
     },
     { passive: false }
   );
-
-  let lastViewport = viewportPixelsFor(viewport);
-  new ResizeObserver(() => {
-    const next = viewportPixelsFor(viewport);
-    if (next.width === lastViewport.width && next.height === lastViewport.height) return;
-    const previous = lastViewport;
-    lastViewport = next;
-    if (!validSettings(false)) return;
-    const scale =
-      (Number(field(form, "scale").value) * Math.min(next.width, next.height)) /
-      Math.min(previous.width, previous.height);
-    field(form, "scale").value = String(Number(scale.toPrecision(15)));
-    viewChanged();
-  }).observe(viewport);
 }
