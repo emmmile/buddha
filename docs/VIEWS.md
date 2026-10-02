@@ -3,7 +3,8 @@
 Views in the explorer that are useful for debugging and comparing changes.
 Open one by appending its hash to the explorer's address (for example
 `http://localhost:5173/` with `yarn dev`). Seeding is in the hash where it
-matters; without it, the explorer uses its default (random walk).
+matters; without it, the explorer uses its default (Newton since MR !3; the
+random walk before).
 
 | view | hash | why it is useful |
 |---|---|---|

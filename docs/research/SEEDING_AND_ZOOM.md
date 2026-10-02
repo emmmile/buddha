@@ -229,7 +229,8 @@ that touch the window, and the chain's `L·C` target then has to climb.
 
 Commits `f743ca2` (this section) and `c7c20ee` (antenna starts, below).
 
-- `seeding = newton` (`p.seeding == 2`) in the explorer's "Seeds" select.
+- `seeding = newton` (`p.seeding == 2`) in the explorer's "Seeds" select. It
+  became the default in MR !3 (`3d76fa4`), after the user's measurements.
 - `metropolis.wgsl`: `begin_solve()` and `solve()` implement the `SOLVE`
   mode, one orbit step (z and dz/dc) per `advance()`.
   - Constants: `SOLVE_MIN = 10`, `SOLVE_MAX = 40`, `SOLVE_ROUNDS = 24`, Newton
