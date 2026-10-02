@@ -44,7 +44,7 @@ git config core.hooksPath .githooks
 ```
 
 The hook runs `git diff --cached --check` for whitespace errors, then checks
-each kind of staged file with its own formatter. The historical `legacy/`
+each kind of staged file with its own formatter. The historical `docs/legacy/`
 directory is excluded.
 
 - **C++, Objective-C++ and Metal:** `clang-format` checks only the changed

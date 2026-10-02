@@ -55,7 +55,7 @@ def check_web(paths):
     others = [
         path
         for path in paths
-        if path.endswith(PRETTIER_SUFFIXES) and not path.startswith((b"web/", b"legacy/"))
+        if path.endswith(PRETTIER_SUFFIXES) and not path.startswith((b"web/", b"docs/legacy/"))
     ]
     explorer = any(path.startswith(b"web/") for path in paths)
     if not explorer and not others:
@@ -97,7 +97,8 @@ def check_python(paths):
     sources = [
         path
         for path in paths
-        if (path.endswith(b".py") or path in PYTHON_SCRIPTS) and not path.startswith(b"legacy/")
+        if (path.endswith(b".py") or path in PYTHON_SCRIPTS)
+        and not path.startswith(b"docs/legacy/")
     ]
     if not sources:
         return False
@@ -142,7 +143,9 @@ def main():
     sources = [
         path.decode("utf-8", "surrogateescape")
         for path in changed_paths
-        if path and not path.startswith(b"legacy/") and path.lower().endswith(CLANG_FORMAT_SUFFIXES)
+        if path
+        and not path.startswith(b"docs/legacy/")
+        and path.lower().endswith(CLANG_FORMAT_SUFFIXES)
     ]
     if not sources:
         return int(web_failed or python_failed)
