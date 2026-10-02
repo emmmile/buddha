@@ -2,12 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Buddha++ Explorer</title>
   </head>
   <body>
-    <aside>
-      <h1>Buddha · explorer</h1>
+    <aside id="panel">
+      <header>
+        <h1>Buddha · explorer</h1>
+        <button type="button" class="secondary" id="close">Close</button>
+      </header>
       <form id="controls">
         <fieldset>
           <legend>Window</legend>
@@ -211,6 +214,7 @@
         <canvas id="image" aria-label="Progressive Buddhabrot preview"></canvas>
       </div>
     </main>
+    <button type="button" id="menu" aria-controls="panel" aria-expanded="false">Menu</button>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
