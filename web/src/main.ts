@@ -7,11 +7,17 @@ import { element, field } from "./form";
 import { attachGeometry, viewportPixelsFor } from "./geometry";
 import { encodePng } from "./png";
 import { Sampler, type SamplerSettings } from "./sampler";
+import { decodeHash, encodeHash } from "./share";
 import displaySource from "./shaders/display.wgsl?raw";
 import metropolisSource from "./shaders/metropolis.wgsl?raw";
 
 // Preview refresh interval while sampling; display changes redraw on the next frame.
 const PREVIEW_MS = 100;
+// The URL hash follows the settings once they have been still this long, as browsers throttle
+// history updates.
+const HASH_MS = 300;
+// Complex units across the shorter side of the viewport in the full view.
+const FULL_SPAN = 4;
 
 const form = element<HTMLFormElement>("controls");
 const pauseButton = element<HTMLButtonElement>("pause");
@@ -22,6 +28,7 @@ const statusLine = element<HTMLSpanElement>("status");
 const debugLine = element<HTMLDivElement>("debug-status");
 const debugToggle = element<HTMLInputElement>("debug");
 const exportButton = element<HTMLButtonElement>("export");
+const copyLinkButton = element<HTMLButtonElement>("copy-link");
 
 const samplerNumbers = [
   "cre",
@@ -58,13 +65,17 @@ const defaults: Record<string, number | string> = {
   sharpness: 75,
 };
 
+// The view is always in the URL; other settings only when they differ from these.
+const hashDefaults = { re: 0, im: 0, span: FULL_SPAN, ...defaults };
+const viewKeys = ["re", "im", "span"];
+
 const isDisplayName = (name: string) => (displayNames as readonly string[]).includes(name);
 
 function fullViewPreset() {
   const { width, height } = viewportPixelsFor(viewport);
   field(form, "cre").value = "0";
   field(form, "cim").value = "0";
-  field(form, "scale").value = String(Math.min(width, height) / 4);
+  field(form, "scale").value = String(Math.min(width, height) / FULL_SPAN);
   for (const [name, value] of Object.entries(defaults)) field(form, name).value = String(value);
   updateDisplayLabels();
 }
@@ -182,6 +193,15 @@ let displayForced = true;
 let lastDraw = 0;
 let lastStatus = 0;
 
+// The sampler fields by name, with the seeding mode as its option value. Shared by the URL hash
+// and the PNG metadata.
+function samplerValues() {
+  const numbers = Object.fromEntries(
+    samplerNumbers.map((name) => [name, Number(field(form, name).value)])
+  ) as Record<(typeof samplerNumbers)[number], number>;
+  return { ...numbers, seeding: field(form, "seeding").value };
+}
+
 function samplerSettings(): SamplerSettings {
   const settings = Object.fromEntries(
     samplerNumbers.map((name) => [name, Number(field(form, name).value)])
@@ -221,19 +241,91 @@ function restart() {
   // around |c| ~ 2 show blocky artifacts.
   message.textContent = 1 / settings.scale < 1e-6 ? "Beyond single precision" : "Running";
   displayDirty = displayForced = true;
+  updateHashLater();
+}
+
+// Resets to the full view and defaults, then applies the settings in the URL hash. A value the
+// form rejects, such as one out of range or an unknown seeding mode, keeps its default.
+function applyHash() {
+  fullViewPreset();
+  validSettings(false); // clears custom errors left from before
+  const { re, im, span, ...values } = decodeHash(location.hash, hashDefaults);
+  const set = (name: string, value: number | string | undefined) => {
+    if (value === undefined) return;
+    const input = field(form, name);
+    const before = input.value;
+    input.value = String(value);
+    // Range inputs clamp and select inputs blank values they cannot hold.
+    if (input.value !== String(value) || !input.checkValidity()) input.value = before;
+  };
+  set("cre", re);
+  set("cim", im);
+  if (typeof span === "number" && span > 0) {
+    const { width, height } = viewportPixelsFor(viewport);
+    set("scale", Math.min(width, height) / span);
+  }
+  for (const [name, value] of Object.entries(values)) set(name, value);
+  for (const color of ["r", "g", "b"]) {
+    const [low, high] = [`low${color}`, `high${color}`];
+    if (Number(field(form, low).value) >= Number(field(form, high).value)) {
+      field(form, low).value = String(defaults[low]);
+      field(form, high).value = String(defaults[high]);
+    }
+  }
+  validSettings(false);
+  updateDisplayLabels();
+}
+
+function settingsHash() {
+  const { cre, cim, scale, ...values } = samplerValues();
+  const { width, height } = viewportPixelsFor(viewport);
+  const span = Math.min(width, height) / scale;
+  return encodeHash(
+    { re: cre, im: cim, span, ...values, ...displaySettings() },
+    hashDefaults,
+    viewKeys
+  );
+}
+
+let hashTimer: ReturnType<typeof setTimeout> | undefined;
+
+// Replaces the hash without a history entry; replaceState does not fire hashchange.
+function updateHash() {
+  clearTimeout(hashTimer);
+  if (!validSettings(false)) return;
+  const hash = settingsHash();
+  if (hash === location.hash) return;
+  try {
+    history.replaceState(history.state, "", hash);
+  } catch {
+    // Too many updates; the next change tries again.
+  }
+}
+
+function updateHashLater() {
+  clearTimeout(hashTimer);
+  hashTimer = setTimeout(updateHash, HASH_MS);
+}
+
+async function copyLink() {
+  updateHash();
+  try {
+    await navigator.clipboard.writeText(location.href);
+    message.textContent = "Link copied";
+  } catch (error) {
+    message.textContent = `Copy failed: ${errorMessage(error)}`;
+  }
 }
 
 // Everything needed to reproduce the exported image: the view, the sampler and display
 // settings, and how far sampling had got. Stored as JSON in the PNG.
 function exportMetadata() {
   const m = gpu.sampler.metrics;
-  const { width: _w, height: _h, seeding, ...view } = samplerSettings();
   return {
     format: "buddha-explorer/1",
     width,
     height,
-    ...view,
-    seeding: seeding ? "uniform" : "walk",
+    ...samplerValues(),
     display: displaySettings(),
     orbits: m.seeds + m.proposals,
     points: m.increments,
@@ -333,7 +425,8 @@ form.addEventListener("input", (event) => {
 });
 form.addEventListener("change", (event) => {
   const name = (event.target as HTMLInputElement).name;
-  if (!isDisplayName(name) && validSettings(true)) restartLater();
+  if (isDisplayName(name)) updateHashLater();
+  else if (validSettings(true)) restartLater();
 });
 form.addEventListener("submit", (event) => event.preventDefault());
 
@@ -353,6 +446,12 @@ element("preset").addEventListener("click", () => {
   restartLater();
 });
 exportButton.addEventListener("click", exportPng);
+copyLinkButton.addEventListener("click", copyLink);
+// A link pasted into this tab only changes the hash, so apply it here.
+addEventListener("hashchange", () => {
+  applyHash();
+  restartLater();
+});
 debugToggle.addEventListener("change", () => setDebug(debugToggle.checked));
 
 async function main() {
@@ -361,7 +460,7 @@ async function main() {
   } catch {
     setDebug(false);
   }
-  fullViewPreset();
+  applyHash();
   try {
     gpu = await startGpu();
     gpu.sampler.onBatch = () => {
