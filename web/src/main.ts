@@ -169,6 +169,12 @@ function sizeLimits(limits: GPUSupportedLimits) {
   };
 }
 
+// The adapter as the browser describes it, such as "apple metal-3"; browsers may leave out details.
+function adapterName(info: GPUAdapterInfo) {
+  const parts = [info.vendor, info.architecture, info.device, info.description].filter(Boolean);
+  return [...new Set(parts)].join(" ") || "–";
+}
+
 async function startGpu() {
   if (!navigator.gpu) throw new Error("WebGPU is not available in this browser");
   const adapter = await navigator.gpu.requestAdapter();
@@ -196,6 +202,7 @@ async function startGpu() {
   ]);
   return {
     device,
+    name: adapterName(adapter.info),
     sizeLimits: sizeLimits(device.limits),
     sampler: new Sampler(device, samplerModule, exclusion, timestamps),
     display: new Display(device, displayModule, context, format),
@@ -271,6 +278,7 @@ function restart() {
   }
   const settings = samplerSettings();
   gpu.sampler.start(settings);
+  gpu.display.mirrorAxis = gpu.sampler.mirrorAxis;
   pauseButton.textContent = "Pause";
   // Orbits are single precision, as in buddha-metal: pixels smaller than the float spacing
   // around |c| ~ 2 show blocky artifacts.
@@ -412,6 +420,7 @@ const measures: [string, (p: Progress) => string][] = [
     ({ m, elapsed }) => `${gpu.sampler.timestamps ? "" : "~"}${share(m.gpuSeconds, elapsed)}`,
   ],
   ["size", sizeText],
+  ["GPU", () => gpu.name],
 ];
 
 // The histogram size, and the canvas's on screen when they differ: the screen exceeds the GPU
@@ -529,6 +538,7 @@ async function main() {
   applyHash();
   try {
     gpu = await startGpu();
+    Object.assign(window, { gpu }); // for experiments driving the page (gpu_util.ts)
     gpu.sampler.onBatch = () => {
       displayDirty = true;
     };

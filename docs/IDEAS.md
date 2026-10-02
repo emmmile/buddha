@@ -157,3 +157,14 @@ layer costs about 800 MB at 8192².
 them per thread, or accumulate per-thread tiles. A faster scalar orbit loop
 (GitHub PR #8, closed) made the kernel 2.4× faster but the whole generator
 only 1.33×, because of these writes; revisit it only after them.
+
+## Less divergence in the explorer kernel
+
+**Origin.** [research doc](research/SEEDING_AND_ZOOM.md), section 6, which
+found the GPU busy and the kernel as fast as Metal's.
+
+**Idea.** Lanes in different chain modes (`REDRAW`, `EVALUATE_*`, `SOLVE`) run
+different code within one SIMD group, one path after the other. Share one
+orbit-step path between the modes, with drawing and counting as conditions,
+and shrink the 104-byte `Chain` to ease register pressure. Untested; it would
+speed up the Metal kernel as well.

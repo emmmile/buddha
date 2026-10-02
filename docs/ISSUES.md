@@ -83,38 +83,6 @@ they are. The README's "Future work" settings file for `buddha++` is the
 natural carrier. Bit-identical output is not required: the explorer's shader
 is a port, not shared code.
 
-## The GPU is only about half busy (explorer)
-
-**Status:** open, not measured. Reported by the user: the GPU is about 50%
-utilized on average while the explorer renders.
-
-**Likely causes** ([research doc](research/SEEDING_AND_ZOOM.md), section 6), roughly by expected impact:
-
-1. **Gaps between dispatches.**
-   - Only two dispatches are in flight (`IN_FLIGHT = 2` in `sampler.ts`).
-   - Each completion waits for a `mapAsync` readback, which resolves late in
-     the browser's event loop, before the next dispatch is submitted.
-2. **A fixed lane count.** `THREADS = 32768` was tuned for one Apple GPU
-   (16 cores × 2048). `buddha-metal`'s 2,048 threads per core come from the
-   same machine; no other GPU has been tried.
-3. **Divergence.** Lanes in different chain modes (`REDRAW`, `EVALUATE_*`, and
-   with MR !3 `SOLVE`) run different code within one SIMD group.
-4. **Register pressure.** The `Chain` struct is 104 bytes with MR !3.
-
-**First step.** Measure the duty cycle: the explorer's *GPU busy* measure (GPU
-time from timestamp queries over wall-clock time) shows it directly.
-In headless Chrome at the full view it read 98% for every seeding mode
-(research doc, "The antenna starts over-weight the real axis"). The 50%
-report predates the measure and may have come from the system's GPU history,
-which measures something else. Check the measure in a visible window before
-working on the causes below.
-
-**Proposed fixes.**
-- Queue 3–4 dispatches.
-- Accumulate the counters on the GPU and read them back every N dispatches.
-- Scale the lane count with the adapter.
-- Share one orbit-step path between the chain modes.
-
 ## Known bugs in buddha++'s legacy Metropolis sampler
 
 **Status:** open, kept on purpose. `buddha_generator::metropolis()` is the

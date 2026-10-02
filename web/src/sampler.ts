@@ -57,7 +57,8 @@ export type Metrics = Record<(typeof COUNTERS)[number], number> & {
 };
 
 // Whether to also draw each orbit point at its mirror image across the real axis, which adds points
-// for free where it applies. Naive samples cover c and conj(c) alike, so it always does.
+// for free where it applies (most of them through the display, see mirrorAxis). Naive samples cover
+// c and conj(c) alike, so it always does.
 // Metropolis chains follow orbits that reach the window, whose mirror images land in the window
 // only if it crosses the real axis; elsewhere the extra test costs about 10%.
 function mirrorHelps(s: SamplerSettings) {
@@ -83,6 +84,9 @@ export class Sampler {
   private histogram?: GPUBuffer;
   private group?: GPUBindGroup;
   private settings?: SamplerSettings;
+  // With mirroring, twice the column of the real axis: the display adds column mirrorAxis - 1 - x
+  // to column x where both are in the view. 0 without mirroring or with the axis left of the view.
+  mirrorAxis = 0;
   private steps = 256;
   private inFlight = 0;
   private generation = 0;
@@ -235,11 +239,21 @@ export class Sampler {
       this.exclusion.size,
       this.exclusion.boundaryCount,
     ]);
-    // The view is rotated as the TIFF output is: Re grows downward, Im rightward.
+    // The view is rotated as the TIFF output is: Re grows downward, Im rightward. With mirroring,
+    // the left edge moves by at most a quarter pixel so that the real axis falls on a column edge
+    // or centre: then the mirror image of each column is exactly one column.
+    const mirror = mirrorHelps(s);
+    let minim = s.cim - s.width / 2 / s.scale;
+    let axis = 0;
+    if (mirror) {
+      axis = Math.round(-2 * minim * s.scale);
+      minim = -axis / 2 / s.scale;
+    }
+    this.mirrorAxis = Math.max(axis, 0);
     f.set(
       [
         s.cre - s.height / 2 / s.scale,
-        s.cim - s.width / 2 / s.scale,
+        minim,
         s.scale,
         ((s.radius / 100) * Math.min(s.width, s.height)) / s.scale,
         s.exponent_l,
@@ -249,7 +263,8 @@ export class Sampler {
       16
     );
     u[23] = s.sampler;
-    u[24] = mirrorHelps(s) ? 1 : 0;
+    u[24] = mirror ? 1 : 0;
+    f[25] = mirror ? Math.min(-minim, minim + s.width / s.scale) : 0;
     this.device.queue.writeBuffer(this.params, 0, u);
   }
 

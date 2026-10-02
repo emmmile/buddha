@@ -657,29 +657,55 @@ proposal is wasted. Options:
 
 ## 6. GPU utilization (~50%)
 
-Likely causes, roughly by expected impact:
+Measured in October 2026 on the M5 Pro, in a visible Chrome window
+(2528×1724 histogram) with [`gpu_util.ts`](experiments/gpu_util.ts). It reads
+IOAccelerator's `Device Utilization %`, which Activity Monitor and Stats show,
+next to the explorer's own counters.
 
-1. **Gaps between dispatches.** `IN_FLIGHT = 2`, and each completion waits on
-   a `mapAsync` readback that resolves late in the browser's event loop
-   before the next submit.
-   - Fixes: 3–4 in flight; accumulate counters on the GPU and read them back
-     every N dispatches (or ring buffers of readbacks); several passes per
-     command buffer.
-   - Measure first: the *GPU busy* measure under the settings (GPU time from
-     timestamp queries over wall-clock time) is the duty cycle.
-2. **Fixed `THREADS = 32768`.** Tuned for the M5 Pro (16 cores × 2048).
-   Scale it with the adapter, or tune it empirically.
-3. **SIMD divergence.** Lanes in `REDRAW` and `EVALUATE_*` run different code
-   in the same SIMD group, one path after the other. Make both use the same
-   step path, with draw and count as conditions. Newton's `SOLVE` adds a third
-   branch; keep its step code shared too (z update plus d update).
-4. **Register pressure and occupancy.** The `Chain` struct is 80 bytes of
-   private state and grows with Newton.
-5. Atomic histogram contention at small windows (many lanes hitting the same
-   pixels).
+**The ~50–70% reading is not idle time.** The explorer's *GPU busy* measure
+(timestamp queries) read 97–99% throughout, so the GPU is not waiting between
+dispatches. The device counter follows the dispatch rhythm, not the work done:
+300 ms dispatches read 92–94% against 55–70% for the usual 25 ms, at the same
+throughput. `buddha-metal` reads 100% with dispatches of 2^28 samples.
 
-"Utilization" in Activity Monitor is mostly busy time, so (1) and (2) probably
-explain most of the gap, and (3)–(5) are ALU efficiency on top.
+**Knobs that changed nothing** (all within ±3% of orbits/s): 65k–262k lanes
+instead of 32,768; workgroups of 32, 128 or 256 lanes instead of 64; four
+dispatches in flight instead of two; 100–300 ms dispatches; summing the nine
+stats counters per workgroup before the global atomics; no display redraws.
+Skipping the histogram writes entirely gained only 12%.
+
+**The kernel matches Metal.** Naive sampling at the full view, the same
+histogram size and long dispatches:
+
+| Path | Orbits/s |
+| --- | ---: |
+| Explorer, mirror images drawn | 704 M |
+| Explorer, no mirroring | 849 M |
+| Explorer, no mirroring, Dawn robustness off | 880 M |
+| `buddha-metal` (folds the histogram instead) | 899 M |
+
+Dawn's bounds checks (Chrome flag
+`--enable-dawn-features=disable_robustness`) cost about 4%, which a page cannot
+change. The rest of the gap was the second atomic write of each mirrored point.
+
+**Fix: mirror images through the display.** The host moves the view by at most
+a quarter pixel so that the real axis falls on a column edge or centre; then
+column x's mirror image is exactly column `axis - 1 - x`. The display adds that
+column's counts where it is in the view, and the sampler draws a mirror image
+only where it is not (`|Im z|` beyond the symmetric band), counting the others
+in the *points* measure without writing them. Renders match the old ones
+(correlation 0.9995 or more at the full view and an off-centre view crossing
+the axis, no seam at the band edge). Interleaved runs, repeatable to 0.2%:
+
+| View | Before | After | Gain |
+| --- | ---: | ---: | ---: |
+| Naive, `#re=0&im=0&span=4&sampler=naive` | 680 M | 744 M | 9% |
+| Newton, `#re=0&im=0&span=4` | 14.0 M | 16.1 M | 15% |
+| Off-centre, `#re=-0.6&im=0.35&span=1.4` | 8.4 M | 9.1 M | 8% |
+
+Divergence between chain modes (`REDRAW`, `EVALUATE_*`, `SOLVE`) and register
+pressure were not tested; with the kernel at Metal's speed, they would make
+both faster rather than close a gap.
 
 ## URI settings
 
@@ -704,7 +730,8 @@ Item 1 is done (GitLab MR !3); the rest is open.
 2. Seed pool and warm restart.
 3. Placeholder image, lower resolution while moving, debounced restarts.
 4. Derivative-scaled and targeted mutations.
-5. GPU utilization fixes (measure the duty cycle first).
+5. GPU utilization: measured and explained (section 6); mirror images through
+   the display gained 8–15%.
 6. Minibrot list, df64, and a shared database once the rest is in.
 
 ## Appendix: experiment scripts
@@ -742,6 +769,11 @@ shader (six bindings, 104-byte `Chain`), as on main since MR !3.
   Export PNG, one per seeding mode, printing the measures. Usage is in its
   header. It runs on the GPU for the given time per mode. It made the
   full-view renders in "The antenna starts over-weight the real axis".
+
+- [`gpu_util.ts`](experiments/gpu_util.ts): loads explorer views in a visible
+  Chrome window and prints IOAccelerator's device utilization next to the
+  explorer's throughput and GPU busy share, for section 6. Usage is in its
+  header. It runs on the GPU for the given time per query.
 
 [`axis_bias.py`](experiments/axis_bias.py) (needs numpy and pillow) measures
 those renders: the brightness of the real axis, of the body and of off-axis

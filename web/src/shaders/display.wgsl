@@ -10,13 +10,27 @@ struct Display {
   saturation: f32, // factor about Rec. 709 luminance, 1 + saturation / 100
   texture: f32, // texture / 100
   sharpness: f32, // sharpness / 100
-  pad0: f32,
+  // Twice the column of the real axis: column x adds column mirror - 1 - x where that is in the
+  // image, since the sampler draws each orbit point once and not at its mirror image. 0: none.
+  mirror: u32,
 }
 
 const LUMA = vec3f(0.2126, 0.7152, 0.0722);
 
 @group(0) @binding(0) var<uniform> d: Display;
 @group(0) @binding(1) var<storage, read> counts: array<u32>;
+
+// The counts of a pixel, plus those of its mirror image across the real axis.
+fn counts_at(pixel: u32) -> vec3u {
+  var k = vec3u(counts[pixel * 3u], counts[pixel * 3u + 1u], counts[pixel * 3u + 2u]);
+  let x = pixel % d.width;
+  let mirrored = i32(d.mirror) - 1 - i32(x);
+  if (mirrored >= 0 && mirrored < i32(d.width)) {
+    let m = pixel - x + u32(mirrored);
+    k += vec3u(counts[m * 3u], counts[m * 3u + 1u], counts[m * 3u + 2u]);
+  }
+  return k;
+}
 
 // ---- channel maxima ----
 
@@ -31,9 +45,10 @@ fn reduce(
 ) {
   let pixel = gid.x;
   if (pixel < d.width * d.height) {
-    atomicMax(&local_max[0], counts[pixel * 3u]);
-    atomicMax(&local_max[1], counts[pixel * 3u + 1u]);
-    atomicMax(&local_max[2], counts[pixel * 3u + 2u]);
+    let k = counts_at(pixel);
+    atomicMax(&local_max[0], k.x);
+    atomicMax(&local_max[1], k.y);
+    atomicMax(&local_max[2], k.z);
   }
   workgroupBarrier();
   if (lid < 3u) {
@@ -53,7 +68,7 @@ fn tone(@builtin(global_invocation_id) gid: vec3u) {
   if (i >= d.width * d.height) {
     return;
   }
-  let k = vec3f(f32(counts[i * 3u]), f32(counts[i * 3u + 1u]), f32(counts[i * 3u + 2u]));
+  let k = vec3f(counts_at(i));
   let m = max(vec3f(f32(peaks[0]), f32(peaks[1]), f32(peaks[2])), vec3f(1.0));
   let curve = select(pow(k / m, vec3f(d.gamma)), vec3f(0.0), k == vec3f(0.0));
   let base = clamp(curve * d.exposure, vec3f(0.0), vec3f(1.0));
