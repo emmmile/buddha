@@ -98,12 +98,9 @@ const SOLVE = 5u;
 const WALK_LIMIT = 256u;
 // Newton seeding solves z_n(c) = w for a point w in the window, with n in [SOLVE_MIN, SOLVE_MAX)
 // and at most SOLVE_ROUNDS Newton steps. Larger n gives roots nearer the boundary, which escape
-// later, but converges less often (docs/SEEDING_AND_ZOOM_RESEARCH.md).
+// later, but converges less often (docs/research/SEEDING_AND_ZOOM.md).
 const SOLVE_MIN = 0u;
 const SOLVE_MAX = 64u;
-// Share of Newton starts on the antenna (the real axis in [-2, -1.4]) rather than in boundary
-// cells: the exclusion map has no interior beside the antenna, so its cells never start there.
-const SOLVE_ANTENNA = 0.5;
 const SOLVE_ROUNDS = 24u;
 const SOLVE_STEP = 0.5; // largest Newton step, in complex units
 // Attempts are abandoned before f32 overflows: z beyond 1e8 has escaped, and dz/dc reaches about
@@ -307,13 +304,10 @@ fn pick_seed() -> bool {
   return true;
 }
 
-// A point near the boundary of the set: on the antenna (SOLVE_ANTENNA of the time), or uniform in a
-// random boundary cell, on either side of the real axis (the map covers Im <= 0, mirrored).
-// Uniform over [-2, 2]^2 if there are no boundary cells.
+// A point near the boundary of the set: uniform in a random boundary cell, on either side of the
+// real axis (the map covers Im <= 0, mirrored). Uniform over [-2, 2]^2 if there are no boundary
+// cells.
 fn boundary_point() -> vec2f {
-  if (uniform01() < SOLVE_ANTENNA) {
-    return vec2f(-2.0 + 0.6 * uniform01(), 0.02 * (uniform01() - 0.5));
-  }
   if (p.boundary_count == 0u) {
     return vec2f(uniform01() * 4.0 - 2.0, uniform01() * 4.0 - 2.0);
   }
