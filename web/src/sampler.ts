@@ -47,6 +47,7 @@ export interface SamplerSettings {
   exponent_c: number;
   chain_scale: number;
   seeding: number; // 0: random walk, 1: uniform, 2: Newton
+  sampler: number; // 0: Metropolis, 1: naive
 }
 
 // Sums of buddha_kernel::totals over the render, plus batch count and GPU time.
@@ -238,6 +239,7 @@ export class Sampler {
       ],
       16
     );
+    u[23] = s.sampler;
     this.device.queue.writeBuffer(this.params, 0, u);
   }
 

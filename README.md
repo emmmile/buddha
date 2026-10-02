@@ -170,7 +170,9 @@ yarn check    # formatting, lint and type check
 Open it in a browser with WebGPU, such as Chrome, Edge or Safari 26.
 
 The explorer runs Metropolis chains (`web/src/shaders/metropolis.wgsl`, a WGSL port of
-`chain` in `core/buddha_kernel.h`) into a histogram of one bin per device
+`chain` in `core/buddha_kernel.h`) or, for comparison, a naive sampler (uniform
+samples over `[-2, 2]²`, each escaping one drawn once: the unbiased
+Buddhabrot, which finds little when zoomed in) into a histogram of one bin per device
 pixel of the canvas, scaled down only on screens larger than the GPU's buffer
 limits allow. The window is its centre and span, the complex units across the
 view's shorter side, so resizing the browser keeps the same region. Drag to

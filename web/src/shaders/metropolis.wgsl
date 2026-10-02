@@ -1,4 +1,5 @@
-// WGSL port of the Metropolis chains in core/buddha_kernel.h.
+// WGSL port of the Metropolis chains in core/buddha_kernel.h, with a naive mode: uniform samples
+// over [-2, 2]^2, each escaping one drawn once and no chain, as the naive lane there.
 //
 // Differences from the native kernel:
 // - no symmetric folding: the histogram covers the whole view;
@@ -31,7 +32,7 @@ struct Params {
   exponent_l: f32, // target density L^a * C^b
   exponent_c: f32,
   chain_scale: f32, // proposals per chain: chain_scale * max(256 C, 2 L)
-  pad2: f32,
+  sampler: u32, // METROPOLIS or NAIVE
 }
 
 struct Chain {
@@ -95,6 +96,8 @@ const EVALUATE_SEED = 2u;
 const EVALUATE_PROPOSAL = 3u;
 const REDRAW = 4u;
 const SOLVE = 5u;
+const METROPOLIS = 0u;
+const NAIVE = 1u;
 const WALK_LIMIT = 256u;
 // Newton seeding solves z_n(c) = w for a point w in the window, with n in [SOLVE_MIN, SOLVE_MAX)
 // and at most SOLVE_ROUNDS Newton steps. Larger n gives roots nearer the boundary, which escape
@@ -277,7 +280,7 @@ fn cyclic() -> bool {
 fn pick_seed() -> bool {
   var r: f32;
   var im: f32;
-  if (p.seeding == 1u) {
+  if (p.seeding == 1u || p.sampler == NAIVE) {
     r = uniform01() * 4.0 - 2.0;
     im = uniform01() * 4.0 - 2.0;
   } else {
@@ -402,7 +405,7 @@ fn solve() {
 
 // One orbit step of the chain (see chain::advance in buddha_kernel.h).
 fn advance() {
-  if (c.mode == SEEK && p.seeding == 2u) {
+  if (c.mode == SEEK && p.sampler == METROPOLIS && p.seeding == 2u) {
     begin_solve();
   }
   if (c.mode == SOLVE) {
@@ -438,7 +441,7 @@ fn advance() {
     // The escape test only guards a diverged redraw.
     if (c.i > c.last || rr + ii > 8.0) {
       t.redraw += c.i;
-      c.mode = PROPOSE;
+      c.mode = select(PROPOSE, SEEK, p.sampler == NAIVE);
       return;
     }
     if (c.i >= p.low) {
@@ -484,6 +487,11 @@ fn advance() {
       c.mode = SEEK;
       return;
     }
+    // A naive sample is drawn once, and the lane takes the next one.
+    if (p.sampler == NAIVE) {
+      begin_redraw();
+      return;
+    }
     c.current_r = c.cr;
     c.current_i = c.ci;
     c.current_log = log_density;
@@ -508,6 +516,11 @@ fn advance() {
     c.current_log = log_density;
     t.accepted += 1u;
   }
+  begin_redraw();
+}
+
+// Starts drawing the orbit just evaluated: it is iterated again from c, up to its last step.
+fn begin_redraw() {
   t.escaped += 1u;
   c.last = min(c.i - 1u, p.high - 1u);
   c.zr = c.cr;

@@ -37,6 +37,9 @@ fieldset {
   margin: 6px 0;
   padding: 5px 0 2px;
 }
+fieldset:disabled {
+  opacity: 0.45;
+}
 legend {
   padding: 0 5px 0 0;
   color: #929da5;
