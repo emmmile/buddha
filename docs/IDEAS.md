@@ -73,3 +73,79 @@ current view come from, and start new seeds from it.
   their distribution.
 - Server side: storage, merging, and trust (a shared database accepts counts
   from anyone).
+
+## Newton seeding with the random walk's depth
+
+**Origin.** Trying Newton seeding (GitLab MR !3) in the explorer. With
+antenna starts it gives about 125× more histogram points per second than
+the walk, but its look is close to uniform seeding: less deep than the
+random walk ("The look changes: seed bias" in the [research doc](research/SEEDING_AND_ZOOM.md)).
+
+**Idea.** The walk starts at the origin and resets every 256 steps, so it
+favours seeds near the middle of the set. Measure where walk seeds come from
+(as `research/experiments/seed_bias.py` does for uniform seeds), then tune
+Newton's start points to match. A cheaper first step is to make the antenna
+share (`SOLVE_ANTENNA` in `metropolis.wgsl`) a setting, from less to more
+deep. The start map above is the general version.
+
+## Mutations scaled to the zoom
+
+**Origin.** [research doc](research/SEEDING_AND_ZOOM.md), section 2.
+
+**Idea.** A mutation Δc moves an orbit point by about |dz/dc|·Δc, and |dz/dc|
+is often 10² to 10⁴. A mutation of 1% of the view therefore misses the window
+when zoomed in. Scale the radius by the window size over |dz_k/dc|, or jump
+straight to a random pixel with one Newton step (`c' = c + (u − z_k)/d_k`).
+Mix with the current isotropic mutation so chains still explore.
+
+## Seed pool and warm restart
+
+**Origin.** [research doc](research/SEEDING_AND_ZOOM.md), section 3.
+
+**Idea.**
+- A shared ring buffer of accepted states that new chains start from, kept
+  across view changes.
+- On a pan or zoom, keep the chains and re-evaluate their states against the
+  new window instead of discarding them. When zooming in, most states still
+  hit the window.
+
+Related to the start map: the pool holds states, the map their distribution.
+
+## Smoother zooming
+
+**Origin.** [research doc](research/SEEDING_AND_ZOOM.md), section 4.
+
+**Idea.**
+- Draw the previous frame transformed as a placeholder until the new render
+  has enough samples, then crossfade.
+- Sample at ½ or ¼ resolution while a gesture is in progress, and switch to
+  full resolution once the view has been still for about 200 ms.
+- A precision gauge from the measured |dz/dc|, replacing the fixed warning
+  (see the span issue in [`ISSUES.md`](ISSUES.md)).
+- "Jump to an interesting place" from a precomputed list of minibrot nuclei
+  and their cycles. This is untested: the hypothesis is that bright
+  deep-iteration spots sit near minibrot cycles.
+
+## Deep zoom beyond f32
+
+**Origin.** [research doc](research/SEEDING_AND_ZOOM.md), section 5.
+
+**Idea.** Double-float emulation (df64) on the GPU for c and z. Per-chain
+perturbation is conceptually possible, because Metropolis proposals stay near
+the current state, but needs a reference orbit per lane (about 2 GB at 32k
+lanes). This is the real fix for the precision artifacts in `ISSUES.md`.
+
+## Newton seeding in buddha++
+
+**Origin.** GitLab MR !3 adds Newton seeding to the explorer only
+([ADR 0001](adr/0001-web-explorer-is-a-separate-product.md)).
+
+**Idea.** Port the `SOLVE` mode to `core/buddha_kernel.h`, so `buddha++` and
+`buddha-metal` can render explorer views with the same seeding.
+
+## A naive sampler in the explorer, for comparison
+
+**Origin.** The user (October 2026). The explorer is Metropolis first because
+naive sampling is useless when zoomed in
+([ADR 0001](adr/0001-web-explorer-is-a-separate-product.md)), but a naive mode
+would show what Metropolis changes and how much faster it is.

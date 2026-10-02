@@ -83,3 +83,29 @@ settings handed over from the explorer (the PNG metadata and URL hash, see
 they are. The README's "Future work" settings file for `buddha++` is the
 natural carrier. Bit-identical output is not required: the explorer's shader
 is a port, not shared code.
+
+## The GPU is only about half busy (explorer)
+
+**Status:** open, not measured. Reported by the user: the GPU is about 50%
+utilized on average while the explorer renders.
+
+**Likely causes** ([research doc](research/SEEDING_AND_ZOOM.md), section 6), roughly by expected impact:
+
+1. **Gaps between dispatches.**
+   - Only two dispatches are in flight (`IN_FLIGHT = 2` in `sampler.ts`).
+   - Each completion waits for a `mapAsync` readback, which resolves late in
+     the browser's event loop, before the next dispatch is submitted.
+2. **A fixed lane count.** `THREADS = 32768` was tuned for one Apple GPU
+   (16 cores × 2048).
+3. **Divergence.** Lanes in different chain modes (`REDRAW`, `EVALUATE_*`, and
+   with MR !3 `SOLVE`) run different code within one SIMD group.
+4. **Register pressure.** The `Chain` struct is 104 bytes with MR !3.
+
+**First step.** Measure the duty cycle. Compare GPU orbits/s (from timestamp
+queries) with wall-clock orbits/s, both shown in the explorer's stats.
+
+**Proposed fixes.**
+- Queue 3–4 dispatches.
+- Accumulate the counters on the GPU and read them back every N dispatches.
+- Scale the lane count with the adapter.
+- Share one orbit-step path between the chain modes.

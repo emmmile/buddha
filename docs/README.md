@@ -12,6 +12,8 @@ renderer and the shared kernel.
   each came from.
 - [`ISSUES.md`](ISSUES.md): known problems, what is known about each, and a
   proposed fix.
+- [`VIEWS.md`](VIEWS.md): reference views in the explorer for debugging and
+  comparing changes, as URL hashes.
 
 These are files rather than GitLab or GitHub issues
 ([ADR 0005](adr/0005-ideas-and-issues-as-files.md)).
