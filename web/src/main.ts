@@ -245,6 +245,7 @@ function restart() {
     gpu.sampler.setHistogram(histogram);
     gpu.display.setHistogram(histogram, width, height);
   }
+  canvas.style.visibility = "";
   if (!validSettings(false)) {
     message.textContent = "Invalid settings";
     return;
@@ -403,8 +404,9 @@ const measures: [string, (p: Progress) => string][] = [
   ["steps/lane", () => String(gpu.sampler.stepsPerLane)],
 ];
 
-// The histogram size, and the canvas's on screen when they differ: the image is then stretched,
-// because the screen exceeds the GPU limits or a resize has not settled yet.
+// The histogram size, and the canvas's on screen when they differ: the screen exceeds the GPU
+// limits and the image is scaled up, keeping its proportions, or a resize has not settled yet and
+// the canvas is hidden.
 function sizeText() {
   const size = `${width}×${height}`;
   return shown && !sameSize(shown, { width, height })
@@ -445,17 +447,22 @@ const restartLater = () => {
 };
 
 // The first size starts the render; later ones restart it once they settle, and only if the
-// histogram size changes. The view keeps its span, so the image shows the same region.
+// histogram size changes. The view keeps its span, so the image shows the same region. Until the
+// restart, the canvas is hidden rather than stretched to a shape the render was not made for.
 function resized(size: Size) {
   const first = !shown;
   shown = size;
   clearTimeout(resizeTimer);
-  if (first) restartLater();
-  else {
-    resizeTimer = setTimeout(() => {
-      if (!sameSize(renderSize(), { width, height })) restartLater();
-    }, RESIZE_MS);
+  if (first) {
+    restartLater();
+    return;
   }
+  const changed = () => !sameSize(renderSize(), { width, height });
+  if (changed()) canvas.style.visibility = "hidden";
+  resizeTimer = setTimeout(() => {
+    if (changed()) restartLater();
+    else canvas.style.visibility = "";
+  }, RESIZE_MS);
 }
 
 form.addEventListener("input", (event) => {
