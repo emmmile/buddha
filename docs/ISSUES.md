@@ -103,6 +103,11 @@ utilized on average while the explorer renders.
 
 **First step.** Measure the duty cycle: the explorer's *GPU busy* measure (GPU
 time from timestamp queries over wall-clock time) shows it directly.
+In headless Chrome at the full view it read 98% for every seeding mode
+(research doc, "The antenna starts over-weight the real axis"). The 50%
+report predates the measure and may have come from the system's GPU history,
+which measures something else. Check the measure in a visible window before
+working on the causes below.
 
 **Proposed fixes.**
 - Queue 3–4 dispatches.
