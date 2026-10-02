@@ -42,7 +42,8 @@ These are files rather than GitLab or GitHub issues
   reference; its plan items are open unless marked.
 - [`research/experiments/`](research/experiments/): the scripts behind its
   numbers (Python with numpy, and Deno WebGPU). How to run each is in the
-  research doc's appendix.
+  research doc's appendix. Agents skip them unless the task is
+  seeding or zoom research (`CLAUDE.md`).
 
 ## Notes
 
