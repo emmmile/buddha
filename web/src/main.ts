@@ -61,7 +61,7 @@ const defaults: Record<string, number | string> = {
   exponent_l: 1,
   exponent_c: 1,
   chain_scale: 1,
-  seeding: "walk",
+  seeding: "newton",
   exposure: 0.2, // stops
   gamma: 0.3,
   saturation: 100,
