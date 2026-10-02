@@ -1,7 +1,8 @@
 // Renders explorer views in headless Chrome and exports them with the explorer's own Export PNG,
 // so the images go through its display pipeline and carry their settings. For each seeding mode it
 // loads BASE/HASH&seeding=MODE, renders for SECONDS, prints the measures, and saves OUT/MODE.png
-// (an existing file of that name is replaced).
+// (an existing file of that name is replaced). A mode can also be LABEL:PARAMETERS, such as
+// naive:sampler=naive, to set other parameters and save OUT/LABEL.png.
 //
 //   cd web && yarn dev --port 5180 --strictPort --host 127.0.0.1
 //   deno run -A capture.ts http://127.0.0.1:5180 '#re=0&im=0&span=4' 45 OUT walk uniform newton
@@ -75,7 +76,8 @@ const evaluate = async (expression: string) =>
 for (const mode of modes) {
   await send("Page.navigate", { url: "about:blank" }, sessionId);
   await new Promise((r) => setTimeout(r, 500));
-  await send("Page.navigate", { url: `${base}/${hash}&seeding=${mode}` }, sessionId);
+  const [label, extra] = mode.includes(":") ? mode.split(":") : [mode, `seeding=${mode}`];
+  await send("Page.navigate", { url: `${base}/${hash}&${extra}` }, sessionId);
   await new Promise((r) => setTimeout(r, Number(seconds) * 1000));
   const measures = await evaluate(
     `[...document.querySelectorAll('#measures dt')].map(d => d.textContent + ' ' + d.nextElementSibling.textContent).join(' | ') + ' || ' + document.getElementById('message').textContent`
@@ -91,8 +93,8 @@ for (const mode of modes) {
     );
     if (begin && done) name = begin.params.suggestedFilename;
   }
-  if (name) await Deno.rename(`${out}/${name}`, `${out}/${mode}.png`);
-  console.log(`${mode}: ${name ? mode + ".png" : "EXPORT FAILED"} :: ${measures}`);
+  if (name) await Deno.rename(`${out}/${name}`, `${out}/${label}.png`);
+  console.log(`${label}: ${name ? label + ".png" : "EXPORT FAILED"} :: ${measures}`);
 }
 ws.close();
 chrome.kill();

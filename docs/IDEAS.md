@@ -74,25 +74,6 @@ current view come from, and start new seeds from it.
 - Server side: storage, merging, and trust (a shared database accepts counts
   from anyone).
 
-## Newton seeding with the random walk's depth
-
-**Origin.** Trying Newton seeding (GitLab MR !3) in the explorer. With
-antenna starts it gives about 125× more histogram points per second than
-the walk, but its look is close to uniform seeding: less deep than the
-random walk ("The look changes: seed bias" in the [research doc](research/SEEDING_AND_ZOOM.md)).
-
-**Idea.** The walk starts at the origin and resets every 256 steps, so it
-favours seeds near the middle of the set. Measure where walk seeds come from
-(as `research/experiments/seed_bias.py` does for uniform seeds), then tune
-Newton's start points to match. A cheaper first step is to make the antenna
-share (`SOLVE_ANTENNA` in `metropolis.wgsl`) a setting, from less to more
-deep. The start map above is the general version.
-
-The antenna starts turned out to over-weight the real axis at the full view.
-Hybrid seeding, proposed in [`ISSUES.md`](ISSUES.md) ("Newton seeding
-over-weights the real axis"), keeps the walk's look wherever the walk finds
-seeds, which may make most of this entry unnecessary.
-
 ## Mutations scaled to the zoom
 
 **Origin.** [research doc](research/SEEDING_AND_ZOOM.md), section 2.

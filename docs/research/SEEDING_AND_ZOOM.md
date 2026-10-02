@@ -227,7 +227,8 @@ that touch the window, and the chain's `L·C` target then has to climb.
 
 ### Implementation (branch `feature/newton-seeding`, GitLab MR !3)
 
-Commits `f743ca2` (this section) and `c7c20ee` (antenna starts, below).
+Commits `f743ca2` (this section) and `c7c20ee` (antenna starts, below; removed
+again in MR !7, see "Validation without antenna starts").
 
 - `seeding = newton` (`p.seeding == 2`) in the explorer's "Seeds" select. It
   became the default in MR !3 (`3d76fa4`), after the user's measurements.
@@ -360,7 +361,11 @@ Measured by the user in the explorer at 1680 × 1189 (status lines):
   the walk's depth, tune the start points (or the start map in
   [`IDEAS.md`](../IDEAS.md))
   against walk seeds rather than uniform ones. Alternatively, make the
-  antenna share a "depth" setting.
+  antenna share a "depth" setting. (Later finding: the difference came from
+  the antenna starts. Without them, Newton matches the walk; see "Validation
+  without antenna starts".) (Later finding: the difference came from
+  the antenna starts. Without them, Newton matches the walk; see "Validation
+  without antenna starts".)
 
 **General options (not yet done):**
 
@@ -421,21 +426,92 @@ explorer's own Export PNG. Luminance of the display output from
   1.5, body 0.54, ghosts 0.41. The antenna starts are the whole effect.
 
 **What follows.**
-- The antenna share is a fix for one kind of view. At
+- The antenna starts were meant for one kind of view. At
   `#re=1.4&im=0&span=0.0148875`, 81% of good seeds are on the antenna, and
-  the starts brought back the faint minibrot there ("The look changes"
-  above). At the full view they distort the image. No fixed share is right
-  for both.
+  the starts seemed to bring back the faint minibrot there ("The look
+  changes" above). At the full view they distort the image. But the same
+  commit also widened n to [0, 64). The validation below shows that the
+  wider range alone keeps the faint minibrot, so the antenna starts were
+  never needed.
 - At the full view, all four runs fill the image at about the same rate
   (3.7–4.2G points/s): seeds are easy to find there, so Newton gains nothing.
   Its 125× advantage (see "Implementation") only appears when zoomed in, where
   walk and uniform seeds become rare.
-- Both point to hybrid seeding: walk or uniform while they find seeds, and
-  Newton only where they stop. The general fix is still the start map in
-  `IDEAS.md`. This is tracked in `ISSUES.md`.
+- Hybrid seeding (walk or uniform while they find seeds, Newton only where
+  they stop) looked like the fix. Removing the antenna starts turned out to
+  be enough (below), so hybrid seeding stays an option, not a need.
 - GPU busy read 98% in every run, in headless Chrome. The user's earlier
   report of about 50% GPU use came from a visible window, before the measure
   existed; see that issue.
+
+### Validation without antenna starts (MR !7)
+
+The antenna starts are removed (`60d1b78`): Newton starts only in exclusion
+boundary cells, with n in [0, 64). Validated by the user's method: compare
+renders at default settings where a trustworthy reference exists, then
+zoom in step by step.
+- **References.** Naive sampling (MR !8) is accurate, the unbiased
+  Buddhabrot, but it starves when zoomed in. The walk is the reference for
+  the intended look, since Metropolis deliberately departs from naive (ADR
+  0002).
+- **Method.** Renders were captured in headless Chrome with
+  `experiments/capture.ts`. Two dev servers ran side by side: the current
+  shader and the fix. Default settings, 1352 × 913.
+- **Similarity.** Measured with `experiments/compare_renders.py`: Spearman
+  rank correlation of block-mean luminance. It asks whether the same regions
+  are bright, which stays fair across exports with their own tone mapping
+  and very different point counts.
+
+**Views from `VIEWS.md`, 45 s per render:**
+
+| view | points/s: walk / antenna 0.5 / no antenna | look of no antenna |
+|---|---|---|
+| full, `span=4` | 4.08G / 3.73G / **4.20G** | matches naive (rank 1.000, as uniform; antenna 0.5: 0.995) and has no bright axis |
+| off-centre (the user's first view) | 1.34G / 1.80G / **1.97G** | rank 0.994 against the walk (antenna 0.5: 0.992) |
+| antenna, `re=1.4`, span 0.015 | 4.55M / **541M** / 199M | matches the walk, faint minibrot included: mean difference 0.034 against 0.145 |
+| deep, `re=-0.1, im=0.75`, span 0.001 | 190K / 5.3M / **5.46M** | the same structure as antenna 0.5; the walk is mostly noise |
+
+**Zoom ladder towards `re=1.217075, im=0`** (the user's view, on the real
+axis, where antenna starts help most), 150 s per render, points/s:
+
+| span | naive | walk | antenna 0.5 | no antenna |
+|---|---|---|---|---|
+| 4 | 1.08G | 3.98G | 3.29G | **3.92G** |
+| 0.4756 | 1.66M | 193M | **611M** | 243M |
+| 0.05 | 8.8K | 436K | **16.6M** | 8.0M |
+| 0.005 | 183 | 370K | **150M** | 107M |
+
+Rank correlation of block luminance. The blocks are 16 px at spans 4 and
+0.4756, 32 px at 0.05 and 64 px at 0.005, so the sparse naive renders still
+estimate each block:
+
+| span | walk vs naive | antenna 0.5 vs naive | no antenna vs naive | antenna 0.5 vs walk | no antenna vs walk |
+|---|---|---|---|---|---|
+| 4 | 1.000 | 0.999 | 1.000 | 0.999 | 1.000 |
+| 0.4756 | 0.405 | 0.248 | **0.494** | 0.942 | **0.985** |
+| 0.05 | 0.219 | 0.242 | 0.224 | **0.942** | 0.929 |
+| 0.005 | 0.209 | 0.208 | 0.207 | 0.998 | 0.998 |
+
+- **Look.**
+  - At span 0.4756, the version without antenna starts looks like the walk:
+    the off-axis ghosts are as bright as the walk's. With antenna starts
+    they dim, and the on-axis ghosts brighten. It is also the Metropolis
+    render closest to naive there.
+  - At 0.05 and 0.005 both Newton versions look alike.
+  - From 0.4756 down, every Metropolis render departs from naive (rank
+    0.2–0.5). That departure is the intended look, not an error.
+- **Naive starves.** 183 points/s at span 0.005, 27K points in 150 s. Below
+  about span 0.05 it is no longer a usable reference, even at 150 s.
+- **Speed.** Without antenna starts, Newton is equal or faster at the full,
+  off-centre and deep views. On this real-axis ladder and the re=1.4 view
+  it is 1.4–2.7× slower than with them, but still 18–290× faster than the
+  walk.
+- **GPU busy** read about 98% in all 16 ladder renders, including while
+  the user worked in another macOS account.
+
+**Conclusion.** Antenna starts removed. Newton without them keeps the walk's
+look from the full view down to span 0.005. It loses at most 2.7× in speed,
+and only on views centred on the real axis.
 
 ## 2. Mutations scaled to the zoom
 
@@ -618,4 +694,8 @@ shader (six bindings, 104-byte `Chain`), as on main since MR !3.
 
 [`axis_bias.py`](experiments/axis_bias.py) (needs numpy and pillow) measures
 those renders: the brightness of the real axis, of the body and of off-axis
-ghosts.
+ghosts. [`compare_renders.py`](experiments/compare_renders.py) compares
+renders of one view block by block, for "Validation without antenna starts".
+The ladder there ran `capture.ts` once per span and server. Each mode was a
+seeding name or a `label:parameters` pair, such as `naive:sampler=naive`.
+The naive sampler needs MR !8.
