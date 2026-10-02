@@ -171,10 +171,3 @@ layer costs about 800 MB at 8192².
 them per thread, or accumulate per-thread tiles. A faster scalar orbit loop
 (GitHub PR #8, closed) made the kernel 2.4× faster but the whole generator
 only 1.33×, because of these writes; revisit it only after them.
-
-## A naive sampler in the explorer, for comparison
-
-**Origin.** The user (October 2026). The explorer is Metropolis first because
-naive sampling is useless when zoomed in
-([ADR 0001](adr/0001-web-explorer-is-a-separate-product.md)), but a naive mode
-would show what Metropolis changes and how much faster it is.

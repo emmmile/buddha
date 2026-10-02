@@ -31,6 +31,7 @@ const canvas = element<HTMLCanvasElement>("image");
 const message = element<HTMLParagraphElement>("message");
 const measureList = element<HTMLDListElement>("measures");
 const exportButton = element<HTMLButtonElement>("export");
+const metropolisFields = element<HTMLFieldSetElement>("metropolis");
 
 const samplerNumbers = [
   "cre",
@@ -47,8 +48,9 @@ const samplerNumbers = [
   "exponent_c",
   "chain_scale",
 ] as const;
-// Seeding modes, in the order of the shader's p.seeding.
+// Seeding modes and samplers, in the order of the shader's p.seeding and p.sampler.
 const seedings = ["walk", "uniform", "newton"];
+const samplers = ["metropolis", "naive"];
 const displayNames = ["exposure", "gamma", "saturation", "texture", "sharpness"] as const;
 const defaults: Record<string, number | string> = {
   lowr: 512,
@@ -62,6 +64,7 @@ const defaults: Record<string, number | string> = {
   exponent_c: 1,
   chain_scale: 1,
   seeding: "newton",
+  sampler: "metropolis",
   exposure: 0.2, // stops
   gamma: 0.3,
   saturation: 100,
@@ -81,6 +84,12 @@ function fullViewPreset() {
   field(form, "span").value = String(FULL_SPAN);
   for (const [name, value] of Object.entries(defaults)) field(form, name).value = String(value);
   updateDisplayLabels();
+  updateSamplerFields();
+}
+
+// The Metropolis settings do not apply to naive sampling.
+function updateSamplerFields() {
+  metropolisFields.disabled = field(form, "sampler").value === "naive";
 }
 
 function updateDisplayLabels() {
@@ -131,8 +140,9 @@ function perSecond(amount: number, seconds: number) {
   return seconds > 0 ? formatSamples(amount / seconds) : "0";
 }
 
+// A percentage, or a dash when there is nothing to divide by (no proposals in naive sampling).
 function share(part: number, whole: number) {
-  return whole ? format3((100 * part) / whole) : "0";
+  return whole ? `${format3((100 * part) / whole)}%` : "–";
 }
 
 function errorMessage(error: unknown) {
@@ -203,13 +213,17 @@ let displayForced = true;
 let lastDraw = 0;
 let lastMeasures = 0;
 
-// The sampler fields by name, with the seeding mode as its option value. Shared by the URL hash
-// and the PNG metadata.
+// The sampler fields by name, with the sampler and seeding mode as their option values. Shared by
+// the URL hash and the PNG metadata.
 function samplerValues() {
   const numbers = Object.fromEntries(
     samplerNumbers.map((name) => [name, Number(field(form, name).value)])
   ) as Record<(typeof samplerNumbers)[number], number>;
-  return { ...numbers, seeding: field(form, "seeding").value };
+  return {
+    ...numbers,
+    sampler: field(form, "sampler").value,
+    seeding: field(form, "seeding").value,
+  };
 }
 
 // The sampler takes pixels per complex unit, derived from the span at the current size.
@@ -218,7 +232,9 @@ function samplerSettings(): SamplerSettings {
     samplerNumbers.map((name) => [name, Number(field(form, name).value)])
   ) as Record<(typeof samplerNumbers)[number], number>;
   const seeding = Math.max(0, seedings.indexOf(field(form, "seeding").value));
-  return { ...settings, scale: Math.min(width, height) / span, seeding, width, height };
+  const sampler = Math.max(0, samplers.indexOf(field(form, "sampler").value));
+  const scale = Math.min(width, height) / span;
+  return { ...settings, scale, seeding, sampler, width, height };
 }
 
 function displaySettings(): DisplaySettings {
@@ -288,6 +304,7 @@ function applyHash() {
   }
   validSettings(false);
   updateDisplayLabels();
+  updateSamplerFields();
 }
 
 function settingsHash() {
@@ -382,15 +399,15 @@ const measures: [string, (p: Progress) => string][] = [
   ["orbits", ({ orbits }) => formatSamples(orbits)],
   ["orbits/s", ({ orbits, elapsed }) => perSecond(orbits, elapsed)],
   // How well mutations are sized: near 100% they barely move, low and most are wasted.
-  ["accepted", ({ m }) => `${share(m.accepted, m.proposals)}%`],
+  ["accepted", ({ m }) => share(m.accepted, m.proposals)],
   // Orbits that reached the image, of all computed (seed attempts and proposals).
-  ["drawn", ({ m, orbits }) => `${share(m.escaped, orbits)}%`],
+  ["drawn", ({ m, orbits }) => share(m.escaped, orbits)],
   // Seed attempts per chain started: the cost of finding seeds, which Newton seeding cuts.
-  ["seeds/chain", ({ m }) => (m.chains ? format3(m.seeds / m.chains) : "0")],
+  ["seeds/chain", ({ m }) => (m.chains ? format3(m.seeds / m.chains) : "–")],
   // GPU time over wall-clock time while running; estimated (~) without timestamp queries.
   [
     "GPU busy",
-    ({ m, elapsed }) => `${gpu.sampler.timestamps ? "" : "~"}${share(m.gpuSeconds, elapsed)}%`,
+    ({ m, elapsed }) => `${gpu.sampler.timestamps ? "" : "~"}${share(m.gpuSeconds, elapsed)}`,
   ],
   ["size", sizeText],
 ];
@@ -465,6 +482,7 @@ form.addEventListener("input", (event) => {
 });
 form.addEventListener("change", (event) => {
   const name = (event.target as HTMLInputElement).name;
+  if (name === "sampler") updateSamplerFields();
   if (isDisplayName(name)) updateHashLater();
   else if (validSettings(true)) restartLater();
 });

@@ -91,6 +91,16 @@
           </div>
         </fieldset>
         <fieldset>
+          <legend>Sampler</legend>
+          <label
+            title="Metropolis chains, or naive uniform samples each drawn once: the unbiased Buddhabrot, which finds little when zoomed in"
+            >Sampler<select name="sampler">
+              <option value="metropolis">Metropolis</option>
+              <option value="naive">Naive</option>
+            </select></label
+          >
+        </fieldset>
+        <fieldset id="metropolis">
           <legend>Metropolis sampler</legend>
           <label title="Mutation radius, in percent of the view's shorter side"
             >Radius %<input
