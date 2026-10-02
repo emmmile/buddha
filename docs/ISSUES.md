@@ -38,7 +38,7 @@ artifacts start much earlier than the existing warning (`1/scale < 1e-6`, in
 **Proposed short-term fix.** Limit the span to **0.005** for now, as the
 user suggested. 0.001 is where artifacts showed, so 0.005 leaves a margin.
 - Clamp in `geometry.ts`'s `setView` (wheel and pinch zoom), when applying a
-  URL hash, and through the scale field's limit.
+  URL hash, and through the Span field's minimum.
 - Replace the `1/scale < 1e-6` "Beyond single precision" message, which
   would no longer fire.
 - The limit is a span (window size). Express it as a constant next to
@@ -101,8 +101,8 @@ utilized on average while the explorer renders.
    with MR !3 `SOLVE`) run different code within one SIMD group.
 4. **Register pressure.** The `Chain` struct is 104 bytes with MR !3.
 
-**First step.** Measure the duty cycle. Compare GPU orbits/s (from timestamp
-queries) with wall-clock orbits/s, both shown in the explorer's stats.
+**First step.** Measure the duty cycle: the explorer's *GPU busy* measure (GPU
+time from timestamp queries over wall-clock time) shows it directly.
 
 **Proposed fixes.**
 - Queue 3–4 dispatches.

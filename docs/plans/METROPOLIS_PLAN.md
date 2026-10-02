@@ -13,8 +13,9 @@
 > - **The WebGPU explorer** (GitLab MR !1, `0bd8588`) replaced the native
 >   browser UI (`metal/browser_prototype.mm`, later `buddha-browser`) this
 >   plan used for comparisons. It runs a WGSL port of the lane.
-> - **Newton seeding** in the explorer only (GitLab MR !3, open): a new
->   answer to rule 5 and to the "seed pool for zooms" item below. See
+> - **Newton seeding** in the explorer only (GitLab MR !3), now its default
+>   seeding: a new answer to rule 5 and to the "seed pool for zooms" item
+>   below. See
 >   [`research/SEEDING_AND_ZOOM.md`](../research/SEEDING_AND_ZOOM.md).
 >
 > Phase 0 (the legacy sampler in the UI) and Phase 3 (layers mixed at TIFF

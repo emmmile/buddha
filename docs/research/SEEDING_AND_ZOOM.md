@@ -254,8 +254,10 @@ Commits `f743ca2` (this section) and `c7c20ee` (antenna starts, below).
   - The map stores only Im ≤ 0 (8192 × 4096 square cells over
     [−2, 2] × [−2, 0]). The other half is mirrored, so the start point
     takes a random sign for Im.
-- A new counter, `solve` (Newton orbit steps). The debug line shows
-  `seeds/chain` and `solve steps/chain`. `Chain` grew from 80 to 104 bytes.
+- A new counter, `solve` (Newton orbit steps). The debug line showed
+  `seeds/chain` and `solve steps/chain`; since MR !5 replaced it, the measures
+  under the settings show `seeds/chain` only. `Chain` grew from 80 to 104
+  bytes.
 - Not ported to `core/buddha_kernel.h` / `buddha++` yet.
 
 ### GPU smoke test (f32, Deno WebGPU, Apple GPU)
@@ -397,8 +399,8 @@ proposal is wasted. Options:
 - The sampler is not meant to be unbiased
   ([`METROPOLIS_PLAN.md`](../plans/METROPOLIS_PLAN.md)), so the
   Hastings factor is a choice about the look, not about correctness.
-- Watch: the accepted % in the status line and the debug line's
-  `% drawn` (`escaped / orbits`).
+- Watch: the *accepted* and *drawn* (`escaped / orbits`) measures under the
+  settings.
 
 ## 3. Seed pool, warm restart, and the database
 
@@ -478,8 +480,8 @@ Likely causes, roughly by expected impact:
    - Fixes: 3–4 in flight; accumulate counters on the GPU and read them back
      every N dispatches (or ring buffers of readbacks); several passes per
      command buffer.
-   - Measure first: the debug line's "GPU orbits/s" (timestamp queries) against
-     the status line's wall-clock orbits/s is the duty cycle.
+   - Measure first: the *GPU busy* measure under the settings (GPU time from
+     timestamp queries over wall-clock time) is the duty cycle.
 2. **Fixed `THREADS = 32768`.** Tuned for the M5 Pro (16 cores × 2048).
    Scale it with the adapter, or tune it empirically.
 3. **SIMD divergence.** Lanes in `REDRAW` and `EVALUATE_*` run different code
@@ -509,7 +511,7 @@ merged as `c506f3e`):
 
 ## Plan
 
-Item 1 is GitLab MR !3; the rest is open.
+Item 1 is done (GitLab MR !3); the rest is open.
 
 1. Newton seeding: `SOLVE` mode, boundary starting points, a `seeding`
    option. Compare `seeds/chains` and image quality against walk and uniform
@@ -542,8 +544,7 @@ CPU in f64 and need numpy; run them from that directory with
 The TypeScript ones use Deno's WebGPU and read
 `web/src/shaders/metropolis.wgsl` and `data/exclusion.map` relative to the
 repository; Deno fetches `fzstd` from npm. They expect the Newton seeding
-shader (six bindings, 104-byte `Chain`), so they match MR !3, not the shader
-before it.
+shader (six bindings, 104-byte `Chain`), as on main since MR !3.
 
 - [`compile.ts`](experiments/compile.ts) (`deno run -A compile.ts`): compiles
   `metropolis.wgsl` and creates both pipelines with the six-binding layout.
