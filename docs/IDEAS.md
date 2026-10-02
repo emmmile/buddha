@@ -88,6 +88,11 @@ Newton's start points to match. A cheaper first step is to make the antenna
 share (`SOLVE_ANTENNA` in `metropolis.wgsl`) a setting, from less to more
 deep. The start map above is the general version.
 
+The antenna starts turned out to over-weight the real axis at the full view.
+Hybrid seeding, proposed in [`ISSUES.md`](ISSUES.md) ("Newton seeding
+over-weights the real axis"), keeps the walk's look wherever the walk finds
+seeds, which may make most of this entry unnecessary.
+
 ## Mutations scaled to the zoom
 
 **Origin.** [research doc](research/SEEDING_AND_ZOOM.md), section 2.

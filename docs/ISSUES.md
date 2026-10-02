@@ -59,6 +59,40 @@ section 5, "Beyond f32"). Until then, the limit keeps the explorer honest.
 - Whether the limit should sit higher or lower than 0.005 once it is in
   place.
 
+## Newton seeding over-weights the real axis (explorer)
+
+**Status:** open. Found by the user in October 2026, measured the same day.
+Newton seeding has been the default since GitLab MR !3, so this changes the
+default look.
+
+**Symptom.** At the full view and views near it, the real axis is a bright
+line with glowing minibrots, off-axis minibrot ghosts are dim, and the body is
+darker and more golden than with walk or uniform seeding. At
+`#re=0&im=0&span=4`, the body is half as bright as with uniform seeding
+(0.21 against 0.41), and the off-axis ghosts a third (0.14 against 0.39).
+
+**Why.** `SOLVE_ANTENNA = 0.5` in `metropolis.wgsl` starts half of all Newton
+attempts on the antenna, so about half the chains have real or nearly real c.
+Their orbits lie on the real axis, which takes a large share of the counts.
+The display scales to the brightest pixels, so everything else dims. With the
+share at 0, Newton matches walk and uniform. Measurements and renders: "The
+antenna starts over-weight the real axis" in
+[`research/SEEDING_AND_ZOOM.md`](research/SEEDING_AND_ZOOM.md).
+
+The share was added for `#re=1.4&im=0&span=0.0148875`, where 81% of good
+seeds really are on the antenna. No fixed share suits both kinds of view.
+
+**Proposed fix: hybrid seeding.** Each lane seeds with the walk (or uniform)
+as before. It switches to Newton only after the walk has failed for a while,
+and drops the antenna starts. Where walk seeds are found, the image keeps
+the walk's look; at the full view Newton gains nothing there anyway (all modes
+fill at 3.7–4.2G points/s). When zoomed in, the walk fails and Newton takes
+over. The antenna starts would be unnecessary, or reduced to a small share
+for windows on the real axis. Measure the result with
+`research/experiments/capture.ts` and `axis_bias.py` at the full view, and by
+eye at the re=1.4 view. The general fix is the start map in
+[`IDEAS.md`](IDEAS.md).
+
 ## Display adjustments differ between the explorer and the CLI
 
 **Status:** open. Confirmed as a goal by the user (October 2026): display
@@ -103,6 +137,11 @@ utilized on average while the explorer renders.
 
 **First step.** Measure the duty cycle: the explorer's *GPU busy* measure (GPU
 time from timestamp queries over wall-clock time) shows it directly.
+In headless Chrome at the full view it read 98% for every seeding mode
+(research doc, "The antenna starts over-weight the real axis"). The 50%
+report predates the measure and may have come from the system's GPU history,
+which measures something else. Check the measure in a visible window before
+working on the causes below.
 
 **Proposed fixes.**
 - Queue 3–4 dispatches.

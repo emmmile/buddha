@@ -379,6 +379,64 @@ Measured by the user in the explorer at 1680 × 1189 (status lines):
   large steps) make the seed distribution matter less, at the cost of the
   current look's character.
 
+### The antenna starts over-weight the real axis (full view)
+
+**Observation (by the user, October 2026).** With Newton seeding the default
+(MR !3), the whole Buddhabrot and views near it look different from uniform
+or walk seeding, even with default settings:
+- the real axis is a bright line with glowing minibrots on it;
+- off-axis minibrot ghosts are much dimmer;
+- the body is darker and more golden.
+
+The first case was the user's pair of exports at
+`#re=0.693517107715202&im=-0.650739363984434&span=1.13786101359672`
+(uniform against Newton, 2726 × 1980).
+
+**Measurement.** Full view (`#re=0&im=0&span=4`, 1352 × 913, default
+settings), 45 s per mode, captured with `experiments/capture.ts` through the
+explorer's own Export PNG. Luminance of the display output from
+`experiments/axis_bias.py`:
+- "axis" and "beside" are the centre column (Im = 0) and the columns 20–60
+  pixels to either side, outside the main body;
+- "body" is the main body's mean;
+- "ghosts" is the brighter of the two off-axis minibrot ghosts below the body.
+
+| seeding | axis | beside | axis ÷ beside | body | ghosts | body blue ÷ red | points/s | seeds/chain |
+|---|---|---|---|---|---|---|---|---|
+| walk | 0.107 | 0.074 | 1.4 | 0.561 | 0.435 | 1.18 | 4.08G | 19.2 |
+| uniform | 0.102 | 0.058 | 1.8 | 0.407 | 0.389 | 1.04 | 3.91G | 2.26 |
+| **newton** (`SOLVE_ANTENNA = 0.5`) | 0.098 | 0.039 | **2.5** | **0.211** | **0.139** | 0.99 | 3.73G | 5.45 |
+| newton, `SOLVE_ANTENNA = 0` | 0.108 | 0.072 | 1.5 | 0.542 | 0.409 | 1.02 | 4.20G | 6.88 |
+
+**Why.**
+- Half of Newton's starts are on the antenna: the real axis in [−2, −1.4],
+  with only ±0.01 imaginary jitter. Newton converges near its start, so about
+  half of all chains start at real or nearly real c.
+- A real c has an entirely real orbit, so all of its points land on the Im = 0
+  line. The axis collects a large share of all histogram counts.
+- The display scales each channel to its brightest pixels, so everything off
+  the axis dims: the body to about half of uniform's, the ghosts to about a
+  third.
+- With the antenna share at 0, Newton matches walk and uniform: axis ratio
+  1.5, body 0.54, ghosts 0.41. The antenna starts are the whole effect.
+
+**What follows.**
+- The antenna share is a fix for one kind of view. At
+  `#re=1.4&im=0&span=0.0148875`, 81% of good seeds are on the antenna, and
+  the starts brought back the faint minibrot there ("The look changes"
+  above). At the full view they distort the image. No fixed share is right
+  for both.
+- At the full view, all four runs fill the image at about the same rate
+  (3.7–4.2G points/s): seeds are easy to find there, so Newton gains nothing.
+  Its 125× advantage (see "Implementation") only appears when zoomed in, where
+  walk and uniform seeds become rare.
+- Both point to hybrid seeding: walk or uniform while they find seeds, and
+  Newton only where they stop. The general fix is still the start map in
+  `IDEAS.md`. This is tracked in `ISSUES.md`.
+- GPU busy read 98% in every run, in headless Chrome. The user's earlier
+  report of about 50% GPU use came from a visible window, before the measure
+  existed; see that issue.
+
 ## 2. Mutations scaled to the zoom
 
 A mutation Δc moves orbit point k by about `d_k · Δc`. |d_k| is often in the
@@ -552,3 +610,12 @@ shader (six bindings, 104-byte `Chain`), as on main since MR !3.
 - [`smoke.ts`](experiments/smoke.ts) (`deno run -A smoke.ts`): runs the
   sampler headless and prints counters per seeding mode, as in the GPU smoke
   test table. It runs on the GPU.
+- [`capture.ts`](experiments/capture.ts): renders explorer views in headless
+  Chrome through a running `yarn dev` and saves them with the explorer's
+  Export PNG, one per seeding mode, printing the measures. Usage is in its
+  header. It runs on the GPU for the given time per mode. It made the
+  full-view renders in "The antenna starts over-weight the real axis".
+
+[`axis_bias.py`](experiments/axis_bias.py) (needs numpy and pillow) measures
+those renders: the brightness of the real axis, of the body and of off-axis
+ghosts.

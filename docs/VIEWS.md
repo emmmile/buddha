@@ -8,6 +8,8 @@ random walk before).
 
 | view | hash | why it is useful |
 |---|---|---|
+| Full view | `#re=0&im=0&span=4` | The default view. With Newton seeding and antenna starts, the real axis is a bright line and the body dims (see "Newton seeding over-weights the real axis" in [`ISSUES.md`](ISSUES.md)). Compare `&seeding=walk`, `uniform` and `newton`. |
+| Off-centre body | `#re=0.693517107715202&im=-0.650739363984434&span=1.13786101359672` | Where the user first saw the real-axis bias: uniform against Newton. |
 | Antenna minibrots | `#re=1.4&im=0&span=0.0148875` | Deep minibrots with a fainter one behind them. The random walk draws both; Newton seeding with boundary starts only drew the deep ones. This view exposed the seed bias ("The look changes: seed bias" in [`research/SEEDING_AND_ZOOM.md`](research/SEEDING_AND_ZOOM.md)). Compare seeding modes here. |
 | Near 1.217, wide | `#re=1.2170756143656&im=0&span=0.4756&seeding=newton` | To confirm with the user. |
 | Near 1.217, at the proposed span limit | `#re=1.217075&im=0&span=0.005&seeding=newton` | To confirm with the user. Same centre as above at span 0.005, the limit proposed for the precision artifacts in [`ISSUES.md`](ISSUES.md). |
