@@ -39,6 +39,7 @@ export class Display {
   private captureGroup?: GPUBindGroup;
   private textureGroups: GPUBindGroup[] = [];
   private sharpnessGroups: GPUBindGroup[] = [];
+  private sized: GPUBuffer[] = []; // the buffers of the current size, freed on the next
 
   constructor(
     device: GPUDevice,
@@ -84,12 +85,19 @@ export class Display {
     });
   }
 
+  // Takes over histogram too: buffers are tens of bytes per pixel, so a resize frees the old
+  // ones rather than waiting for the garbage collector. Work already submitted keeps them alive.
   setHistogram(histogram: GPUBuffer, width: number, height: number) {
+    for (const buffer of this.sized) buffer.destroy();
+    this.sized = [histogram];
     this.width = width;
     this.height = height;
     const pixels = width * height;
-    const storage = (size: number) =>
-      this.device.createBuffer({ size, usage: GPUBufferUsage.STORAGE });
+    const storage = (size: number) => {
+      const buffer = this.device.createBuffer({ size, usage: GPUBufferUsage.STORAGE });
+      this.sized.push(buffer);
+      return buffer;
+    };
     const color = storage(pixels * 16);
     const luma = storage(pixels * 4);
     const scratch = storage(pixels * 4);
@@ -131,6 +139,7 @@ export class Display {
           size: 16,
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
+        this.sized.push(uniform);
         this.device.queue.writeBuffer(
           uniform,
           0,

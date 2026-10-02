@@ -16,12 +16,12 @@
             <label>Center Im<input name="cim" type="number" step="any" value="0" required /></label>
           </div>
           <label
-            >Scale<input
-              name="scale"
+            >Span<input
+              name="span"
               type="number"
-              min="0.000001"
+              min="1e-12"
               step="any"
-              title="Pixels per complex unit"
+              title="Complex units across the view's shorter side"
               required
           /></label>
         </fieldset>
@@ -188,29 +188,17 @@
             title="Save the image on screen as a PNG, with the settings embedded">
             Export PNG
           </button>
-          <button
-            type="button"
-            class="secondary"
-            id="copy-link"
-            title="Copy a link to this view and its settings">
-            Copy link
-          </button>
         </div>
       </form>
+      <section id="stats">
+        <p id="message">Starting…</p>
+        <dl id="measures"></dl>
+      </section>
     </aside>
     <main>
       <div id="viewport" title="Drag to pan; scroll or pinch to zoom">
         <canvas id="image" aria-label="Progressive Buddhabrot preview"></canvas>
       </div>
-      <footer>
-        <div class="line">
-          <span id="message">Starting…</span><span id="status"></span>
-          <label class="toggle" title="Show sampler diagnostics"
-            ><input type="checkbox" id="debug" />Debug</label
-          >
-        </div>
-        <div class="line" id="debug-status" hidden></div>
-      </footer>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

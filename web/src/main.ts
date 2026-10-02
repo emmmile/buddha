@@ -4,9 +4,9 @@ import "./style.css";
 import { Display, type DisplaySettings } from "./display";
 import { loadExclusionMap } from "./exclusion";
 import { element, field } from "./form";
-import { attachGeometry, viewportPixelsFor } from "./geometry";
+import { attachGeometry, fitPixels, observeDevicePixels, sameSize, type Size } from "./geometry";
 import { encodePng } from "./png";
-import { Sampler, type SamplerSettings } from "./sampler";
+import { Sampler, type Metrics, type SamplerSettings } from "./sampler";
 import { decodeHash, encodeHash } from "./share";
 import displaySource from "./shaders/display.wgsl?raw";
 import metropolisSource from "./shaders/metropolis.wgsl?raw";
@@ -18,22 +18,24 @@ const PREVIEW_MS = 100;
 const HASH_MS = 300;
 // Complex units across the shorter side of the viewport in the full view.
 const FULL_SPAN = 4;
+// A new canvas size restarts the render once it has been still this long, so dragging a window
+// edge restarts once rather than on every step.
+const RESIZE_MS = 200;
+// Refresh interval of the measures under the settings.
+const MEASURES_MS = 250;
 
 const form = element<HTMLFormElement>("controls");
 const pauseButton = element<HTMLButtonElement>("pause");
 const viewport = element<HTMLDivElement>("viewport");
 const canvas = element<HTMLCanvasElement>("image");
-const message = element<HTMLSpanElement>("message");
-const statusLine = element<HTMLSpanElement>("status");
-const debugLine = element<HTMLDivElement>("debug-status");
-const debugToggle = element<HTMLInputElement>("debug");
+const message = element<HTMLParagraphElement>("message");
+const measureList = element<HTMLDListElement>("measures");
 const exportButton = element<HTMLButtonElement>("export");
-const copyLinkButton = element<HTMLButtonElement>("copy-link");
 
 const samplerNumbers = [
   "cre",
   "cim",
-  "scale",
+  "span",
   "lowr",
   "highr",
   "lowg",
@@ -72,10 +74,9 @@ const viewKeys = ["re", "im", "span"];
 const isDisplayName = (name: string) => (displayNames as readonly string[]).includes(name);
 
 function fullViewPreset() {
-  const { width, height } = viewportPixelsFor(viewport);
   field(form, "cre").value = "0";
   field(form, "cim").value = "0";
-  field(form, "scale").value = String(Math.min(width, height) / FULL_SPAN);
+  field(form, "span").value = String(FULL_SPAN);
   for (const [name, value] of Object.entries(defaults)) field(form, name).value = String(value);
   updateDisplayLabels();
 }
@@ -136,21 +137,22 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
-function setDebug(enabled: boolean) {
-  debugToggle.checked = enabled;
-  debugLine.hidden = !enabled;
-  try {
-    localStorage.setItem("debug", enabled ? "1" : "0");
-  } catch {
-    // Storage may be unavailable; the toggle still works for this page.
-  }
-}
-
 async function shaderModule(device: GPUDevice, name: string, code: string) {
   const module = device.createShaderModule({ label: name, code });
   const errors = (await module.getCompilationInfo()).messages.filter((m) => m.type === "error");
   if (errors.length) throw new Error(`${name}:${errors[0].lineNum}: ${errors[0].message}`);
   return module;
+}
+
+// The largest histogram the device can render. The largest display buffer takes 16 bytes per
+// pixel (the histogram 12), each display pass dispatches one 256-lane workgroup per 256 pixels
+// along one axis, and the canvas and captures are textures of the histogram's size.
+function sizeLimits(limits: GPUSupportedLimits) {
+  const bytes = Math.min(limits.maxStorageBufferBindingSize, limits.maxBufferSize);
+  return {
+    pixels: Math.min(Math.floor(bytes / 16), limits.maxComputeWorkgroupsPerDimension * 256),
+    side: limits.maxTextureDimension2D,
+  };
 }
 
 async function startGpu() {
@@ -163,6 +165,7 @@ async function startGpu() {
     requiredLimits: {
       maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize,
       maxBufferSize: adapter.limits.maxBufferSize,
+      maxTextureDimension2D: adapter.limits.maxTextureDimension2D,
     },
   });
   device.lost.then((info) => {
@@ -179,19 +182,24 @@ async function startGpu() {
   ]);
   return {
     device,
+    sizeLimits: sizeLimits(device.limits),
     sampler: new Sampler(device, samplerModule, exclusion, timestamps),
     display: new Display(device, displayModule, context, format),
   };
 }
 
 let gpu: Awaited<ReturnType<typeof startGpu>>;
+// The canvas on screen in device pixels, once measured, and the histogram size: the same, unless
+// the screen is larger than the GPU limits allow or a resize is still settling.
+let shown: Size | undefined;
 let width = 0;
 let height = 0;
+let resizeTimer: ReturnType<typeof setTimeout> | undefined;
 let restartPending = true;
 let displayDirty = true;
 let displayForced = true;
 let lastDraw = 0;
-let lastStatus = 0;
+let lastMeasures = 0;
 
 // The sampler fields by name, with the seeding mode as its option value. Shared by the URL hash
 // and the PNG metadata.
@@ -202,12 +210,13 @@ function samplerValues() {
   return { ...numbers, seeding: field(form, "seeding").value };
 }
 
+// The sampler takes pixels per complex unit, derived from the span at the current size.
 function samplerSettings(): SamplerSettings {
-  const settings = Object.fromEntries(
+  const { span, ...settings } = Object.fromEntries(
     samplerNumbers.map((name) => [name, Number(field(form, name).value)])
   ) as Record<(typeof samplerNumbers)[number], number>;
   const seeding = field(form, "seeding").value === "uniform" ? 1 : 0;
-  return { ...settings, seeding, width, height };
+  return { ...settings, scale: Math.min(width, height) / span, seeding, width, height };
 }
 
 function displaySettings(): DisplaySettings {
@@ -216,11 +225,16 @@ function displaySettings(): DisplaySettings {
   ) as unknown as DisplaySettings;
 }
 
-// Reallocates the histogram when the viewport size changes, then starts a new render.
+function renderSize() {
+  return fitPixels(shown!, gpu.sizeLimits);
+}
+
+// Reallocates the histogram when the canvas size changes, then starts a new render.
 function restart() {
   restartPending = false;
-  const size = viewportPixelsFor(viewport);
-  if (size.width !== width || size.height !== height) {
+  clearTimeout(resizeTimer);
+  const size = renderSize();
+  if (!sameSize(size, { width, height })) {
     width = canvas.width = size.width;
     height = canvas.height = size.height;
     const histogram = gpu.device.createBuffer({
@@ -230,6 +244,7 @@ function restart() {
     gpu.sampler.setHistogram(histogram);
     gpu.display.setHistogram(histogram, width, height);
   }
+  canvas.style.visibility = "";
   if (!validSettings(false)) {
     message.textContent = "Invalid settings";
     return;
@@ -260,10 +275,7 @@ function applyHash() {
   };
   set("cre", re);
   set("cim", im);
-  if (typeof span === "number" && span > 0) {
-    const { width, height } = viewportPixelsFor(viewport);
-    set("scale", Math.min(width, height) / span);
-  }
+  set("span", span);
   for (const [name, value] of Object.entries(values)) set(name, value);
   for (const color of ["r", "g", "b"]) {
     const [low, high] = [`low${color}`, `high${color}`];
@@ -277,14 +289,8 @@ function applyHash() {
 }
 
 function settingsHash() {
-  const { cre, cim, scale, ...values } = samplerValues();
-  const { width, height } = viewportPixelsFor(viewport);
-  const span = Math.min(width, height) / scale;
-  return encodeHash(
-    { re: cre, im: cim, span, ...values, ...displaySettings() },
-    hashDefaults,
-    viewKeys
-  );
+  const { cre, cim, ...values } = samplerValues();
+  return encodeHash({ re: cre, im: cim, ...values, ...displaySettings() }, hashDefaults, viewKeys);
 }
 
 let hashTimer: ReturnType<typeof setTimeout> | undefined;
@@ -307,25 +313,18 @@ function updateHashLater() {
   hashTimer = setTimeout(updateHash, HASH_MS);
 }
 
-async function copyLink() {
-  updateHash();
-  try {
-    await navigator.clipboard.writeText(location.href);
-    message.textContent = "Link copied";
-  } catch (error) {
-    message.textContent = `Copy failed: ${errorMessage(error)}`;
-  }
-}
-
 // Everything needed to reproduce the exported image: the view, the sampler and display
-// settings, and how far sampling had got. Stored as JSON in the PNG.
+// settings, and how far sampling had got. Stored as JSON in the PNG. The window is the span, as
+// in links; scale, pixels per complex unit at this size, stays for readers from before span.
 function exportMetadata() {
   const m = gpu.sampler.metrics;
+  const values = samplerValues();
   return {
     format: "buddha-explorer/1",
     width,
     height,
-    ...samplerValues(),
+    ...values,
+    scale: Math.min(width, height) / values.span,
     display: displaySettings(),
     orbits: m.seeds + m.proposals,
     points: m.increments,
@@ -352,7 +351,7 @@ async function exportPng() {
       "Creation Time": created.toISOString(),
       Description:
         `Buddhabrot at ${settings.cre} ${settings.cim >= 0 ? "+" : "-"} ` +
-        `${Math.abs(settings.cim)}i, scale ${settings.scale}, ` +
+        `${Math.abs(settings.cim)}i, span ${settings.span}, ` +
         `${formatSamples(settings.points)} points from ${formatSamples(settings.orbits)} orbits`,
       "buddha-explorer": JSON.stringify(settings),
     });
@@ -367,47 +366,65 @@ async function exportPng() {
   }
 }
 
-// Metrics common to every sampler, then the Metropolis ones, as the native browser showed them.
-function statusText() {
-  const m = gpu.sampler.metrics;
-  const elapsed = gpu.sampler.elapsed();
-  const orbits = m.seeds + m.proposals;
-  return [
-    gpu.sampler.running ? "running" : "paused",
-    `${width}x${height}`,
-    `${formatSamples(orbits)} orbits`,
-    `${perSecond(orbits, elapsed)} orbits/s`,
-    `${perSecond(m.increments, elapsed)} points/s`,
-    `${share(m.accepted, m.proposals)}% accepted`,
-  ].join(" · ");
+interface Progress {
+  m: Metrics;
+  orbits: number;
+  elapsed: number; // wall-clock seconds
 }
 
-function debugText() {
+// The measures under the settings, one per line: the image's progress (histogram points and
+// orbits, counted as the Metal sampler counts them), a few diagnostics, then its size.
+const measures: [string, (p: Progress) => string][] = [
+  ["points", ({ m }) => formatSamples(m.increments)],
+  ["points/s", ({ m, elapsed }) => perSecond(m.increments, elapsed)],
+  ["orbits", ({ orbits }) => formatSamples(orbits)],
+  ["orbits/s", ({ orbits, elapsed }) => perSecond(orbits, elapsed)],
+  // How well mutations are sized: near 100% they barely move, low and most are wasted.
+  ["accepted", ({ m }) => `${share(m.accepted, m.proposals)}%`],
+  // Orbits that reached the image, of all computed (seed attempts and proposals).
+  ["drawn", ({ m, orbits }) => `${share(m.escaped, orbits)}%`],
+  // GPU time over wall-clock time while running; estimated (~) without timestamp queries.
+  [
+    "GPU busy",
+    ({ m, elapsed }) => `${gpu.sampler.timestamps ? "" : "~"}${share(m.gpuSeconds, elapsed)}%`,
+  ],
+  ["size", sizeText],
+];
+
+// The histogram size, and the canvas's on screen when they differ: the screen exceeds the GPU
+// limits and the image is scaled up, keeping its proportions, or a resize has not settled yet and
+// the canvas is hidden.
+function sizeText() {
+  const size = `${width}×${height}`;
+  return shown && !sameSize(shown, { width, height })
+    ? `${size} of ${shown.width}×${shown.height}`
+    : size;
+}
+
+const measureValues = measures.map(([label]) => {
+  const term = document.createElement("dt");
+  const value = document.createElement("dd");
+  term.textContent = label;
+  measureList.append(term, value);
+  return value;
+});
+
+function updateMeasures() {
   const m = gpu.sampler.metrics;
-  const orbits = m.seeds + m.proposals;
-  const estimated = gpu.sampler.timestamps ? "" : " (estimated)";
-  return [
-    "metropolis sampler",
-    `${m.batches} batches`,
-    `GPU ${perSecond(orbits, m.gpuSeconds)} orbits/s${estimated}`,
-    `${share(m.escaped, orbits)}% drawn`,
-    `${orbits ? format3((m.iterations + m.redraw) / orbits) : 0} steps/orbit`,
-    `${m.chains ? format3(m.proposals / m.chains) : 0} proposals chain`,
-    `${gpu.sampler.stepsPerLane} steps/lane`,
-  ].join(" · ");
+  const progress = { m, orbits: m.seeds + m.proposals, elapsed: gpu.sampler.elapsed() };
+  measures.forEach(([, text], i) => (measureValues[i].textContent = text(progress)));
 }
 
 function frame(now: number) {
-  if (restartPending) restart();
+  if (restartPending && shown) restart();
   if (displayDirty && (displayForced || now - lastDraw >= PREVIEW_MS)) {
     gpu.display.draw(displaySettings());
     lastDraw = now;
     displayDirty = displayForced = false;
   }
-  if (now - lastStatus >= 250) {
-    lastStatus = now;
-    statusLine.textContent = statusText();
-    debugLine.textContent = debugText();
+  if (now - lastMeasures >= MEASURES_MS) {
+    lastMeasures = now;
+    updateMeasures();
   }
   requestAnimationFrame(frame);
 }
@@ -415,6 +432,25 @@ function frame(now: number) {
 const restartLater = () => {
   restartPending = true;
 };
+
+// The first size starts the render; later ones restart it once they settle, and only if the
+// histogram size changes. The view keeps its span, so the image shows the same region. Until the
+// restart, the canvas is hidden rather than stretched to a shape the render was not made for.
+function resized(size: Size) {
+  const first = !shown;
+  shown = size;
+  clearTimeout(resizeTimer);
+  if (first) {
+    restartLater();
+    return;
+  }
+  const changed = () => !sameSize(renderSize(), { width, height });
+  if (changed()) canvas.style.visibility = "hidden";
+  resizeTimer = setTimeout(() => {
+    if (changed()) restartLater();
+    else canvas.style.visibility = "";
+  }, RESIZE_MS);
+}
 
 form.addEventListener("input", (event) => {
   const name = (event.target as HTMLInputElement).name;
@@ -446,20 +482,13 @@ element("preset").addEventListener("click", () => {
   restartLater();
 });
 exportButton.addEventListener("click", exportPng);
-copyLinkButton.addEventListener("click", copyLink);
 // A link pasted into this tab only changes the hash, so apply it here.
 addEventListener("hashchange", () => {
   applyHash();
   restartLater();
 });
-debugToggle.addEventListener("change", () => setDebug(debugToggle.checked));
 
 async function main() {
-  try {
-    setDebug(localStorage.getItem("debug") === "1");
-  } catch {
-    setDebug(false);
-  }
   applyHash();
   try {
     gpu = await startGpu();
@@ -467,6 +496,7 @@ async function main() {
       displayDirty = true;
     };
     attachGeometry({ form, viewport, validSettings, viewChanged: restartLater });
+    observeDevicePixels(canvas, resized);
     requestAnimationFrame(frame);
   } catch (error) {
     message.textContent = errorMessage(error);
