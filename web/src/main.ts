@@ -31,7 +31,6 @@ const canvas = element<HTMLCanvasElement>("image");
 const message = element<HTMLParagraphElement>("message");
 const measureList = element<HTMLDListElement>("measures");
 const exportButton = element<HTMLButtonElement>("export");
-const copyLinkButton = element<HTMLButtonElement>("copy-link");
 
 const samplerNumbers = [
   "cre",
@@ -314,16 +313,6 @@ function updateHashLater() {
   hashTimer = setTimeout(updateHash, HASH_MS);
 }
 
-async function copyLink() {
-  updateHash();
-  try {
-    await navigator.clipboard.writeText(location.href);
-    message.textContent = "Link copied";
-  } catch (error) {
-    message.textContent = `Copy failed: ${errorMessage(error)}`;
-  }
-}
-
 // Everything needed to reproduce the exported image: the view, the sampler and display
 // settings, and how far sampling had got. Stored as JSON in the PNG. The window is the span, as
 // in links; scale, pixels per complex unit at this size, stays for readers from before span.
@@ -493,7 +482,6 @@ element("preset").addEventListener("click", () => {
   restartLater();
 });
 exportButton.addEventListener("click", exportPng);
-copyLinkButton.addEventListener("click", copyLink);
 // A link pasted into this tab only changes the hash, so apply it here.
 addEventListener("hashchange", () => {
   applyHash();
