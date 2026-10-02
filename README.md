@@ -195,6 +195,11 @@ Differences from the native kernel: orbits are single precision, like
 mirrored about the real axis. Starting points are rejected with the same
 exclusion map (`data/exclusion.map`, bundled into the build).
 
+## Documentation
+
+Plans, research notes, known issues and design decisions are in `docs/`; see
+[docs/README.md](docs/README.md) for an index.
+
 ## Historical Qt GUI
 
 The original interactive Qt navigator is preserved on the
