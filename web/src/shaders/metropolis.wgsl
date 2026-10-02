@@ -2,7 +2,9 @@
 // over [-2, 2]^2, each escaping one drawn once and no chain, as the naive lane there.
 //
 // Differences from the native kernel:
-// - no symmetric folding: the histogram covers the whole view;
+// - no symmetric folding: the histogram covers the whole view. Instead, with p.mirror, every orbit
+//   point z is also drawn, and counted in C, at its mirror image conj(z): the orbit of conj(c) is
+//   the mirror image of the orbit of c, so this draws both for the cost of one;
 // - the histogram is stored already rotated as the TIFF output is: x follows Im, y follows Re;
 // - totals are summed over the lanes of a dispatch into one buffer, which the host reads and
 //   clears after each dispatch. The counters are those of buddha_kernel::totals, so the metrics
@@ -33,6 +35,10 @@ struct Params {
   exponent_c: f32,
   chain_scale: f32, // proposals per chain: chain_scale * max(256 C, 2 L)
   sampler: u32, // METROPOLIS or NAIVE
+  mirror: u32, // 1: also draw and count each orbit point at its mirror image
+  pad3: u32,
+  pad4: u32,
+  pad5: u32,
 }
 
 struct Chain {
@@ -449,6 +455,12 @@ fn advance() {
       if (index != NO_PIXEL) {
         draw(index, c.i);
       }
+      if (p.mirror != 0u) {
+        let mirrored = pixel(c.zr, -c.zi);
+        if (mirrored != NO_PIXEL) {
+          draw(mirrored, c.i);
+        }
+      }
     }
     step(rr, ii);
     c.i += 1u;
@@ -457,6 +469,9 @@ fn advance() {
 
   // Evaluating a seed or a proposal: escape, periodicity and points in the window.
   if (pixel(c.zr, c.zi) != NO_PIXEL) {
+    c.contribute += 1u;
+  }
+  if (p.mirror != 0u && pixel(c.zr, -c.zi) != NO_PIXEL) {
     c.contribute += 1u;
   }
   var ended = false;

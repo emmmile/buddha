@@ -99,6 +99,13 @@
               <option value="naive">Naive</option>
             </select></label
           >
+          <label
+            title="Also draw each orbit point at its mirror image across the real axis: the orbit of conj(c) mirrors that of c, so it adds up to twice the points for free. Applied with the naive sampler, and with Metropolis when the view crosses the real axis, where it helps"
+            >Mirror<select name="mirror">
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select></label
+          >
         </fieldset>
         <fieldset id="metropolis">
           <legend>Metropolis sampler</legend>

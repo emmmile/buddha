@@ -47,7 +47,7 @@ const metro = device.createComputePipeline({
   layout,
   compute: { module, entryPoint: "metropolis" },
 });
-const params = buf(96, GPUBufferUsage.UNIFORM);
+const params = buf(112, GPUBufferUsage.UNIFORM);
 const hist = buf(W * H * 12, GPUBufferUsage.STORAGE);
 const chains = buf(THREADS * 104, GPUBufferUsage.STORAGE);
 const stats = buf(36, GPUBufferUsage.STORAGE);
@@ -80,7 +80,7 @@ async function run(
   steps: number
 ) {
   const scale = W / span;
-  const u = new Uint32Array(24),
+  const u = new Uint32Array(28), // mirror (u[24]) stays 0, as when the table was made
     f = new Float32Array(u.buffer);
   u.set([
     512,

@@ -48,6 +48,7 @@ export interface SamplerSettings {
   chain_scale: number;
   seeding: number; // 0: random walk, 1: uniform, 2: Newton
   sampler: number; // 0: Metropolis, 1: naive
+  mirror: number; // 1: also draw each orbit point at its mirror image across the real axis
 }
 
 // Sums of buddha_kernel::totals over the render, plus batch count and GPU time.
@@ -55,6 +56,14 @@ export type Metrics = Record<(typeof COUNTERS)[number], number> & {
   batches: number;
   gpuSeconds: number;
 };
+
+// Whether drawing mirror images adds points. Naive samples cover c and conj(c) alike, so it always
+// does. Metropolis chains follow orbits that reach the window, whose mirror images land in the
+// window only if it crosses the real axis; elsewhere the extra test costs about 10%.
+function mirrorHelps(s: SamplerSettings) {
+  const halfWidth = s.width / 2 / s.scale;
+  return s.sampler === 1 || (s.cim - halfWidth < 0 && s.cim + halfWidth > 0);
+}
 
 export class Sampler {
   onBatch: () => void = () => {};
@@ -110,7 +119,7 @@ export class Sampler {
       compute: { module, entryPoint: "metropolis" },
     });
     this.params = device.createBuffer({
-      size: 96,
+      size: 112,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     this.chains = device.createBuffer({
@@ -206,7 +215,7 @@ export class Sampler {
 
   private writeParams(key: number) {
     const s = this.settings!;
-    const u = new Uint32Array(24);
+    const u = new Uint32Array(28);
     const f = new Float32Array(u.buffer);
     u.set([
       s.lowr,
@@ -240,6 +249,7 @@ export class Sampler {
       16
     );
     u[23] = s.sampler;
+    u[24] = s.mirror && mirrorHelps(s) ? 1 : 0;
     this.device.queue.writeBuffer(this.params, 0, u);
   }
 

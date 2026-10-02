@@ -65,6 +65,7 @@ const defaults: Record<string, number | string> = {
   chain_scale: 1,
   seeding: "newton",
   sampler: "metropolis",
+  mirror: "on",
   exposure: 0.2, // stops
   gamma: 0.3,
   saturation: 100,
@@ -222,6 +223,7 @@ function samplerValues() {
   return {
     ...numbers,
     sampler: field(form, "sampler").value,
+    mirror: field(form, "mirror").value,
     seeding: field(form, "seeding").value,
   };
 }
@@ -233,8 +235,9 @@ function samplerSettings(): SamplerSettings {
   ) as Record<(typeof samplerNumbers)[number], number>;
   const seeding = Math.max(0, seedings.indexOf(field(form, "seeding").value));
   const sampler = Math.max(0, samplers.indexOf(field(form, "sampler").value));
+  const mirror = field(form, "mirror").value === "on" ? 1 : 0;
   const scale = Math.min(width, height) / span;
-  return { ...settings, scale, seeding, sampler, width, height };
+  return { ...settings, scale, seeding, sampler, mirror, width, height };
 }
 
 function displaySettings(): DisplaySettings {
