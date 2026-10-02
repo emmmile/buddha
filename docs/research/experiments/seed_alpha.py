@@ -13,7 +13,12 @@ starts = {
 for sname, start in starts.items():
     c0, dn0, conv0, steps = newton(rng, start, 0, 64, M=40000)
     for alpha in [0.5, 1.0, 1.5]:
-        keep = conv0 & (rng.uniform(0, 1, len(c0)) < np.minimum(1, (10.0 / np.maximum(dn0, 1e-30))**alpha))
+        keep = conv0 & (
+            rng.uniform(0, 1, len(c0)) < np.minimum(1, (10.0 / np.maximum(dn0, 1e-30)) ** alpha)
+        )
         c = c0[keep]
         good, s = stats(c, *evaluate(c))
-        print(f"{sname:8s} alpha {alpha}: good {good.sum():5d} of 40000 ({steps/max(1,good.sum()):8.0f} solve steps/good): {s}", flush=True)
+        print(
+            f"{sname:8s} alpha {alpha}: good {good.sum():5d} of 40000 ({steps / max(1, good.sum()):8.0f} solve steps/good): {s}",
+            flush=True,
+        )

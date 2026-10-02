@@ -535,8 +535,8 @@ CPU in f64 and need numpy; run them from that directory with
   [`seed_variants.py`](experiments/seed_variants.py),
   [`seed_alpha.py`](experiments/seed_alpha.py),
   [`seed_antenna.py`](experiments/seed_antenna.py): the seed bias table
-  ("The look changes"). The last three share
-  [`seedlib.py`](experiments/seedlib.py); `seed_bias.py` is standalone.
+  ("The look changes"). All four share
+  [`seedlib.py`](experiments/seedlib.py).
 
 The TypeScript ones use Deno's WebGPU and read
 `web/src/shaders/metropolis.wgsl` and `data/exclusion.map` relative to the
