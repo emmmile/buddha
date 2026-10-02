@@ -17,12 +17,19 @@ WebGPU explorer in `web/`: Metropolis chains, histogram and display all run in
 the browser, with no server. `buddha-browser`, its HTTP server and its tests
 were removed; `buddha++` and `buddha-metal` stayed the command-line renderers.
 The commit message and README describe what changed, not why. The reasons
-below that are not stated there are marked.
+below were confirmed by the user (October 2026).
 
 ## Decision
 
 The explorer is its own product, not a front end to the native renderers.
 
+- **Client side, so it can be published.** The main reason for the switch: the
+  explorer is meant to be published eventually, so everything has to run in
+  the visitor's browser, with no server doing the rendering. A native server
+  could only ever be a local tool.
+- **Metropolis first.** The explorer is about zooming, and naive sampling is
+  useless when zoomed in: almost no samples land in the window. A naive
+  sampler may be added later for comparison.
 - **Self-contained.** It runs entirely in the browser on WebGPU and builds to
   a static site (`yarn build`, "publishable as is" in the README).
 - **Purpose: exploration and sharing.** Find a region, then share it as a link
@@ -35,9 +42,8 @@ The explorer is its own product, not a front end to the native renderers.
   there is no bit-identical guarantee between them (unlike
   [ADR 0003](0003-shared-bit-identical-kernel.md)).
 
-To confirm with the user: whether reach beyond Apple hardware (WebGPU in
-Chrome, Edge and Safari) and hosting the explorer publicly were reasons for
-the switch, and whether the explorer is meant to stay Metropolis-only.
+A side effect, not a stated reason: WebGPU also runs beyond Apple hardware
+(Chrome, Edge, Safari), unlike the Metal-only native server.
 
 ## Consequences
 
@@ -48,8 +54,10 @@ the switch, and whether the explorer is meant to stay Metropolis-only.
 - A view found in the explorer does not render identically on the CLI today:
   `buddha++`'s default Metropolis sampler is still the legacy one, the
   explorer's sampler settings have no CLI equivalent, and saturation, texture
-  and sharpness are preview-only (the tone curve, exposure and gamma, matches
-  `buddha++`). The README's "Future work" names the fix: a settings file that
+  and sharpness exist only in the explorer (the tone curve, exposure and
+  gamma, matches `buddha++`). The goal is parity between the two; see
+  "Display adjustments differ between the explorer and the CLI" in
+  [`ISSUES.md`](../ISSUES.md). The README's "Future work" names the fix: a settings file that
   `buddha++` can load, and Metropolis settings on the command line.
 - So the hand-off format matters: the URL hash and PNG metadata should stay
   stable and close to the CLI's options (centre, channel ranges, sampler

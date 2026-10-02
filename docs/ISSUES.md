@@ -58,3 +58,28 @@ section 5, "Beyond f32"). Until then, the limit keeps the explorer honest.
   derivatives than walk seeds).
 - Whether the limit should sit higher or lower than 0.005 once it is in
   place.
+
+## Display adjustments differ between the explorer and the CLI
+
+**Status:** open. Confirmed as a goal by the user (October 2026): display
+adjustments should ideally match between the browser and the CLI.
+
+**Symptom.** A view exported from the explorer does not look the same when
+rendered with `buddha++`. The explorer applies the tone curve (exposure and
+gamma) and then saturation, texture and sharpness on the GPU
+(`web/src/shaders/display.wgsl`). The CLI applies only the tone curve.
+
+**History.** The native browser plan made the adjustments part of the image,
+applied to TIFF export through a shared native pipeline
+(`core/image_pipeline.h`, `plans/BROWSER_UI_PLAN.md`). The WebGPU explorer
+reimplemented them in WGSL, and `e95748b` removed the native pipeline, so
+the CLI lost them.
+
+**Proposed fix.** Port saturation, texture and sharpness to the CLI's TIFF
+output with the same definitions as `display.wgsl` (the same blur radii and
+passes, and the same luminance), and accept them as options. Then the
+settings handed over from the explorer (the PNG metadata and URL hash, see
+[ADR 0001](adr/0001-web-explorer-is-a-separate-product.md)) can be applied as
+they are. The README's "Future work" settings file for `buddha++` is the
+natural carrier. Bit-identical output is not required: the explorer's shader
+is a port, not shared code.

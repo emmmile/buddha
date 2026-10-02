@@ -48,13 +48,6 @@ What becomes easier or harder, and what has to be kept in step.
 Decisions that may deserve an ADR, but whose rationale is not (yet) written
 down well enough to record one:
 
-- **Display adjustments belong to the preview, not the image.** The native
-  browser plan made them part of the image, applied to TIFF export through a
-  shared native pipeline (`plans/BROWSER_UI_PLAN.md`, `core/image_pipeline.h`).
-  The WebGPU explorer moved saturation, texture and sharpness to the GPU and
-  `e95748b` removed the native pipeline, so the CLI now applies only the tone
-  curve (exposure and gamma). Whether that is the intended long-term split is
-  to confirm with the user.
 - **Checkpoints record the sampler and refuse a mismatch** (README, session
   notes, PR #9). Related: the preferred, not yet built, design for blending
   naive and Metropolis renders as separate histogram layers mixed at TIFF time
