@@ -180,10 +180,10 @@ a new histogram, as does a resize once it settles. Exposure (in stops)
 and gamma set the tone curve, the same one `buddha++` applies. Saturation, texture
 (midtone detail a few pixels across) and sharpness (a pixel-scale unsharp mask)
 adjust the preview on the GPU. None of the display controls restart sampling.
-The measures at the bottom of the settings panel show orbits, orbit and
-histogram-point rates and the acceptance rate, counted as the Metal sampler
-counts them, so the numbers compare directly with `metal/`, then GPU
-throughput, steps per orbit and chain length.
+The measures at the bottom of the settings panel show the histogram points and
+orbits so far and their rates, counted as the Metal sampler counts them, so
+the numbers compare directly with `metal/`. Then come the acceptance rate,
+the share of orbits drawn, how busy the GPU is, and the image size.
 
 *Export PNG* saves the image on screen at display resolution. The view,
 sampler and display settings, and the orbit and point counts, are embedded as

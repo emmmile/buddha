@@ -383,25 +383,23 @@ interface Progress {
   elapsed: number; // wall-clock seconds
 }
 
-// The measures under the settings, one per line: those common to every sampler, counted as the
-// Metal sampler counts them, then the Metropolis ones.
+// The measures under the settings, one per line: the image's progress (histogram points and
+// orbits, counted as the Metal sampler counts them), a few diagnostics, then its size.
 const measures: [string, (p: Progress) => string][] = [
-  ["sampler", () => (gpu.sampler.running ? "running" : "paused")],
-  ["size", sizeText],
+  ["points", ({ m }) => formatSamples(m.increments)],
+  ["points/s", ({ m, elapsed }) => perSecond(m.increments, elapsed)],
   ["orbits", ({ orbits }) => formatSamples(orbits)],
   ["orbits/s", ({ orbits, elapsed }) => perSecond(orbits, elapsed)],
-  ["points/s", ({ m, elapsed }) => perSecond(m.increments, elapsed)],
+  // How well mutations are sized: near 100% they barely move, low and most are wasted.
   ["accepted", ({ m }) => `${share(m.accepted, m.proposals)}%`],
-  ["batches", ({ m }) => String(m.batches)],
-  // Estimated (~) from wall-clock time without timestamp queries.
-  [
-    "GPU orbits/s",
-    ({ m, orbits }) => `${gpu.sampler.timestamps ? "" : "~"}${perSecond(orbits, m.gpuSeconds)}`,
-  ],
+  // Orbits that reached the image, of all computed (seed attempts and proposals).
   ["drawn", ({ m, orbits }) => `${share(m.escaped, orbits)}%`],
-  ["steps/orbit", ({ m, orbits }) => (orbits ? format3((m.iterations + m.redraw) / orbits) : "0")],
-  ["proposals/chain", ({ m }) => (m.chains ? format3(m.proposals / m.chains) : "0")],
-  ["steps/lane", () => String(gpu.sampler.stepsPerLane)],
+  // GPU time over wall-clock time while running; estimated (~) without timestamp queries.
+  [
+    "GPU busy",
+    ({ m, elapsed }) => `${gpu.sampler.timestamps ? "" : "~"}${share(m.gpuSeconds, elapsed)}%`,
+  ],
+  ["size", sizeText],
 ];
 
 // The histogram size, and the canvas's on screen when they differ: the screen exceeds the GPU
