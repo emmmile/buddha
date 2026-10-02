@@ -27,8 +27,11 @@ These are files rather than GitLab or GitHub issues
 
 - [`research/SEEDING_AND_ZOOM.md`](research/SEEDING_AND_ZOOM.md): seeding,
   mutations, zoom UX, deep zoom and GPU utilization for the explorer, with
-  measurements. Newton seeding (GitLab MR !3) came from it. Current as a
-  reference; its plan items are open unless marked.
+  measurements. Its "Prior work" section collects the outside sources, with
+  links: Boswell's Metropolis Buddhabrot, Bitterli's importance maps, mathr's
+  Mandelbrot algorithms, and the equidistribution papers. Newton seeding
+  (GitLab MR !3) came from it. Current as a reference; its plan items are open
+  unless marked.
 - [`research/experiments/`](research/experiments/): the scripts behind its
   numbers (Python with numpy, and Deno WebGPU). How to run each is in the
   research doc's appendix. Agents skip them unless the task is
