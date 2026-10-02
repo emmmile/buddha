@@ -204,14 +204,14 @@ main {
 }
 #measures {
   display: grid;
-  grid-template-columns: auto 1fr;
+  /* minmax: a long value wraps instead of widening the column past the panel's padding. */
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 1px 8px;
   margin: 0;
 }
 #measures dd {
   margin: 0;
   text-align: right;
-  white-space: nowrap;
 }
 @media (max-width: 650px) {
   body {
