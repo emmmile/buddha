@@ -1,0 +1,53 @@
+# GitLab CI: the explorer and the commit hook's checks, on Linux shared runners.
+#
+# The native build and tests (Boost 1.88, Metal) run only in GitHub Actions' macOS job
+# (.github/workflows/ci.yml): GitLab's free shared runners are Linux, and their distribution
+# images do not ship Boost 1.88 yet.
+
+workflow:
+  rules:
+    # Merge request pipelines, and pushes to the default branch; not both for one push.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+web:
+  image: node:22
+  cache:
+    key:
+      files: [web/yarn.lock]
+    paths: [web/.yarn/cache]
+  script:
+    - cd web
+    - corepack enable
+    - yarn install --immutable
+    - yarn format:check
+    - yarn lint
+    - yarn build
+    # TypeScript and JavaScript outside web/ (the Deno experiments), with the explorer's
+    # Prettier configuration, as the commit hook checks them.
+    - >
+      yarn prettier --check --config .prettierrc --no-error-on-unmatched-pattern
+      "../docs/**/*.{ts,js,mjs}"
+
+# The commit hook's whitespace, clang-format and ruff checks, applied to every change since the
+# base: soft-reset to it so the whole change is staged, then run the hook. clang-format 21.1.8
+# from PyPI formats this repository exactly as Xcode's clang-format 21 does.
+lint:
+  image: python:3.13
+  variables:
+    GIT_DEPTH: 0
+  script:
+    - pip install --quiet ruff==0.16.10 clang-format==21.1.8
+    - clang-format --version && ruff --version
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        BASE="$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+      else
+        BASE="$CI_COMMIT_BEFORE_SHA"
+      fi
+      if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+        echo "No base commit to compare with; skipping."
+        exit 0
+      fi
+      git reset --soft "$(git merge-base "$BASE" HEAD)"
+      python3 .githooks/pre-commit --skip-web

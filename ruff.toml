@@ -1,0 +1,6 @@
+# Python formatting and lint, matching the 100 columns of .clang-format and web/.prettierrc.
+# Run with `uvx ruff format` and `uvx ruff check`.
+line-length = 100
+
+[lint]
+select = ["F", "E9"]

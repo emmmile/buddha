@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Check staged whitespace, changed C++ formatting, and the browser explorer."""
+"""Check staged whitespace, formatting of changed C++, Objective-C++ and Metal lines, Python,
+TypeScript outside web/, and the browser explorer."""
 
 import argparse
 import re
@@ -9,14 +10,55 @@ import sys
 import tempfile
 from pathlib import Path
 
+CLANG_FORMAT_SUFFIXES = (
+    b".cc",
+    b".cpp",
+    b".cxx",
+    b".h",
+    b".hh",
+    b".hpp",
+    b".hxx",
+    b".m",
+    b".mm",
+    b".metal",
+)
+PRETTIER_SUFFIXES = (b".ts", b".js", b".mjs")
+# Python files without a .py suffix.
+PYTHON_SCRIPTS = (b".githooks/pre-commit",)
+
 
 def git(*args):
     return subprocess.run(["git", *args], capture_output=True, check=True)
 
 
+def write_staged(root, paths):
+    """Writes the staged contents of paths (bytes) under root, keeping their relative paths."""
+    for path in paths:
+        name = path.decode("utf-8", "surrogateescape")
+        target = root / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(git("show", f":{name}").stdout)
+
+
+def report(result, message):
+    """Prints message and the tool's output if it failed; returns whether it failed."""
+    if result.returncode:
+        print(message, file=sys.stderr)
+        sys.stderr.write(result.stdout)
+        sys.stderr.write(result.stderr)
+    return bool(result.returncode)
+
+
 def check_web(paths):
-    """Format check, lint and type check the staged explorer with web/'s own tools."""
-    if not any(path.startswith(b"web/") for path in paths):
+    """Format check, lint and type check the staged explorer with web/'s own tools. Staged
+    TypeScript and JavaScript elsewhere get the same Prettier and configuration."""
+    others = [
+        path
+        for path in paths
+        if path.endswith(PRETTIER_SUFFIXES) and not path.startswith((b"web/", b"docs/legacy/"))
+    ]
+    explorer = any(path.startswith(b"web/") for path in paths)
+    if not explorer and not others:
         return False
 
     tools = Path("web/node_modules/.bin")
@@ -24,31 +66,70 @@ def check_web(paths):
         print("Run `corepack yarn install` in web/ to check staged web files", file=sys.stderr)
         return True
 
-    staged = [path for path in git("ls-files", "--cached", "-z", "--", "web").stdout.split(b"\0") if path]
-    with tempfile.TemporaryDirectory(prefix="buddha-web-check-") as directory:
-        root = Path(directory)
-        for path in staged:
-            name = path.decode("utf-8", "surrogateescape")
-            target = root / name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(git("show", f":{name}").stdout)
-        (root / "web" / "node_modules").symlink_to(Path("web/node_modules").resolve())
+    failed = False
+    if explorer:
+        staged = git("ls-files", "--cached", "-z", "--", "web").stdout.split(b"\0")
+        with tempfile.TemporaryDirectory(prefix="buddha-web-check-") as directory:
+            root = Path(directory)
+            write_staged(root, [path for path in staged if path])
+            (root / "web" / "node_modules").symlink_to(Path("web/node_modules").resolve())
+            for command in (["prettier", "--check", "."], ["eslint", "."], ["tsc"]):
+                executable = str((tools / command[0]).resolve())
+                result = subprocess.run(
+                    [executable, *command[1:]], cwd=root / "web", capture_output=True, text=True
+                )
+                failed |= report(result, f"Staged web files failed {command[0]}:")
 
+    if others:
+        with tempfile.TemporaryDirectory(prefix="buddha-prettier-check-") as directory:
+            root = Path(directory)
+            write_staged(root, others)
+            names = [path.decode("utf-8", "surrogateescape") for path in others]
+            command = [str((tools / "prettier").resolve()), "--check", "--config"]
+            command += [str(Path("web/.prettierrc").resolve()), *names]
+            result = subprocess.run(command, cwd=root, capture_output=True, text=True)
+            failed |= report(result, "Format these with web/'s Prettier and web/.prettierrc:")
+    return failed
+
+
+def check_python(paths):
+    """Format check and lint staged Python with ruff, configured by ruff.toml."""
+    sources = [
+        path
+        for path in paths
+        if (path.endswith(b".py") or path in PYTHON_SCRIPTS)
+        and not path.startswith(b"docs/legacy/")
+    ]
+    if not sources:
+        return False
+
+    if shutil.which("ruff"):
+        ruff = ["ruff"]
+    elif shutil.which("uvx"):
+        ruff = ["uvx", "--quiet", "ruff"]
+    else:
+        print("ruff (or uv, for uvx) is required to commit Python files", file=sys.stderr)
+        return True
+
+    with tempfile.TemporaryDirectory(prefix="buddha-python-check-") as directory:
+        root = Path(directory)
+        write_staged(root, sources)
+        shutil.copy("ruff.toml", root / "ruff.toml")
+        names = [path.decode("utf-8", "surrogateescape") for path in sources]
         failed = False
-        for command in (["prettier", "--check", "."], ["eslint", "."], ["tsc"]):
-            executable = str((tools / command[0]).resolve())
-            result = subprocess.run([executable, *command[1:]], cwd=root / "web", capture_output=True, text=True)
-            if result.returncode:
-                print(f"Staged web files failed {command[0]}:", file=sys.stderr)
-                sys.stderr.write(result.stdout)
-                sys.stderr.write(result.stderr)
-                failed = True
+        for command in (["format", "--check", "--diff"], ["check"]):
+            result = subprocess.run(
+                [*ruff, *command, *names], cwd=root, capture_output=True, text=True
+            )
+            failed |= report(result, f"Staged Python files failed `ruff {command[0]}`:")
     return failed
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--skip-web", action="store_true", help="CI checks web assets in its Ubuntu job")
+    parser.add_argument(
+        "--skip-web", action="store_true", help="CI checks web assets in a job of its own"
+    )
     args = parser.parse_args()
 
     whitespace = subprocess.run(["git", "diff", "--cached", "--check"])
@@ -58,46 +139,53 @@ def main():
     paths = git("diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR").stdout
     changed_paths = [path for path in paths.split(b"\0") if path]
     web_failed = False if args.skip_web else check_web(changed_paths)
+    python_failed = check_python(changed_paths)
     sources = [
         path.decode("utf-8", "surrogateescape")
         for path in changed_paths
         if path
-        and not path.startswith(b"legacy/")
-        and path.lower().endswith((b".cc", b".cpp", b".cxx", b".h", b".hh", b".hpp", b".hxx"))
+        and not path.startswith(b"docs/legacy/")
+        and path.lower().endswith(CLANG_FORMAT_SUFFIXES)
     ]
     if not sources:
-        return int(web_failed)
+        return int(web_failed or python_failed)
 
     formatter = shutil.which("clang-format")
-    if not formatter:
-        lookup = subprocess.run(["xcrun", "--find", "clang-format"], capture_output=True, text=True) if shutil.which("xcrun") else None
-        if lookup and lookup.returncode == 0:
+    if not formatter and shutil.which("xcrun"):
+        lookup = subprocess.run(["xcrun", "--find", "clang-format"], capture_output=True, text=True)
+        if lookup.returncode == 0:
             formatter = lookup.stdout.strip()
     if not formatter:
-        print("clang-format is required to commit C++ files", file=sys.stderr)
+        print("clang-format is required to commit C++, Objective-C++ or Metal", file=sys.stderr)
         return 1
 
     failed = False
     for path in sources:
         patch = git("diff", "--cached", "--unified=0", "--", path).stdout.decode("utf-8", "replace")
         ranges = []
-        for start, count in re.findall(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", patch, re.MULTILINE):
+        hunks = re.findall(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", patch, re.MULTILINE)
+        for start, count in hunks:
             first, length = int(start), int(count or 1)
             if length:
                 ranges.append(f"--lines={first}:{first + length - 1}")
         if not ranges:
             continue
         staged = git("show", f":{path}").stdout
+        # clang-format reads .metal as C++, its default for unknown extensions.
         result = subprocess.run(
-            [formatter, "--dry-run", "--Werror", "--style=file", f"--assume-filename={path}", *ranges],
+            [formatter, "--dry-run", "--Werror", "--style=file", f"--assume-filename={path}"]
+            + ranges,
             input=staged,
             capture_output=True,
         )
         if result.returncode:
-            print(f"Format changed lines in {path} with clang-format, then stage them again:", file=sys.stderr)
+            print(
+                f"Format changed lines in {path} with clang-format, then stage them again:",
+                file=sys.stderr,
+            )
             sys.stderr.buffer.write(result.stderr)
             failed = True
-    return int(failed or web_failed)
+    return int(failed or web_failed or python_failed)
 
 
 if __name__ == "__main__":

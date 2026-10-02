@@ -30,10 +30,8 @@ struct device_histogram {
 
 // Persistent threads: each thread runs one lane over samples tid, tid + threads, ... of the
 // dispatch (see lane in buddha_kernel.h for why).
-kernel void render(constant parameters &params [[buffer(0)]],
-                   device const uchar *map [[buffer(1)]],
-                   device atomic_uint *raw [[buffer(2)]],
-                   device totals *out [[buffer(3)]],
+kernel void render(constant parameters &params [[buffer(0)]], device const uchar *map [[buffer(1)]],
+                   device atomic_uint *raw [[buffer(2)]], device totals *out [[buffer(3)]],
                    uint tid [[thread_position_in_grid]]) {
     const parameters p = params;
     if (tid >= p.threads)
@@ -59,8 +57,7 @@ kernel void render(constant parameters &params [[buffer(0)]],
 // Metropolis chains: each thread advances its own chain (chain in buddha_kernel.h) a fixed number
 // of steps, so every thread does the same work, and saves it for the next dispatch.
 kernel void metropolis(constant parameters &params [[buffer(0)]],
-                       device const uchar *map [[buffer(1)]],
-                       device atomic_uint *raw [[buffer(2)]],
+                       device const uchar *map [[buffer(1)]], device atomic_uint *raw [[buffer(2)]],
                        device totals *out [[buffer(3)]],
                        constant metropolis_parameters &settings [[buffer(4)]],
                        device chain<float> *chains [[buffer(5)]],
