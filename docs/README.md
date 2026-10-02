@@ -23,17 +23,6 @@ These are files rather than GitLab or GitHub issues
 - [`adr/`](adr/README.md): Architecture Decision Records, with the template
   and an index. Current.
 
-## Plans
-
-- [`plans/METROPOLIS_PLAN.md`](plans/METROPOLIS_PLAN.md): moving Metropolis to
-  GPU lanes while keeping its look. Partly done; a status note at the top says
-  what shipped.
-- [`plans/BROWSER_UI_PLAN.md`](plans/BROWSER_UI_PLAN.md): the native
-  `buddha-browser` UI. Superseded by the WebGPU explorer in `web/`.
-- [`plans/METAL_PROTOTYPE_PLAN.md`](plans/METAL_PROTOTYPE_PLAN.md): whether the
-  GPU can speed up the histogram, and its outcome (`buddha-metal`). History;
-  its "Metropolis set aside" outcome was later reversed by GitHub PR #17.
-
 ## Research
 
 - [`research/SEEDING_AND_ZOOM.md`](research/SEEDING_AND_ZOOM.md): seeding,
@@ -45,9 +34,13 @@ These are files rather than GitLab or GitHub issues
   research doc's appendix. Agents skip them unless the task is
   seeding or zoom research (`AGENTS.md`).
 
-## Notes
+## History
 
 - [`legacy/`](legacy/README.md): the original C renderer (2014), not built.
-  History. Moved here from the repository root in GitLab MR !6.
-- [`notes/SESSION_NOTES_2026-09.md`](notes/SESSION_NOTES_2026-09.md): handover
-  from the September 2026 CPU and Metal work (PRs #8 to #11). History.
+  Moved here from the repository root in GitLab MR !6.
+
+Finished plans and session notes are not kept here: their open items moved to
+`IDEAS.md` and `ISSUES.md`, and their decisions to the ADRs. They remain in
+git history: the Metropolis, browser UI and Metal prototype plans, and the
+September 2026 session notes. List them with
+`git log --diff-filter=D --name-only -- docs/plans docs/notes`.

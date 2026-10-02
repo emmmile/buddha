@@ -48,10 +48,9 @@ What becomes easier or harder, and what has to be kept in step.
 Decisions that may deserve an ADR, but whose rationale is not (yet) written
 down well enough to record one:
 
-- **Checkpoints record the sampler and refuse a mismatch** (README, session
-  notes, PR #9). Related: the preferred, not yet built, design for blending
-  naive and Metropolis renders as separate histogram layers mixed at TIFF time
-  (`--mix`, session notes and `plans/METROPOLIS_PLAN.md` Phase 3).
+- **Checkpoints record the sampler and refuse a mismatch** (README, PR #9).
+  Related: blending naive and Metropolis renders as separate histogram layers,
+  an idea in [`IDEAS.md`](../IDEAS.md).
 - **Single precision on the GPU, and a span limit in the explorer** until
   df64 or perturbation exists (`ISSUES.md`, research doc section 5). The limit
   is proposed, not decided.

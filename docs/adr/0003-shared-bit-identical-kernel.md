@@ -13,10 +13,8 @@ channel ranges) would drift, and a GPU render could then not be checked
 against, or continued by, the CPU.
 
 Sources: [`metal/README.md`](../../metal/README.md) ("Shared kernel",
-"Metropolis chains"), the
-[session notes](../notes/SESSION_NOTES_2026-09.md), and
-[`plans/METROPOLIS_PLAN.md`](../plans/METROPOLIS_PLAN.md) ("Design:
-Metropolis lanes").
+"Metropolis chains"), GitHub PRs #9 and #17, and the September 2026 session
+notes and Metropolis plan (in git history).
 
 ## Decision
 

@@ -5,8 +5,8 @@
 
 ## Context
 
-The first interactive UI was `buddha-browser` (GitHub PRs #13 to #17,
-[`plans/BROWSER_UI_PLAN.md`](../plans/BROWSER_UI_PLAN.md)): a native macOS
+The first interactive UI was `buddha-browser` (GitHub PRs #13 to #17, and
+its plan, `BROWSER_UI_PLAN.md`, in git history): a native macOS
 process that rendered with Metal, served a page on loopback, and sent RGBA
 frames over HTTP. The display adjustments ran natively so that a TIFF export
 could match the preview. It needed a running native server, and every sampler

@@ -16,10 +16,8 @@ slowest thread finishes. Two early designs hit this:
   2,560 to a 95th percentile of 65,536 proposals.
 
 Sources: [`metal/README.md`](../../metal/README.md) ("Benchmarks",
-"Metropolis chains"),
-[`plans/METAL_PROTOTYPE_PLAN.md`](../plans/METAL_PROTOTYPE_PLAN.md)
-("Outcome"), [`plans/METROPOLIS_PLAN.md`](../plans/METROPOLIS_PLAN.md)
-("Design: Metropolis lanes"), and commit `8113824`.
+"Metropolis chains"), commit `8113824`, and the Metal prototype and
+Metropolis plans (in git history).
 
 ## Decision
 

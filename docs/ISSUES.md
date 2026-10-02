@@ -69,11 +69,10 @@ rendered with `buddha++`. The explorer applies the tone curve (exposure and
 gamma) and then saturation, texture and sharpness on the GPU
 (`web/src/shaders/display.wgsl`). The CLI applies only the tone curve.
 
-**History.** The native browser plan made the adjustments part of the image,
-applied to TIFF export through a shared native pipeline
-(`core/image_pipeline.h`, `plans/BROWSER_UI_PLAN.md`). The WebGPU explorer
-reimplemented them in WGSL, and `e95748b` removed the native pipeline, so
-the CLI lost them.
+**History.** The native browser plan (in git history) made the adjustments
+part of the image, applied to TIFF export through a shared native pipeline
+(`core/image_pipeline.h`). The WebGPU explorer reimplemented them in WGSL, and
+`e95748b` removed the native pipeline, so the CLI lost them.
 
 **Proposed fix.** Port saturation, texture and sharpness to the CLI's TIFF
 output with the same definitions as `display.wgsl` (the same blur radii and
@@ -96,7 +95,8 @@ utilized on average while the explorer renders.
    - Each completion waits for a `mapAsync` readback, which resolves late in
      the browser's event loop, before the next dispatch is submitted.
 2. **A fixed lane count.** `THREADS = 32768` was tuned for one Apple GPU
-   (16 cores × 2048).
+   (16 cores × 2048). `buddha-metal`'s 2,048 threads per core come from the
+   same machine; no other GPU has been tried.
 3. **Divergence.** Lanes in different chain modes (`REDRAW`, `EVALUATE_*`, and
    with MR !3 `SOLVE`) run different code within one SIMD group.
 4. **Register pressure.** The `Chain` struct is 104 bytes with MR !3.
@@ -109,3 +109,22 @@ time from timestamp queries over wall-clock time) shows it directly.
 - Accumulate the counters on the GPU and read them back every N dispatches.
 - Scale the lane count with the adapter.
 - Share one orbit-step path between the chain modes.
+
+## Known bugs in buddha++'s legacy Metropolis sampler
+
+**Status:** open, kept on purpose. `buddha_generator::metropolis()` is the
+reference for the look ([ADR 0002](adr/0002-metropolis-optimises-for-the-look.md)),
+so these were fixed only in the newer Metropolis lane (`chain` in
+`core/buddha_kernel.h`), not in the legacy sampler:
+
+- `findPoint` accepts a periodic seed (`C > 0`, `L = -1`); the first acceptance
+  ratio then divides by `(-1)² · C`.
+- `mandelbrot::evaluate` returns early for excluded points without setting
+  `contribute`, so the caller sees a stale value. It is harmless only because
+  of the order of the checks.
+- `computed` skips periodic proposals, so the reported rates are low.
+- Every proposal takes the thread's mutex, and the orbit lives in a `seq`
+  vector of `std::complex<double>`, which makes it slow.
+
+They go away when the legacy sampler is retired (see "Metropolis lanes in the
+CLI renderers" in [`IDEAS.md`](IDEAS.md)).

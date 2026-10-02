@@ -32,7 +32,7 @@ rest are below.
 - Target density `L^a · C^b` (`exponent_l`, `exponent_c`, default 1 and 1).
   L is the escape iteration and C the number of orbit points in the window.
   Every valid proposal is drawn, accepted or not (rule 3 in
-  [`METROPOLIS_PLAN.md`](../plans/METROPOLIS_PLAN.md)).
+  [ADR 0002](../adr/0002-metropolis-optimises-for-the-look.md)).
 - Chain length `chain_scale · max(256·C₀, 2·L₀)` proposals.
 - Mutation: `c' = c + Exp(1)·0.5·U·radius · direction`. `radius` is in complex
   units, set to `radius%` of the view's shorter side (default 1%).
@@ -294,7 +294,7 @@ the background. With walk seeding both are drawn. With Newton seeding
 
 **Why.** The Metropolis chains are short and local, so they never move between
 distant regions of c. The look is decided by where seeds come from (rule 5 in
-[`METROPOLIS_PLAN.md`](../plans/METROPOLIS_PLAN.md)). Uniform seeds are a fair proxy for walk seeds: both
+[ADR 0002](../adr/0002-metropolis-optimises-for-the-look.md)). Uniform seeds are a fair proxy for walk seeds: both
 take the first contributing point found, roughly uniform in area.
 
 CPU, f64. Scripts: `seed_bias.py`, `seed_variants.py`, `seed_alpha.py`,
@@ -397,7 +397,7 @@ proposal is wasted. Options:
 - Mix with the current isotropic mutation (Boswell-style small/large step mix),
   so the chain can still explore.
 - The sampler is not meant to be unbiased
-  ([`METROPOLIS_PLAN.md`](../plans/METROPOLIS_PLAN.md)), so the
+  ([ADR 0002](../adr/0002-metropolis-optimises-for-the-look.md)), so the
   Hastings factor is a choice about the look, not about correctness.
 - Watch: the *accepted* and *drawn* (`escaped / orbits`) measures under the
   settings.

@@ -14,7 +14,7 @@ go in [`ISSUES.md`](ISSUES.md).
 - the Newton seeding finding that the image's look is decided by where chains
   start ("The look changes: seed bias" in the research doc).
 
-The [September session notes](notes/SESSION_NOTES_2026-09.md) had the same
+The September 2026 session notes (in git history) had the same
 direction ("importance sampling from a grid of starting-point cells"), and so
 does Bitterli's importance map (see Prior work in the research doc).
 
@@ -135,13 +135,42 @@ perturbation is conceptually possible, because Metropolis proposals stay near
 the current state, but needs a reference orbit per lane (about 2 GB at 32k
 lanes). This is the real fix for the precision artifacts in `ISSUES.md`.
 
-## Newton seeding in buddha++
+## Metropolis lanes in the CLI renderers
 
-**Origin.** GitLab MR !3 adds Newton seeding to the explorer only
+**Origin.** The Metropolis plan (in git history), and GitLab MR !3, which
+added Newton seeding to the explorer only
 ([ADR 0001](adr/0001-web-explorer-is-a-separate-product.md)).
 
-**Idea.** Port the `SOLVE` mode to `core/buddha_kernel.h`, so `buddha++` and
-`buddha-metal` can render explorer views with the same seeding.
+**Idea.** The Metropolis lane (`chain` in `core/buddha_kernel.h`, GitHub
+PR #17) runs only in the explorer's WGSL port so far:
+
+- Give `buddha++` a `--sampler chain` and `buddha-metal` a Metropolis mode,
+  both running the shared lane.
+- Port Newton seeding (the `SOLVE` mode) to the kernel, so the CLI renders
+  explorer views with the same seeding.
+- Then retire the legacy sampler, with its known bugs (see
+  [`ISSUES.md`](ISSUES.md)), and decide whether the lane takes over the
+  `metropolis` name.
+
+## Blending naive and Metropolis renders
+
+**Origin.** The September 2026 session notes and the Metropolis plan's
+Phase 3 (in git history).
+
+**Idea.** Keep one histogram layer per sampler in the checkpoint and mix them
+at TIFF time (for example `--mix`), with a mix setting in the explorer. The
+alternatives, a flag that allows mixing in one histogram, or importance
+weights that make Metropolis match naive, were judged weaker. Each extra
+layer costs about 800 MB at 8192².
+
+## Faster CPU histogram writes
+
+**Origin.** The September 2026 session notes (in git history).
+
+**Idea.** Histogram writes are about 40% of CPU render time at 8192². Batch
+them per thread, or accumulate per-thread tiles. A faster scalar orbit loop
+(GitHub PR #8, closed) made the kernel 2.4× faster but the whole generator
+only 1.33×, because of these writes; revisit it only after them.
 
 ## A naive sampler in the explorer, for comparison
 
