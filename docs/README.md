@@ -47,5 +47,7 @@ These are files rather than GitLab or GitHub issues
 
 ## Notes
 
+- [`legacy/`](legacy/README.md): the original C renderer (2014), not built.
+  History. Moved here from the repository root in GitLab MR !6.
 - [`notes/SESSION_NOTES_2026-09.md`](notes/SESSION_NOTES_2026-09.md): handover
   from the September 2026 CPU and Metal work (PRs #8 to #11). History.
