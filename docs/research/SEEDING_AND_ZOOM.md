@@ -521,14 +521,15 @@ only for windows centred on the axis: it folds the lower half onto the upper
 one, to save memory. The WGSL port dropped the folding. Each orbit was drawn
 only where it goes, and the image was symmetric only on average.
 
-**Change.** With the Mirror setting, every orbit point z is also drawn at
-conj(z) when that lands in the window, and counted in C there too. The
+**Change.** Every orbit point z is also drawn at conj(z) when that lands in
+the window, and counted in C there too. The
 histogram stays full-size, with no folding. Counting in C keeps c and
 conj(c) equal as Metropolis states, matching the image. Mirrored points are
 real histogram points and count in *points* and *points/s*.
 
 **Measurements.** Same build, mirror on against off, 150 s per render,
-default settings, 1352 × 913, points/s:
+default settings, 1352 × 913, points/s. The measurements used a temporary
+`&mirror=on|off` switch; the rule below replaced it, so there is no setting.
 
 | view | Newton on / off | gain | look, on vs off (rank, blocks) | symmetry, off → on |
 |---|---|---|---|---|

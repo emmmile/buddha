@@ -174,8 +174,8 @@ The explorer runs Metropolis chains (`web/src/shaders/metropolis.wgsl`, a WGSL p
 samples over `[-2, 2]²`, each escaping one drawn once: the unbiased
 Buddhabrot, which finds little when zoomed in) into a histogram of one bin per device
 pixel of the canvas, scaled down only on screens larger than the GPU's buffer
-limits allow. The Mirror setting also draws each orbit point at its mirror
-image across the real axis, which gives up to twice the points: it applies
+limits allow. Each orbit point is also drawn at its mirror image across the
+real axis wherever that adds points, which gives up to twice as many: always
 with the naive sampler, and with Metropolis when the view crosses the axis.
 The window is its centre and span, the complex units across the
 view's shorter side, so resizing the browser keeps the same region. Drag to
