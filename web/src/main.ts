@@ -32,6 +32,8 @@ const message = element<HTMLParagraphElement>("message");
 const measureList = element<HTMLDListElement>("measures");
 const exportButton = element<HTMLButtonElement>("export");
 const metropolisFields = element<HTMLFieldSetElement>("metropolis");
+const menuButton = element<HTMLButtonElement>("menu");
+const closeButton = element<HTMLButtonElement>("close");
 
 const samplerNumbers = [
   "cre",
@@ -504,6 +506,19 @@ element("preset").addEventListener("click", () => {
   restartLater();
 });
 exportButton.addEventListener("click", exportPng);
+
+// On small screens the panel is a full-screen overlay over the image, opened by the menu button
+// over the image and closed by the one in its header; elsewhere the menu-open class has no effect.
+function setMenu(open: boolean) {
+  document.body.classList.toggle("menu-open", open);
+  menuButton.setAttribute("aria-expanded", String(open));
+}
+menuButton.addEventListener("click", () => setMenu(true));
+closeButton.addEventListener("click", () => setMenu(false));
+addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setMenu(false);
+});
+
 // A link pasted into this tab only changes the hash, so apply it here.
 addEventListener("hashchange", () => {
   applyHash();
@@ -522,6 +537,8 @@ async function main() {
     requestAnimationFrame(frame);
   } catch (error) {
     message.textContent = errorMessage(error);
+    // Otherwise a phone shows a blank screen, with the reason hidden in the closed panel.
+    setMenu(true);
   }
 }
 
