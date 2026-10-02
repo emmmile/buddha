@@ -167,6 +167,12 @@ function sizeLimits(limits: GPUSupportedLimits) {
   };
 }
 
+// The adapter as the browser describes it, such as "apple metal-3"; browsers may leave out details.
+function adapterName(info: GPUAdapterInfo) {
+  const parts = [info.vendor, info.architecture, info.device, info.description].filter(Boolean);
+  return [...new Set(parts)].join(" ") || "–";
+}
+
 async function startGpu() {
   if (!navigator.gpu) throw new Error("WebGPU is not available in this browser");
   const adapter = await navigator.gpu.requestAdapter();
@@ -194,6 +200,7 @@ async function startGpu() {
   ]);
   return {
     device,
+    name: adapterName(adapter.info),
     sizeLimits: sizeLimits(device.limits),
     sampler: new Sampler(device, samplerModule, exclusion, timestamps),
     display: new Display(device, displayModule, context, format),
@@ -411,6 +418,7 @@ const measures: [string, (p: Progress) => string][] = [
     ({ m, elapsed }) => `${gpu.sampler.timestamps ? "" : "~"}${share(m.gpuSeconds, elapsed)}`,
   ],
   ["size", sizeText],
+  ["GPU", () => gpu.name],
 ];
 
 // The histogram size, and the canvas's on screen when they differ: the screen exceeds the GPU
