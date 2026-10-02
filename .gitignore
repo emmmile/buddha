@@ -13,3 +13,4 @@ Makefile
 .vscode
 
 #opencl/
+__pycache__/
