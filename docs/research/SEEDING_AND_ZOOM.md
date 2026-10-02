@@ -513,6 +513,57 @@ estimate each block:
 look from the full view down to span 0.005. It loses at most 2.7× in speed,
 and only on views centred on the real axis.
 
+### Mirror images across the real axis
+
+The orbit of conj(c) is the mirror image of the orbit of c, so the
+Buddhabrot is symmetric about the real axis. The native kernel uses this
+only for windows centred on the axis: it folds the lower half onto the upper
+one, to save memory. The WGSL port dropped the folding. Each orbit was drawn
+only where it goes, and the image was symmetric only on average.
+
+**Change.** Every orbit point z is also drawn at conj(z) when that lands in
+the window, and counted in C there too. The
+histogram stays full-size, with no folding. Counting in C keeps c and
+conj(c) equal as Metropolis states, matching the image. Mirrored points are
+real histogram points and count in *points* and *points/s*.
+
+**Measurements.** Same build, mirror on against off, 150 s per render,
+default settings, 1352 × 913, points/s. The measurements used a temporary
+`&mirror=on|off` switch; the rule below replaced it, so there is no setting.
+
+| view | Newton on / off | gain | look, on vs off (rank, blocks) | symmetry, off → on |
+|---|---|---|---|---|
+| full, `span=4` | 6.52G / 4.01G | 1.63× | 1.000 | 0.9999 → 1.0000 |
+| full, naive | 2.03G / 1.19G | 1.71× | 1.000 | 0.9970 → 1.0000 |
+| `re=1.217075`, span 0.4756 | 464M / 243M | 1.91× | 0.998 | 0.9815 → 1.0000 |
+| `re=1.217075`, span 0.005 | 225M / 107M | 2.10× | 0.999 | 0.9371 → 1.0000 |
+| off-centre (the user's first view) | 2.18G / 2.07G | 1.05× | 0.986 | – |
+| deep, `re=-0.1, im=0.75` | 4.27M / 4.75M | **0.90×** | 1.000 | – |
+
+"Symmetry" is the correlation of a render with its own reflection, for
+windows centred on Im = 0, where the reflection is a left-right flip. The
+deep pair was measured twice, in both orders, with the same result: runs at
+equal settings repeat almost exactly.
+
+- **Gain.** Up to 2× on views that cross the real axis, growing with zoom.
+  Without mirroring, the asymmetry also grows with zoom: fewer chains
+  contribute, so their noise no longer averages out. With mirroring, those
+  views are exactly symmetric and visibly smoother.
+- **No gain off the axis for Metropolis.** A chain follows orbits that reach
+  the window. Their mirror images land in the mirrored window, which
+  Metropolis does not sample unless the window crosses the axis. The extra
+  pixel test then costs about 10%. Naive samples c and conj(c) alike, so it
+  gains everywhere.
+- **Rule.** Mirroring is applied with the naive sampler, and with Metropolis
+  when the window crosses the real axis (`mirrorHelps()` in `sampler.ts`).
+  With the rule, the deep view runs at 4.70M points/s, the same as mirroring
+  off.
+- **Look.** Unchanged within the tolerance of these comparisons. The
+  off-centre view's body is slightly brighter with mirroring (rank 0.986),
+  through C near the axis. That view does not cross the axis, so the rule
+  now leaves it unmirrored.
+- Renders are in `renders/mirror-validation/` (gitignored).
+
 ## 2. Mutations scaled to the zoom
 
 A mutation Δc moves orbit point k by about `d_k · Δc`. |d_k| is often in the
