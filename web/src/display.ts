@@ -31,6 +31,7 @@ export class Display {
   private capturePipeline: GPURenderPipeline;
   private uniform: GPUBuffer;
   private maxima: GPUBuffer;
+  mirrorAxis = 0; // Sampler.mirrorAxis of the histogram shown
   private width = 0;
   private height = 0;
   private reduceGroup?: GPUBindGroup;
@@ -178,6 +179,7 @@ export class Display {
       s.texture / 100,
       s.sharpness / 100,
     ]);
+    new Uint32Array(data, 28, 1)[0] = this.mirrorAxis;
     this.device.queue.writeBuffer(this.uniform, 0, data);
 
     const groups = Math.ceil((this.width * this.height) / 256);

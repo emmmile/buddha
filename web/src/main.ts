@@ -269,6 +269,7 @@ function restart() {
   }
   const settings = samplerSettings();
   gpu.sampler.start(settings);
+  gpu.display.mirrorAxis = gpu.sampler.mirrorAxis;
   pauseButton.textContent = "Pause";
   // Orbits are single precision, as in buddha-metal: pixels smaller than the float spacing
   // around |c| ~ 2 show blocky artifacts.
@@ -514,6 +515,7 @@ async function main() {
   applyHash();
   try {
     gpu = await startGpu();
+    Object.assign(window, { gpu }); // for experiments driving the page (gpu_util.ts)
     gpu.sampler.onBatch = () => {
       displayDirty = true;
     };
