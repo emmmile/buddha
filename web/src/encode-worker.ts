@@ -1,5 +1,5 @@
-// Encodes exported images off the main thread, so the page keeps drawing meanwhile: lossless WebP
-// where the browser can encode it, PNG otherwise.
+// Encodes exported images off the main thread, so the page keeps drawing meanwhile: lossless WebP,
+// or PNG if the WebP encoder fails to load or run.
 
 import { encodePng } from "./png";
 import { encodeWebp } from "./webp";

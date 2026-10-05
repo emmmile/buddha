@@ -1,9 +1,15 @@
-// WebP export with metadata. The browser encodes the pixels; the file is then rewritten in the
-// extended format (a VP8X chunk first) with an XMP chunk at the end, as the WebP container
-// specification lays out. Tools such as exiftool and ImageMagick's identify -verbose list it.
+// WebP export with metadata. libwebp, compiled to WebAssembly, encodes the pixels: the browsers'
+// own encoders take no effort setting (Chrome's is at the lowest), and Safari's encodes no WebP.
+// The file is then rewritten in the extended format (a VP8X chunk first) with an XMP chunk at the
+// end, as the WebP container specification lays out. Tools such as exiftool and ImageMagick's
+// identify -verbose list it.
 
-// Quality 1 asks for lossless WebP, as Chrome encodes it; the result is checked either way.
-const QUALITY = 1;
+import encode from "@jsquash/webp/encode";
+
+// Lossless with every pixel kept, as cwebp -z 3 -exact (method 3, quality 30). On exports from
+// the explorer it is 11-23% smaller than Chrome's WebP, and higher levels gain at most 3% more
+// at up to ten times the time.
+const OPTIONS = { lossless: 1, method: 3, quality: 30, exact: 1, near_lossless: 100 };
 const XMP_FLAG = 0x04;
 const ALPHA_FLAG = 0x10;
 const NAMESPACE = "https://github.com/emmmile/buddha/ns/explorer/1.0/";
@@ -59,17 +65,16 @@ function vp8x(flags: number, width: number, height: number) {
   return chunk("VP8X", data);
 }
 
-// Whether the WebP decodes to exactly the pixels of the image. Quality 1 is only a request, and a
-// VP8L (lossless) chunk does not promise it either: libwebp's near-lossless mode writes one too,
-// after adjusting pixels.
-async function decodesTo(webp: Blob, image: ImageData, canvas: OffscreenCanvas) {
+// Whether the WebP decodes to exactly the pixels of the image, checked with the browser's own
+// decoder in case the encoder were ever set up to change any.
+async function decodesTo(webp: Blob, image: ImageData) {
+  const canvas = new OffscreenCanvas(image.width, image.height);
   const bitmap = await createImageBitmap(webp, {
     colorSpaceConversion: "none",
     premultiplyAlpha: "none",
   });
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) throw new Error("Cannot create a 2D canvas to check the image");
-  context.clearRect(0, 0, image.width, image.height);
   context.drawImage(bitmap, 0, 0);
   bitmap.close();
   const decoded = new Uint32Array(
@@ -80,24 +85,17 @@ async function decodesTo(webp: Blob, image: ImageData, canvas: OffscreenCanvas) 
 }
 
 // Encodes an image as lossless WebP with the entries of text in an XMP chunk, or returns
-// undefined when the browser cannot encode WebP (it then hands back a PNG instead) or cannot
-// encode it without changing pixels.
+// undefined if the result does not decode to the same pixels.
 export async function encodeWebp(
   image: ImageData,
   text: Record<string, string>
 ): Promise<Blob | undefined> {
-  const canvas = new OffscreenCanvas(image.width, image.height);
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) throw new Error("Cannot create a 2D canvas to encode the image");
-  context.putImageData(image, 0, 0);
-  const blob = await canvas.convertToBlob({ type: "image/webp", quality: QUALITY });
-  if (blob.type !== "image/webp") return undefined;
-  const webp = new Uint8Array(await blob.arrayBuffer());
+  const webp = new Uint8Array(await encode(image, OPTIONS));
   if (
     decoder.decode(webp.subarray(0, 4)) !== "RIFF" ||
     decoder.decode(webp.subarray(8, 12)) !== "WEBP"
   ) {
-    throw new Error("Unexpected WebP layout from the browser");
+    throw new Error("Unexpected WebP layout from the encoder");
   }
 
   // The chunks after the header, with VP8X's flags taken out to be rewritten.
@@ -115,7 +113,7 @@ export async function encodeWebp(
     if (fourcc !== "VP8X" && fourcc !== "XMP ") chunks.push(webp.subarray(at, end));
     at = end;
   }
-  if (!(await decodesTo(blob, image, canvas))) return undefined;
+  if (!(await decodesTo(new Blob([webp]), image))) return undefined;
   chunks.unshift(vp8x(flags | XMP_FLAG, image.width, image.height));
   chunks.push(chunk("XMP ", encoder.encode(xmp(text))));
 

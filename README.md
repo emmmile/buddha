@@ -190,10 +190,11 @@ orbits so far and their rates, counted as the Metal sampler counts them, so
 the numbers compare directly with `metal/`. Then come the acceptance rate,
 the share of orbits drawn, how busy the GPU is, and the image size.
 
-*Export* saves the image on screen at display resolution, as lossless WebP
-where the browser can encode it exactly (Chrome) and as PNG otherwise. The
-encoding runs in a worker, and a WebP is decoded again and kept only if every
-pixel matches. The view, sampler and display settings, and the orbit and point
+*Export* saves the image on screen at display resolution, as lossless WebP,
+encoded in a worker by libwebp compiled to WebAssembly (as `cwebp -z 3 -exact`,
+11-23% smaller than browsers' own WebP, and available in Safari too). The WebP
+is decoded again and kept only if every pixel matches; otherwise, or if the
+encoder fails to load, the export is a PNG. The view, sampler and display settings, and the orbit and point
 counts, are embedded as XMP in a WebP and as text chunks in a PNG: `exiftool
 image.webp` lists them, and the `buddha-explorer` entry holds them as JSON.
 
