@@ -162,8 +162,11 @@ button.secondary {
 .actions {
   display: flex;
   gap: 3px;
-  flex-wrap: wrap;
   margin-top: 8px;
+}
+.actions button {
+  flex: 1 1 0;
+  min-width: 0;
 }
 main {
   display: flex;
@@ -301,9 +304,6 @@ main {
   }
   .actions {
     gap: 6px;
-  }
-  .actions button {
-    flex: 1;
   }
   #stats {
     font-size: 0.75rem;

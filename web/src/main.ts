@@ -2,10 +2,10 @@
 // region here, export it, then render it at full size with the buddha++ command line.
 import "./style.css";
 import { Display, type DisplaySettings } from "./display";
+import type { EncodeRequest } from "./encode-worker";
 import { loadExclusionMap } from "./exclusion";
 import { element, field } from "./form";
 import { attachGeometry, fitPixels, observeDevicePixels, sameSize, type Size } from "./geometry";
-import { encodePng } from "./png";
 import { Sampler, type Metrics, type SamplerSettings } from "./sampler";
 import { decodeHash, encodeHash } from "./share";
 import displaySource from "./shaders/display.wgsl?raw";
@@ -223,7 +223,7 @@ let lastDraw = 0;
 let lastMeasures = 0;
 
 // The sampler fields by name, with the sampler and seeding mode as their option values. Shared by
-// the URL hash and the PNG metadata.
+// the URL hash and the image metadata.
 function samplerValues() {
   const numbers = Object.fromEntries(
     samplerNumbers.map((name) => [name, Number(field(form, name).value)])
@@ -343,7 +343,7 @@ function updateHashLater() {
 }
 
 // Everything needed to reproduce the exported image: the view, the sampler and display
-// settings, and how far sampling had got. Stored as JSON in the PNG. The window is the span, as
+// settings, and how far sampling had got. Stored as JSON in the image. The window is the span, as
 // in links; scale, pixels per complex unit at this size, stays for readers from before span.
 function exportMetadata() {
   const m = gpu.sampler.metrics;
@@ -369,13 +369,24 @@ function download(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
-async function exportPng() {
+// Encodes the image in a worker, one per export, as lossless WebP or PNG.
+function encodeImage(request: EncodeRequest) {
+  const worker = new Worker(new URL("./encode-worker.ts", import.meta.url), { type: "module" });
+  return new Promise<Blob>((resolve, reject) => {
+    worker.onmessage = (event: MessageEvent<Blob>) => resolve(event.data);
+    worker.onerror = (event) => reject(new Error(event.message || "Encoding failed"));
+    worker.postMessage(request, [request.image.data.buffer]);
+  }).finally(() => worker.terminate());
+}
+
+async function exportImage() {
   exportButton.disabled = true;
+  message.textContent = "Encoding…";
   try {
     const created = new Date();
     const settings = exportMetadata();
     const image = await gpu.display.capture(displaySettings());
-    const png = await encodePng(image, {
+    const text = {
       Software: "Buddha++ explorer",
       "Creation Time": created.toISOString(),
       Description:
@@ -383,10 +394,11 @@ async function exportPng() {
         `${Math.abs(settings.cim)}i, span ${settings.span}, ` +
         `${formatSamples(settings.points)} points from ${formatSamples(settings.orbits)} orbits`,
       "buddha-explorer": JSON.stringify(settings),
-    });
+    };
+    const blob = await encodeImage({ image, text });
     const local = new Date(created.getTime() - created.getTimezoneOffset() * 60000);
-    const name = `buddha-${local.toISOString().slice(0, 19).replace(/[:T]/g, "-")}.png`;
-    download(png, name);
+    const name = `buddha-${local.toISOString().slice(0, 19).replace(/[:T]/g, "-")}.${blob.type === "image/webp" ? "webp" : "png"}`;
+    download(blob, name);
     message.textContent = `Saved ${name}`;
   } catch (error) {
     message.textContent = `Export failed: ${errorMessage(error)}`;
@@ -514,7 +526,7 @@ element("preset").addEventListener("click", () => {
   fullViewPreset();
   restartLater();
 });
-exportButton.addEventListener("click", exportPng);
+exportButton.addEventListener("click", exportImage);
 
 // On small screens the panel is a full-screen overlay over the image, opened by the menu button
 // over the image and closed by the one in its header; elsewhere the menu-open class has no effect.

@@ -190,10 +190,13 @@ orbits so far and their rates, counted as the Metal sampler counts them, so
 the numbers compare directly with `metal/`. Then come the acceptance rate,
 the share of orbits drawn, how busy the GPU is, and the image size.
 
-*Export PNG* saves the image on screen at display resolution. The view,
-sampler and display settings, and the orbit and point counts, are embedded as
-PNG text chunks: `exiftool image.png` lists them, and the `buddha-explorer`
-entry holds them as JSON.
+*Export* saves the image on screen at display resolution, as lossless WebP,
+encoded in a worker by libwebp compiled to WebAssembly (as `cwebp -z 3 -exact`,
+11-23% smaller than browsers' own WebP, and available in Safari too). The WebP
+is decoded again and kept only if every pixel matches; otherwise, or if the
+encoder fails to load, the export is a PNG. The view, sampler and display settings, and the orbit and point
+counts, are embedded as XMP in a WebP and as text chunks in a PNG: `exiftool
+image.webp` lists them, and the `buddha-explorer` entry holds them as JSON.
 
 Differences from the native kernel: orbits are single precision, like
 `buddha-metal`, so the page warns past that limit, and the histogram is not
