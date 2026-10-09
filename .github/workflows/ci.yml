@@ -24,6 +24,8 @@ jobs:
         run: yarn format:check
       - name: Lint
         run: yarn lint
+      - name: Explorer regression tests
+        run: yarn test
       - name: Type check and build
         run: yarn build
 
