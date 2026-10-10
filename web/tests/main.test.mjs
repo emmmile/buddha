@@ -349,3 +349,16 @@ test("device loss and sampler failures stop rendering and permit a fresh GPU ret
   assert.equal(app.elements.get("retry").hidden, false);
   assert.equal(app.elements.get("message").textContent, "Readback failed");
 });
+
+test("native WebGPU error diagnostics remain visible even though GPUError is not an Error", async () => {
+  const app = setup();
+  await setImmediate();
+  app.frame();
+  const nativeError = { message: "Storage buffer exceeds the adapter limit" };
+  app.devices[0].listeners.get("uncapturederror")({ error: nativeError });
+  assert.equal(app.elements.get("message").textContent, nativeError.message);
+  assert.equal(app.samplers[0].running, false);
+  assert.equal(app.elements.get("pause").disabled, true);
+  assert.equal(app.elements.get("export").disabled, true);
+  assert.equal(app.elements.get("retry").hidden, false);
+});

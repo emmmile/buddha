@@ -198,7 +198,7 @@ async function startGpu(onFailure: (error: unknown) => void) {
   device.lost.then((info) =>
     onFailure(new Error(`GPU device lost: ${info.message || info.reason}`))
   );
-  device.addEventListener("uncapturederror", (event) => onFailure(event.error));
+  device.addEventListener("uncapturederror", (event) => onFailure(new Error(event.error.message)));
   try {
     const context = canvas.getContext("webgpu");
     if (!context) throw new Error("Cannot create a WebGPU canvas context");
