@@ -102,8 +102,9 @@ Related to the start map: the pool holds states, the map their distribution.
 **Origin.** [research doc](research/SEEDING_AND_ZOOM.md), section 4.
 
 **Idea.**
-- Draw the previous frame transformed as a placeholder until the new render
-  has enough samples, then crossfade.
+- The explorer now retains the previous frame transformed into the new view,
+  then fades it between one and eight histogram increments per pixel. Tune
+  those thresholds after trying the navigation experiment.
 - Sample at ½ or ¼ resolution while a gesture is in progress, and switch to
   full resolution once the view has been still for about 200 ms.
 - A precision gauge from the measured |dz/dc|, replacing the fixed warning

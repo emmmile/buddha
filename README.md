@@ -165,6 +165,9 @@ yarn install
 yarn dev      # development server with live reload
 yarn build    # static site in web/dist, publishable as is
 yarn check    # formatting, lint and type check
+yarn test     # settings and GPU/session regression checks
+yarn test:gpu # optional real-GPU compositing smoke check, requires Deno
+yarn bench:preview # optional 1080p/4K preview benchmark, requires Deno
 ```
 
 Open it in a browser with WebGPU, such as Chrome, Edge or Safari 26.
@@ -180,11 +183,24 @@ with the naive sampler, and with Metropolis when the view crosses the axis.
 The window is its centre and span, the complex units across the
 view's shorter side, so resizing the browser keeps the same region. Drag to
 pan, and scroll or pinch to zoom around the pointer. The image follows the
-gesture. Changing the window, channel iterations or Metropolis settings starts
+gesture. Wheel and trackpad zoom move twice as far for the same scroll distance.
+When navigating, the previous preview follows the new view and stays visible while
+the new histogram starts. It fades out smoothly between one and eight histogram
+increments per pixel, so an empty or paused render keeps its placeholder. The old
+image never contributes to the new histogram. Empty parts of intermediate
+previews retain zero coverage, so successive zoom-outs cannot hide newer detail
+behind black bands. Retention and compositing stay on the GPU, without image
+readback; the overlay pass is skipped once the fade finishes. Export becomes available once the
+placeholder has faded, so exported pixels and metadata describe only the new render.
+Changing the window, channel iterations or Metropolis settings starts
 a new histogram, as does a resize once it settles. Exposure (in stops)
 and gamma set the tone curve, the same one `buddha++` applies. Saturation, texture
 (midtone detail a few pixels across) and sharpness (a pixel-scale unsharp mask)
 adjust the preview on the GPU. None of the display controls restart sampling.
+Pause stays in effect when navigating, changing settings, resizing or resetting.
+*Reset* restores the full window and all sampler and display defaults. GPU actions are disabled until startup finishes;
+if startup, the GPU device or a sampler readback fails, *Retry GPU* starts a fresh
+render with the committed settings and the same pause state.
 The measures at the bottom of the settings panel show the histogram points and
 orbits so far and their rates, counted as the Metal sampler counts them, so
 the numbers compare directly with `metal/`. Then come the acceptance rate,
@@ -197,6 +213,9 @@ is decoded again and kept only if every pixel matches; otherwise, or if the
 encoder fails to load, the export is a PNG. The view, sampler and display settings, and the orbit and point
 counts, are embedded as XMP in a WebP and as text chunks in a PNG: `exiftool
 image.webp` lists them, and the `buddha-explorer` entry holds them as JSON.
+Export uses the sampler settings of the current histogram and the
+current display adjustments, so unfinished or invalid form edits cannot describe a
+different view in the saved image.
 
 Differences from the native kernel: orbits are single precision, like
 `buddha-metal`, so the page warns past that limit, and the histogram is not

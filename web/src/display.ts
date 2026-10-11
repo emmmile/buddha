@@ -1,3 +1,5 @@
+import type { PreviewTransform } from "./transition";
+
 // Display pipeline on the GPU (display.wgsl): channel maxima, tone curve and saturation, blurred
 // luminance for texture and sharpness, then the canvas.
 
@@ -29,6 +31,13 @@ export class Display {
   private blurPipeline: GPUComputePipeline;
   private shadePipeline: GPURenderPipeline;
   private capturePipeline: GPURenderPipeline;
+  private previousPipeline: GPURenderPipeline;
+  private previousUniform: GPUBuffer;
+  private previousGroup?: GPUBindGroup;
+  private preview?: GPUTexture;
+  private previous?: GPUTexture;
+  private hasFrame = false;
+  private format: GPUTextureFormat;
   private uniform: GPUBuffer;
   private maxima: GPUBuffer;
   mirrorAxis = 0; // Sampler.mirrorAxis of the histogram shown
@@ -50,19 +59,41 @@ export class Display {
   ) {
     this.device = device;
     this.target = target;
+    this.format = format;
     const compute = (entryPoint: string) =>
       device.createComputePipeline({ layout: "auto", compute: { module, entryPoint } });
     this.reducePipeline = compute("reduce");
     this.tonePipeline = compute("tone");
     this.blurPipeline = compute("blur");
-    const shade = (format: GPUTextureFormat) =>
+    const shade = (format: GPUTextureFormat, entryPoint: string) =>
       device.createRenderPipeline({
         layout: "auto",
         vertex: { module, entryPoint: "fullscreen" },
-        fragment: { module, entryPoint: "shade", targets: [{ format }] },
+        fragment: { module, entryPoint, targets: [{ format }] },
       });
-    this.shadePipeline = shade(format);
-    this.capturePipeline = shade(CAPTURE_FORMAT);
+    this.shadePipeline = shade(format, "preview_shade");
+    this.capturePipeline = shade(CAPTURE_FORMAT, "shade");
+    this.previousPipeline = device.createRenderPipeline({
+      layout: "auto",
+      vertex: { module, entryPoint: "fullscreen" },
+      fragment: {
+        module,
+        entryPoint: "previous",
+        targets: [
+          {
+            format,
+            blend: {
+              color: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" },
+              alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" },
+            },
+          },
+        ],
+      },
+    });
+    this.previousUniform = device.createBuffer({
+      size: 32,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
     this.uniform = device.createBuffer({
       size: 32,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -93,6 +124,31 @@ export class Display {
     this.sized = [histogram];
     this.width = width;
     this.height = height;
+    this.preview?.destroy();
+    this.previous?.destroy();
+    this.hasFrame = false;
+    this.preview = this.device.createTexture({
+      size: [width, height],
+      format: this.format,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+    });
+    this.previous = this.device.createTexture({
+      size: [width, height],
+      format: this.format,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    this.previousGroup = this.device.createBindGroup({
+      layout: this.previousPipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.uniform } },
+        { binding: 13, resource: this.previous.createView() },
+        {
+          binding: 14,
+          resource: this.device.createSampler({ minFilter: "linear", magFilter: "linear" }),
+        },
+        { binding: 15, resource: { buffer: this.previousUniform } },
+      ],
+    });
     const pixels = width * height;
     const storage = (size: number) => {
       const buffer = this.device.createBuffer({ size, usage: GPUBufferUsage.STORAGE });
@@ -213,10 +269,45 @@ export class Display {
     return encoder;
   }
 
-  draw(s: DisplaySettings) {
-    if (!this.shadeGroup) return;
-    const view = this.target.getCurrentTexture().createView();
-    this.device.queue.submit([this.encode(s, view, this.shadePipeline, this.shadeGroup).finish()]);
+  // Snapshot the last composited preview before the histogram is cleared. Rapid successive
+  // gestures preserve its color and coverage, including an unfinished earlier transition.
+  // Empty intermediate regions must stay transparent so they cannot hide newer orbit points.
+  preserve() {
+    if (!this.hasFrame || !this.preview || !this.previous) return false;
+    const encoder = this.device.createCommandEncoder();
+    encoder.copyTextureToTexture({ texture: this.preview }, { texture: this.previous }, [
+      this.width,
+      this.height,
+    ]);
+    this.device.queue.submit([encoder.finish()]);
+    return true;
+  }
+
+  draw(s: DisplaySettings, transition?: PreviewTransform) {
+    if (!this.shadeGroup || !this.preview) return;
+    const view = this.preview.createView();
+    const encoder = this.encode(s, view, this.shadePipeline, this.shadeGroup);
+    if (transition && transition.opacity > 0) {
+      this.device.queue.writeBuffer(
+        this.previousUniform,
+        0,
+        new Float32Array([...transition.scale, ...transition.offset, transition.opacity, 0, 0, 0])
+      );
+      const pass = encoder.beginRenderPass({
+        colorAttachments: [{ view, loadOp: "load", storeOp: "store" }],
+      });
+      pass.setPipeline(this.previousPipeline);
+      pass.setBindGroup(0, this.previousGroup!);
+      pass.draw(3);
+      pass.end();
+    }
+    encoder.copyTextureToTexture(
+      { texture: this.preview },
+      { texture: this.target.getCurrentTexture() },
+      [this.width, this.height]
+    );
+    this.device.queue.submit([encoder.finish()]);
+    this.hasFrame = true;
   }
 
   // The image draw shows, read back from the GPU at display resolution.

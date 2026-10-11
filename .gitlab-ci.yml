@@ -22,6 +22,7 @@ web:
     - yarn install --immutable
     - yarn format:check
     - yarn lint
+    - yarn test
     - yarn build
     # TypeScript and JavaScript outside web/ (the Deno experiments), with the explorer's
     # Prettier configuration, as the commit hook checks them.

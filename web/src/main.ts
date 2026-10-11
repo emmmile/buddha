@@ -1,13 +1,27 @@
 // Buddha++ explorer: Metropolis sampling and display entirely in the browser on WebGPU. Find a
 // region here, export it, then render it at full size with the buddha++ command line.
 import "./style.css";
-import { Display, type DisplaySettings } from "./display";
+import { Display } from "./display";
 import type { EncodeRequest } from "./encode-worker";
 import { loadExclusionMap } from "./exclusion";
 import { element, field } from "./form";
 import { attachGeometry, fitPixels, observeDevicePixels, sameSize, type Size } from "./geometry";
-import { Sampler, type Metrics, type SamplerSettings } from "./sampler";
-import { decodeHash, encodeHash } from "./share";
+import { Sampler, type Metrics } from "./sampler";
+import {
+  configureControls,
+  defaults,
+  displayNames,
+  displaySettings,
+  isDisplayName,
+  readSettings,
+  samplerSettings,
+  samplerValues,
+  settingsFromHash,
+  settingsHash,
+  writeSettings,
+  type Settings,
+} from "./settings";
+import { previousOpacity, previewTransform, type PreviewView } from "./transition";
 import displaySource from "./shaders/display.wgsl?raw";
 import metropolisSource from "./shaders/metropolis.wgsl?raw";
 
@@ -16,8 +30,6 @@ const PREVIEW_MS = 100;
 // The URL hash follows the settings once they have been still this long, as browsers throttle
 // history updates.
 const HASH_MS = 300;
-// Complex units across the shorter side of the viewport in the full view.
-const FULL_SPAN = 4;
 // A new canvas size restarts the render once it has been still this long, so dragging a window
 // edge restarts once rather than on every step.
 const RESIZE_MS = 200;
@@ -35,56 +47,20 @@ const metropolisFields = element<HTMLFieldSetElement>("metropolis");
 const menuButton = element<HTMLButtonElement>("menu");
 const closeButton = element<HTMLButtonElement>("close");
 
-const samplerNumbers = [
-  "cre",
-  "cim",
-  "span",
-  "lowr",
-  "highr",
-  "lowg",
-  "highg",
-  "lowb",
-  "highb",
-  "radius",
-  "exponent_l",
-  "exponent_c",
-  "chain_scale",
-] as const;
-// Seeding modes and samplers, in the order of the shader's p.seeding and p.sampler.
-const seedings = ["walk", "uniform", "newton"];
-const samplers = ["metropolis", "naive"];
-const displayNames = ["exposure", "gamma", "saturation", "texture", "sharpness"] as const;
-const defaults: Record<string, number | string> = {
-  lowr: 512,
-  highr: 8192,
-  lowg: 128,
-  highg: 2048,
-  lowb: 32,
-  highb: 512,
-  radius: 1,
-  exponent_l: 1,
-  exponent_c: 1,
-  chain_scale: 1,
-  seeding: "newton",
-  sampler: "metropolis",
-  exposure: 0.2, // stops
-  gamma: 0.3,
-  saturation: 100,
-  texture: 25,
-  sharpness: 75,
-};
+const retryButton = element<HTMLButtonElement>("retry");
+let settings: Settings = { ...defaults };
+// The sampler settings that actually produced the current histogram. Draft form edits and
+// pending restarts must never describe a different image in export metadata.
+let renderedSettings: Settings | undefined;
+let paused = false;
+let phase: "loading" | "ready" | "failed" = "loading";
+let gpuGeneration = 0;
+let frameId = 0;
+let encoding = false;
+let previousView: PreviewView | undefined;
 
-// The view is always in the URL; other settings only when they differ from these.
-const hashDefaults = { re: 0, im: 0, span: FULL_SPAN, ...defaults };
-const viewKeys = ["re", "im", "span"];
-
-const isDisplayName = (name: string) => (displayNames as readonly string[]).includes(name);
-
-function fullViewPreset() {
-  field(form, "cre").value = "0";
-  field(form, "cim").value = "0";
-  field(form, "span").value = String(FULL_SPAN);
-  for (const [name, value] of Object.entries(defaults)) field(form, name).value = String(value);
+function showSettings() {
+  writeSettings(form, settings);
   updateDisplayLabels();
   updateSamplerFields();
 }
@@ -96,7 +72,7 @@ function updateSamplerFields() {
 
 function updateDisplayLabels() {
   for (const name of displayNames) {
-    const value = Number(field(form, name).value);
+    const value = settings[name];
     const signed = (text: string) => (value > 0 ? `+${text}` : text);
     element(`${name}-value`).textContent =
       name === "exposure"
@@ -108,15 +84,49 @@ function updateDisplayLabels() {
 }
 
 function validSettings(report: boolean) {
-  for (const input of form.querySelectorAll("input")) input.setCustomValidity("");
-  for (const color of ["r", "g", "b"]) {
-    const low = field(form, `low${color}`);
-    const high = field(form, `high${color}`) as HTMLInputElement;
-    if (Number(low.value) >= Number(high.value)) {
-      high.setCustomValidity("Maximum must exceed minimum");
-    }
+  return readSettings(form, settings, report) !== undefined;
+}
+
+function commitSettings(report = false) {
+  const next = readSettings(form, settings, report);
+  if (!next) return false;
+  settings = next;
+  restartLater();
+  updateHashLater();
+  return true;
+}
+
+function updateActions() {
+  pauseButton.textContent = paused ? "Resume" : "Pause";
+  pauseButton.disabled = phase !== "ready" || !renderedSettings;
+  exportButton.disabled =
+    phase !== "ready" ||
+    !renderedSettings ||
+    restartPending ||
+    encoding ||
+    previousView !== undefined ||
+    canvas.style.visibility === "hidden";
+  retryButton.hidden = phase !== "failed";
+}
+
+function renderStatus() {
+  if (paused) return "Paused";
+  if (renderedSettings && Math.min(width, height) / renderedSettings.span > 1e6) {
+    return "Beyond single precision";
   }
-  return report ? form.reportValidity() : form.checkValidity();
+  return "Running";
+}
+
+function failGpu(error: unknown, generation: number) {
+  if (generation !== gpuGeneration || phase === "failed") return;
+  phase = "failed";
+  cancelAnimationFrame(frameId);
+  clearTimeout(resizeTimer);
+  gpu?.sampler.pause();
+  message.textContent = errorMessage(error);
+  updateActions();
+  // Otherwise a phone shows a blank screen, with the reason hidden in the closed panel.
+  setMenu(true);
 }
 
 function formatSamples(samples: number) {
@@ -175,7 +185,7 @@ function adapterName(info: GPUAdapterInfo) {
   return [...new Set(parts)].join(" ") || "–";
 }
 
-async function startGpu() {
+async function startGpu(onFailure: (error: unknown) => void) {
   if (!navigator.gpu) throw new Error("WebGPU is not available in this browser");
   const adapter = await navigator.gpu.requestAdapter();
   if (!adapter) throw new Error("No WebGPU adapter");
@@ -188,28 +198,39 @@ async function startGpu() {
       maxTextureDimension2D: adapter.limits.maxTextureDimension2D,
     },
   });
-  device.lost.then((info) => {
-    message.textContent = `GPU device lost: ${info.message}`;
-  });
-  const context = canvas.getContext("webgpu");
-  if (!context) throw new Error("Cannot create a WebGPU canvas context");
-  const format = navigator.gpu.getPreferredCanvasFormat();
-  context.configure({ device, format });
-  const [samplerModule, displayModule, exclusion] = await Promise.all([
-    shaderModule(device, "metropolis.wgsl", metropolisSource),
-    shaderModule(device, "display.wgsl", displaySource),
-    loadExclusionMap(device),
-  ]);
-  return {
-    device,
-    name: adapterName(adapter.info),
-    sizeLimits: sizeLimits(device.limits),
-    sampler: new Sampler(device, samplerModule, exclusion, timestamps),
-    display: new Display(device, displayModule, context, format),
-  };
+  device.lost.then((info) =>
+    onFailure(new Error(`GPU device lost: ${info.message || info.reason}`))
+  );
+  device.addEventListener("uncapturederror", (event) => onFailure(new Error(event.error.message)));
+  try {
+    const context = canvas.getContext("webgpu");
+    if (!context) throw new Error("Cannot create a WebGPU canvas context");
+    const format = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({
+      device,
+      format,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST,
+    });
+    const [samplerModule, displayModule, exclusion] = await Promise.all([
+      shaderModule(device, "metropolis.wgsl", metropolisSource),
+      shaderModule(device, "display.wgsl", displaySource),
+      loadExclusionMap(device),
+    ]);
+    return {
+      device,
+      name: adapterName(adapter.info),
+      sizeLimits: sizeLimits(device.limits),
+      sampler: new Sampler(device, samplerModule, exclusion, timestamps),
+      display: new Display(device, displayModule, context, format),
+    };
+  } catch (error) {
+    onFailure(error);
+    device.destroy();
+    throw error;
+  }
 }
 
-let gpu: Awaited<ReturnType<typeof startGpu>>;
+let gpu: Awaited<ReturnType<typeof startGpu>> | undefined;
 // The canvas on screen in device pixels, once measured, and the histogram size: the same, unless
 // the screen is larger than the GPU limits allow or a resize is still settling.
 let shown: Size | undefined;
@@ -222,45 +243,38 @@ let displayForced = true;
 let lastDraw = 0;
 let lastMeasures = 0;
 
-// The sampler fields by name, with the sampler and seeding mode as their option values. Shared by
-// the URL hash and the image metadata.
-function samplerValues() {
-  const numbers = Object.fromEntries(
-    samplerNumbers.map((name) => [name, Number(field(form, name).value)])
-  ) as Record<(typeof samplerNumbers)[number], number>;
-  return {
-    ...numbers,
-    sampler: field(form, "sampler").value,
-    seeding: field(form, "seeding").value,
-  };
-}
-
-// The sampler takes pixels per complex unit, derived from the span at the current size.
-function samplerSettings(): SamplerSettings {
-  const { span, ...settings } = Object.fromEntries(
-    samplerNumbers.map((name) => [name, Number(field(form, name).value)])
-  ) as Record<(typeof samplerNumbers)[number], number>;
-  const seeding = Math.max(0, seedings.indexOf(field(form, "seeding").value));
-  const sampler = Math.max(0, samplers.indexOf(field(form, "sampler").value));
-  const scale = Math.min(width, height) / span;
-  return { ...settings, scale, seeding, sampler, width, height };
-}
-
-function displaySettings(): DisplaySettings {
-  return Object.fromEntries(
-    displayNames.map((name) => [name, Number(field(form, name).value)])
-  ) as unknown as DisplaySettings;
-}
-
 function renderSize() {
-  return fitPixels(shown!, gpu.sizeLimits);
+  return fitPixels(shown!, gpu!.sizeLimits);
 }
 
 // Reallocates the histogram when the canvas size changes, then starts a new render.
 function restart() {
+  if (!gpu || !shown || phase !== "ready") return;
   restartPending = false;
   clearTimeout(resizeTimer);
   const size = renderSize();
+  const viewChanged =
+    renderedSettings &&
+    (renderedSettings.cre !== settings.cre ||
+      renderedSettings.cim !== settings.cim ||
+      renderedSettings.span !== settings.span);
+  const sameSampling =
+    renderedSettings &&
+    Object.entries(samplerValues(settings)).every(
+      ([name, value]) =>
+        ["cre", "cim", "span"].includes(name) || renderedSettings![name as keyof Settings] === value
+    );
+  // Only navigation retains the old frame. Iteration/sampler changes and resizing start clean.
+  previousView =
+    viewChanged && sameSampling && sameSize(size, { width, height }) && gpu.display.preserve()
+      ? {
+          cre: renderedSettings!.cre,
+          cim: renderedSettings!.cim,
+          span: renderedSettings!.span,
+          width,
+          height,
+        }
+      : undefined;
   if (!sameSize(size, { width, height })) {
     width = canvas.width = size.width;
     height = canvas.height = size.height;
@@ -272,54 +286,19 @@ function restart() {
     gpu.display.setHistogram(histogram, width, height);
   }
   canvas.style.visibility = "";
-  if (!validSettings(false)) {
-    message.textContent = "Invalid settings";
-    return;
-  }
-  const settings = samplerSettings();
-  gpu.sampler.start(settings);
+  gpu.sampler.start(samplerSettings(settings, width, height), !paused);
+  if (phase !== "ready") return;
+  renderedSettings = { ...settings };
   gpu.display.mirrorAxis = gpu.sampler.mirrorAxis;
-  pauseButton.textContent = "Pause";
-  // Orbits are single precision, as in buddha-metal: pixels smaller than the float spacing
-  // around |c| ~ 2 show blocky artifacts.
-  message.textContent = 1 / settings.scale < 1e-6 ? "Beyond single precision" : "Running";
+  message.textContent = renderStatus();
   displayDirty = displayForced = true;
-  updateHashLater();
+  updateActions();
 }
 
-// Resets to the full view and defaults, then applies the settings in the URL hash. A value the
-// form rejects, such as one out of range or an unknown seeding mode, keeps its default.
 function applyHash() {
-  fullViewPreset();
-  validSettings(false); // clears custom errors left from before
-  const { re, im, span, ...values } = decodeHash(location.hash, hashDefaults);
-  const set = (name: string, value: number | string | undefined) => {
-    if (value === undefined) return;
-    const input = field(form, name);
-    const before = input.value;
-    input.value = String(value);
-    // Range inputs clamp and select inputs blank values they cannot hold.
-    if (input.value !== String(value) || !input.checkValidity()) input.value = before;
-  };
-  set("cre", re);
-  set("cim", im);
-  set("span", span);
-  for (const [name, value] of Object.entries(values)) set(name, value);
-  for (const color of ["r", "g", "b"]) {
-    const [low, high] = [`low${color}`, `high${color}`];
-    if (Number(field(form, low).value) >= Number(field(form, high).value)) {
-      field(form, low).value = String(defaults[low]);
-      field(form, high).value = String(defaults[high]);
-    }
-  }
-  validSettings(false);
-  updateDisplayLabels();
-  updateSamplerFields();
-}
-
-function settingsHash() {
-  const { cre, cim, ...values } = samplerValues();
-  return encodeHash({ re: cre, im: cim, ...values, ...displaySettings() }, hashDefaults, viewKeys);
+  settings = settingsFromHash(location.hash);
+  showSettings();
+  updateHashLater();
 }
 
 let hashTimer: ReturnType<typeof setTimeout> | undefined;
@@ -327,8 +306,7 @@ let hashTimer: ReturnType<typeof setTimeout> | undefined;
 // Replaces the hash without a history entry; replaceState does not fire hashchange.
 function updateHash() {
   clearTimeout(hashTimer);
-  if (!validSettings(false)) return;
-  const hash = settingsHash();
+  const hash = settingsHash(settings);
   if (hash === location.hash) return;
   try {
     history.replaceState(history.state, "", hash);
@@ -346,18 +324,18 @@ function updateHashLater() {
 // settings, and how far sampling had got. Stored as JSON in the image. The window is the span, as
 // in links; scale, pixels per complex unit at this size, stays for readers from before span.
 function exportMetadata() {
-  const m = gpu.sampler.metrics;
-  const values = samplerValues();
+  const m = gpu!.sampler.metrics;
+  const values = samplerValues(renderedSettings!);
   return {
     format: "buddha-explorer/1",
     width,
     height,
     ...values,
     scale: Math.min(width, height) / values.span,
-    display: displaySettings(),
+    display: displaySettings(settings),
     orbits: m.seeds + m.proposals,
     points: m.increments,
-    seconds: Number(gpu.sampler.elapsed().toFixed(1)),
+    seconds: Number(gpu!.sampler.elapsed().toFixed(1)),
   };
 }
 
@@ -380,12 +358,15 @@ function encodeImage(request: EncodeRequest) {
 }
 
 async function exportImage() {
-  exportButton.disabled = true;
+  if (!gpu || exportButton.disabled) return;
+  const generation = gpuGeneration;
+  encoding = true;
+  updateActions();
   message.textContent = "Encoding…";
   try {
     const created = new Date();
     const settings = exportMetadata();
-    const image = await gpu.display.capture(displaySettings());
+    const image = await gpu.display.capture(settings.display);
     const text = {
       Software: "Buddha++ explorer",
       "Creation Time": created.toISOString(),
@@ -399,11 +380,14 @@ async function exportImage() {
     const local = new Date(created.getTime() - created.getTimezoneOffset() * 60000);
     const name = `buddha-${local.toISOString().slice(0, 19).replace(/[:T]/g, "-")}.${blob.type === "image/webp" ? "webp" : "png"}`;
     download(blob, name);
-    message.textContent = `Saved ${name}`;
+    if (generation === gpuGeneration && phase === "ready") message.textContent = `Saved ${name}`;
   } catch (error) {
-    message.textContent = `Export failed: ${errorMessage(error)}`;
+    if (generation === gpuGeneration && phase === "ready") {
+      message.textContent = `Export failed: ${errorMessage(error)}`;
+    }
   } finally {
-    exportButton.disabled = false;
+    encoding = false;
+    updateActions();
   }
 }
 
@@ -429,10 +413,10 @@ const measures: [string, (p: Progress) => string][] = [
   // GPU time over wall-clock time while running; estimated (~) without timestamp queries.
   [
     "GPU busy",
-    ({ m, elapsed }) => `${gpu.sampler.timestamps ? "" : "~"}${share(m.gpuSeconds, elapsed)}`,
+    ({ m, elapsed }) => `${gpu!.sampler.timestamps ? "" : "~"}${share(m.gpuSeconds, elapsed)}`,
   ],
   ["size", sizeText],
-  ["GPU", () => gpu.name],
+  ["GPU", () => gpu!.name],
 ];
 
 // The histogram size, and the canvas's on screen when they differ: the screen exceeds the GPU
@@ -454,27 +438,41 @@ const measureValues = measures.map(([label]) => {
 });
 
 function updateMeasures() {
-  const m = gpu.sampler.metrics;
-  const progress = { m, orbits: m.seeds + m.proposals, elapsed: gpu.sampler.elapsed() };
+  const m = gpu!.sampler.metrics;
+  const progress = { m, orbits: m.seeds + m.proposals, elapsed: gpu!.sampler.elapsed() };
   measures.forEach(([, text], i) => (measureValues[i].textContent = text(progress)));
 }
 
 function frame(now: number) {
-  if (restartPending && shown) restart();
-  if (displayDirty && (displayForced || now - lastDraw >= PREVIEW_MS)) {
-    gpu.display.draw(displaySettings());
-    lastDraw = now;
-    displayDirty = displayForced = false;
+  if (phase !== "ready" || !gpu) return;
+  try {
+    if (restartPending && shown) restart();
+    if (phase !== "ready") return;
+    if (displayDirty && (displayForced || now - lastDraw >= PREVIEW_MS)) {
+      let transition;
+      if (previousView) {
+        const opacity = previousOpacity(gpu.sampler.metrics.increments, width * height);
+        if (opacity === 0) previousView = undefined;
+        else transition = previewTransform(previousView, { ...settings, width, height }, opacity);
+      }
+      gpu.display.draw(displaySettings(settings), transition);
+      updateActions();
+      lastDraw = now;
+      displayDirty = displayForced = false;
+    }
+    if (now - lastMeasures >= MEASURES_MS) {
+      lastMeasures = now;
+      updateMeasures();
+    }
+    frameId = requestAnimationFrame(frame);
+  } catch (error) {
+    failGpu(error, gpuGeneration);
   }
-  if (now - lastMeasures >= MEASURES_MS) {
-    lastMeasures = now;
-    updateMeasures();
-  }
-  requestAnimationFrame(frame);
 }
 
 const restartLater = () => {
   restartPending = true;
+  updateActions();
 };
 
 // The first size starts the render; later ones restart it once they settle, and only if the
@@ -484,21 +482,25 @@ function resized(size: Size) {
   const first = !shown;
   shown = size;
   clearTimeout(resizeTimer);
+  if (phase !== "ready") return;
   if (first) {
     restartLater();
     return;
   }
   const changed = () => !sameSize(renderSize(), { width, height });
   if (changed()) canvas.style.visibility = "hidden";
+  updateActions();
   resizeTimer = setTimeout(() => {
     if (changed()) restartLater();
     else canvas.style.visibility = "";
+    updateActions();
   }, RESIZE_MS);
 }
 
 form.addEventListener("input", (event) => {
   const name = (event.target as HTMLInputElement).name;
   if (isDisplayName(name)) {
+    settings = { ...settings, [name]: Number(field(form, name).value) };
     updateDisplayLabels();
     displayDirty = displayForced = true;
   }
@@ -507,24 +509,26 @@ form.addEventListener("change", (event) => {
   const name = (event.target as HTMLInputElement).name;
   if (name === "sampler") updateSamplerFields();
   if (isDisplayName(name)) updateHashLater();
-  else if (validSettings(true)) restartLater();
+  else commitSettings(true);
 });
 form.addEventListener("submit", (event) => event.preventDefault());
 
 pauseButton.addEventListener("click", () => {
-  if (gpu.sampler.running) {
-    gpu.sampler.pause();
-    pauseButton.textContent = "Resume";
-    message.textContent = "Paused";
-  } else {
-    gpu.sampler.resume();
-    pauseButton.textContent = "Pause";
-    message.textContent = "Running";
-  }
+  if (phase !== "ready" || !gpu || !renderedSettings) return;
+  paused = !paused;
+  if (paused) gpu.sampler.pause();
+  else gpu.sampler.resume();
+  message.textContent = renderStatus();
+  updateActions();
 });
 element("preset").addEventListener("click", () => {
-  fullViewPreset();
+  settings = { ...defaults };
+  showSettings();
   restartLater();
+  updateHashLater();
+});
+retryButton.addEventListener("click", () => {
+  if (phase === "failed") initializeGpu();
 });
 exportButton.addEventListener("click", exportImage);
 
@@ -546,22 +550,51 @@ addEventListener("hashchange", () => {
   restartLater();
 });
 
-async function main() {
-  applyHash();
+async function initializeGpu() {
+  const generation = ++gpuGeneration;
+  phase = "loading";
+  cancelAnimationFrame(frameId);
+  gpu?.sampler.pause();
+  gpu?.device.destroy();
+  gpu = undefined;
+  Object.assign(window, { gpu });
+  width = height = 0;
+  renderedSettings = undefined;
+  previousView = undefined;
+  restartPending = displayDirty = displayForced = true;
+  message.textContent = "Starting…";
+  measureValues.forEach((value) => (value.textContent = "–"));
+  updateActions();
   try {
-    gpu = await startGpu();
-    Object.assign(window, { gpu }); // for experiments driving the page (gpu_util.ts)
+    const ready = await startGpu((error) => failGpu(error, generation));
+    if (generation !== gpuGeneration || phase !== "loading") {
+      ready.sampler.pause();
+      ready.device.destroy();
+      return;
+    }
+    gpu = ready;
+    // Kept for the existing experiments that drive the page through window.gpu.
+    Object.assign(window, { gpu });
     gpu.sampler.onBatch = () => {
       displayDirty = true;
     };
-    attachGeometry({ form, viewport, validSettings, viewChanged: restartLater });
-    observeDevicePixels(canvas, resized);
-    requestAnimationFrame(frame);
+    gpu.sampler.onError = (error) => failGpu(error, generation);
+    phase = "ready";
+    frameId = requestAnimationFrame(frame);
   } catch (error) {
-    message.textContent = errorMessage(error);
-    // Otherwise a phone shows a blank screen, with the reason hidden in the closed panel.
-    setMenu(true);
+    failGpu(error, generation);
   }
 }
 
-main();
+configureControls(form);
+applyHash();
+attachGeometry({
+  form,
+  viewport,
+  validSettings,
+  viewChanged: () => {
+    commitSettings();
+  },
+});
+observeDevicePixels(canvas, resized);
+initializeGpu();

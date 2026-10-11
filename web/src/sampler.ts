@@ -68,6 +68,7 @@ function mirrorHelps(s: SamplerSettings) {
 
 export class Sampler {
   onBatch: () => void = () => {};
+  onError: (error: unknown) => void = () => {};
   metrics!: Metrics;
   running = false;
 
@@ -190,7 +191,7 @@ export class Sampler {
 
   // Starts a new histogram and new chains. Dispatches already queued finish first: the clear and
   // the chain restart follow them on the queue, and their results are discarded.
-  start(settings: SamplerSettings) {
+  start(settings: SamplerSettings, running = true) {
     if (!this.histogram) throw new Error("setHistogram must be called before start");
     this.settings = settings;
     ++this.generation;
@@ -199,7 +200,7 @@ export class Sampler {
     encoder.clearBuffer(this.histogram);
     this.pass(encoder, this.beginPipeline);
     this.device.queue.submit([encoder.finish()]);
-    this.running = true;
+    this.running = running;
     this.resetMetrics();
     this.pump();
   }
@@ -281,11 +282,15 @@ export class Sampler {
   }
 
   private pump() {
-    while (this.running && this.inFlight < IN_FLIGHT) this.dispatch();
+    try {
+      while (this.running && this.inFlight < IN_FLIGHT) this.dispatch();
+    } catch (error) {
+      this.pause();
+      this.onError(error);
+    }
   }
 
   private dispatch() {
-    ++this.inFlight;
     const readback =
       this.readbacks.pop() ??
       this.device.createBuffer({
@@ -312,6 +317,7 @@ export class Sampler {
     const generation = this.generation;
     const submitted = performance.now();
     this.device.queue.submit([encoder.finish()]);
+    ++this.inFlight;
     readback
       .mapAsync(GPUMapMode.READ)
       .then(() => {
@@ -339,10 +345,16 @@ export class Sampler {
         } else if (seconds * 1000 > TARGET_MS * 1.5) {
           this.steps = Math.max(MIN_STEPS, Math.round(this.steps * 0.7));
         }
-        --this.inFlight;
         if (generation === this.generation) this.onBatch();
-        this.pump();
       })
-      .catch(() => --this.inFlight);
+      .catch((error: unknown) => {
+        readback.destroy();
+        this.pause();
+        this.onError(error);
+      })
+      .finally(() => {
+        --this.inFlight;
+        this.pump();
+      });
   }
 }
