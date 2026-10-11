@@ -59,7 +59,10 @@ const transform = { scale: [0.5, 0.5], offset: [0.25, 0.25], opacity: 1 };
 display.draw(settings, transform);
 check((await read())[0] === 255, "Previous image should cover an empty new histogram");
 const clean = await display.capture(settings);
-check(clean.data[0] === 0, "Export must exclude the previous-frame placeholder");
+check(
+  clean.data[0] === 0 && clean.data[3] === 255,
+  "Export must exclude the placeholder and remain opaque"
+);
 display.draw(settings, { ...transform, opacity: 0.5 });
 const halfway = (await read())[0];
 check(halfway >= 127 && halfway <= 128, "Half-faded old image should blend over black");
@@ -72,6 +75,33 @@ check(
   zoomout[0] === 0 && zoomout[256 + 4] === halfway,
   "Zoom-out should expose black outside the old image footprint"
 );
+// Reproduce a rapid two-step zoom-out: the first step exposes an empty ring, then the
+// next histogram fills the wider view. That ring must let the new detail show through.
+device.queue.writeBuffer(histogram, 0, new Uint32Array(size * size * 3).fill(10));
+display.draw(settings);
+check(display.preserve(), "Detailed initial frame should be retained");
+const empty = device.createCommandEncoder();
+empty.clearBuffer(histogram);
+device.queue.submit([empty.finish()]);
+display.draw(settings, { scale: [2, 2], offset: [-0.5, -0.5], opacity: 1 });
+const intermediate = await read();
+check(
+  intermediate[0] === 0 && intermediate[3] === 0,
+  "Empty intermediate ring must have zero coverage"
+);
+check(intermediate[256 + 4] === 255, "Original viewport should retain its detail");
+check(display.preserve(), "Retain the intermediate zoom-out frame with its coverage");
+device.queue.writeBuffer(histogram, 0, new Uint32Array(size * size * 3).fill(10));
+display.draw(settings, { scale: [2, 2], offset: [-0.5, -0.5], opacity: 1 });
+const wider = await read();
+for (let y = 0; y < size; ++y) {
+  for (let x = 0; x < size; ++x) {
+    check(wider[y * 256 + x * 4] === 255, "Retained black ring must not hide newer detail");
+  }
+}
+const blank = device.createCommandEncoder();
+blank.clearBuffer(histogram);
+device.queue.submit([blank.finish()]);
 display.draw(settings);
 check((await read())[0] === 0, "Completed fade should show only the new histogram");
 const validation = await device.popErrorScope();
@@ -79,5 +109,5 @@ if (validation) throw new Error(validation.message);
 target.destroy();
 device.destroy();
 globalThis.console.log(
-  "PASS: real WebGPU shader, retained frame, half fade, repeated zoom, clipping and clean export"
+  "PASS: real WebGPU shader, retained frame, half fade, repeated zoom, transparent zoom-out bands, clipping and clean export"
 );

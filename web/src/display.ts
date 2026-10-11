@@ -65,14 +65,14 @@ export class Display {
     this.reducePipeline = compute("reduce");
     this.tonePipeline = compute("tone");
     this.blurPipeline = compute("blur");
-    const shade = (format: GPUTextureFormat) =>
+    const shade = (format: GPUTextureFormat, entryPoint: string) =>
       device.createRenderPipeline({
         layout: "auto",
         vertex: { module, entryPoint: "fullscreen" },
-        fragment: { module, entryPoint: "shade", targets: [{ format }] },
+        fragment: { module, entryPoint, targets: [{ format }] },
       });
-    this.shadePipeline = shade(format);
-    this.capturePipeline = shade(CAPTURE_FORMAT);
+    this.shadePipeline = shade(format, "preview_shade");
+    this.capturePipeline = shade(CAPTURE_FORMAT, "shade");
     this.previousPipeline = device.createRenderPipeline({
       layout: "auto",
       vertex: { module, entryPoint: "fullscreen" },
@@ -83,7 +83,7 @@ export class Display {
           {
             format,
             blend: {
-              color: { srcFactor: "src-alpha", dstFactor: "one-minus-src-alpha", operation: "add" },
+              color: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" },
               alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" },
             },
           },
@@ -270,7 +270,8 @@ export class Display {
   }
 
   // Snapshot the last composited preview before the histogram is cleared. Rapid successive
-  // gestures preserve exactly what was on screen, including an unfinished earlier transition.
+  // gestures preserve its color and coverage, including an unfinished earlier transition.
+  // Empty intermediate regions must stay transparent so they cannot hide newer orbit points.
   preserve() {
     if (!this.hasFrame || !this.preview || !this.previous) return false;
     const encoder = this.device.createCommandEncoder();

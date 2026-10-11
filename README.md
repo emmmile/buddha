@@ -167,6 +167,7 @@ yarn build    # static site in web/dist, publishable as is
 yarn check    # formatting, lint and type check
 yarn test     # settings and GPU/session regression checks
 yarn test:gpu # optional real-GPU compositing smoke check, requires Deno
+yarn bench:preview # optional 1080p/4K preview benchmark, requires Deno
 ```
 
 Open it in a browser with WebGPU, such as Chrome, Edge or Safari 26.
@@ -186,7 +187,10 @@ gesture. Wheel and trackpad zoom move twice as far for the same scroll distance.
 When navigating, the previous preview follows the new view and stays visible while
 the new histogram starts. It fades out smoothly between one and eight histogram
 increments per pixel, so an empty or paused render keeps its placeholder. The old
-image never contributes to the new histogram. Export becomes available once the
+image never contributes to the new histogram. Empty parts of intermediate
+previews retain zero coverage, so successive zoom-outs cannot hide newer detail
+behind black bands. Retention and compositing stay on the GPU, without image
+readback; the overlay pass is skipped once the fade finishes. Export becomes available once the
 placeholder has faded, so exported pixels and metadata describe only the new render.
 Changing the window, channel iterations or Metropolis settings starts
 a new histogram, as does a resize once it settles. Exposure (in stops)
