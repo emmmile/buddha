@@ -15,9 +15,7 @@ function setup({ available = true, hash = "" } = {}) {
     disabled = false;
     hidden = false;
     textContent = "";
-    children = [];
-    parentElement = null;
-    classList = { toggle() {}, add() {}, remove() {} };
+    classList = { toggle() {} };
     addEventListener(name, callback) {
       this.listeners.set(name, callback);
     }
@@ -27,9 +25,7 @@ function setup({ available = true, hash = "" } = {}) {
     click() {
       if (!this.disabled) this.dispatch("click");
     }
-    append(...children) {
-      this.children.push(...children);
-    }
+    append() {}
     setAttribute() {}
   }
   class Input extends Element {
@@ -43,9 +39,6 @@ function setup({ available = true, hash = "" } = {}) {
     }
   }
   class Select extends Input {}
-  class Details extends Element {
-    open = false;
-  }
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const fields = new Map(
     [...html.matchAll(/<(input|select)[^>]*name="([^"]+)"/g)].map(([, tag, name]) => {
@@ -174,7 +167,6 @@ function setup({ available = true, hash = "" } = {}) {
     {
       HTMLInputElement: Input,
       HTMLSelectElement: Select,
-      HTMLDetailsElement: Details,
       navigator,
       performance,
       location,
@@ -238,7 +230,6 @@ function setup({ available = true, hash = "" } = {}) {
     devices,
     exports,
     previews,
-    location,
     frame,
     enableGpu,
     resize(size) {
