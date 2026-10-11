@@ -21,6 +21,7 @@ import {
   writeSettings,
   type Settings,
 } from "./settings";
+import { previousOpacity, previewTransform, type PreviewView } from "./transition";
 import displaySource from "./shaders/display.wgsl?raw";
 import metropolisSource from "./shaders/metropolis.wgsl?raw";
 
@@ -56,6 +57,7 @@ let phase: "loading" | "ready" | "failed" = "loading";
 let gpuGeneration = 0;
 let frameId = 0;
 let encoding = false;
+let previousView: PreviewView | undefined;
 
 function showSettings() {
   writeSettings(form, settings);
@@ -102,6 +104,7 @@ function updateActions() {
     !renderedSettings ||
     restartPending ||
     encoding ||
+    previousView !== undefined ||
     canvas.style.visibility === "hidden";
   retryButton.hidden = phase !== "failed";
 }
@@ -203,7 +206,11 @@ async function startGpu(onFailure: (error: unknown) => void) {
     const context = canvas.getContext("webgpu");
     if (!context) throw new Error("Cannot create a WebGPU canvas context");
     const format = navigator.gpu.getPreferredCanvasFormat();
-    context.configure({ device, format });
+    context.configure({
+      device,
+      format,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST,
+    });
     const [samplerModule, displayModule, exclusion] = await Promise.all([
       shaderModule(device, "metropolis.wgsl", metropolisSource),
       shaderModule(device, "display.wgsl", displaySource),
@@ -246,6 +253,28 @@ function restart() {
   restartPending = false;
   clearTimeout(resizeTimer);
   const size = renderSize();
+  const viewChanged =
+    renderedSettings &&
+    (renderedSettings.cre !== settings.cre ||
+      renderedSettings.cim !== settings.cim ||
+      renderedSettings.span !== settings.span);
+  const sameSampling =
+    renderedSettings &&
+    Object.entries(samplerValues(settings)).every(
+      ([name, value]) =>
+        ["cre", "cim", "span"].includes(name) || renderedSettings![name as keyof Settings] === value
+    );
+  // Only navigation retains the old frame. Iteration/sampler changes and resizing start clean.
+  previousView =
+    viewChanged && sameSampling && sameSize(size, { width, height }) && gpu.display.preserve()
+      ? {
+          cre: renderedSettings!.cre,
+          cim: renderedSettings!.cim,
+          span: renderedSettings!.span,
+          width,
+          height,
+        }
+      : undefined;
   if (!sameSize(size, { width, height })) {
     width = canvas.width = size.width;
     height = canvas.height = size.height;
@@ -418,8 +447,16 @@ function frame(now: number) {
   if (phase !== "ready" || !gpu) return;
   try {
     if (restartPending && shown) restart();
+    if (phase !== "ready") return;
     if (displayDirty && (displayForced || now - lastDraw >= PREVIEW_MS)) {
-      gpu.display.draw(displaySettings(settings));
+      let transition;
+      if (previousView) {
+        const opacity = previousOpacity(gpu.sampler.metrics.increments, width * height);
+        if (opacity === 0) previousView = undefined;
+        else transition = previewTransform(previousView, { ...settings, width, height }, opacity);
+      }
+      gpu.display.draw(displaySettings(settings), transition);
+      updateActions();
       lastDraw = now;
       displayDirty = displayForced = false;
     }
@@ -484,13 +521,7 @@ pauseButton.addEventListener("click", () => {
   message.textContent = renderStatus();
   updateActions();
 });
-element("reset-view").addEventListener("click", () => {
-  settings = { ...settings, cre: defaults.cre, cim: defaults.cim, span: defaults.span };
-  showSettings();
-  restartLater();
-  updateHashLater();
-});
-element("reset-all").addEventListener("click", () => {
+element("preset").addEventListener("click", () => {
   settings = { ...defaults };
   showSettings();
   restartLater();
@@ -529,6 +560,7 @@ async function initializeGpu() {
   Object.assign(window, { gpu });
   width = height = 0;
   renderedSettings = undefined;
+  previousView = undefined;
   restartPending = displayDirty = displayForced = true;
   message.textContent = "Starting…";
   measureValues.forEach((value) => (value.textContent = "–"));

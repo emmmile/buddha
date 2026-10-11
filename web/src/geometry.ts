@@ -223,7 +223,7 @@ export function attachGeometry({
       const point = viewPoint(event.clientX, event.clientY);
       const anchor = complexPoint(point, view);
       const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 800 : 1);
-      const span = view.span * Math.exp(Math.max(-2, Math.min(2, delta * 0.001)));
+      const span = view.span * Math.exp(Math.max(-2, Math.min(2, delta * 0.002)));
       if (anchorView(anchor, point, view, span)) viewChanged();
     },
     { passive: false }

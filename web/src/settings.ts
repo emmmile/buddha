@@ -117,17 +117,7 @@ export function readSettings(form: HTMLFormElement, previous: Settings, report =
       valid = false;
     }
   }
-  if (!valid && report) {
-    // Native validity popovers cannot focus controls inside a closed details section.
-    for (const input of form.querySelectorAll<HTMLInputElement>("input:invalid, select:invalid")) {
-      let parent: HTMLElement | null = input.parentElement;
-      while (parent && parent !== form) {
-        if (parent instanceof HTMLDetailsElement) parent.open = true;
-        parent = parent.parentElement;
-      }
-    }
-    form.reportValidity();
-  }
+  if (!valid && report) form.reportValidity();
   return valid ? settings : undefined;
 }
 

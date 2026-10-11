@@ -142,3 +142,29 @@ fn shade(@builtin(position) position: vec4f) -> @location(0) vec4f {
   }
   return vec4f(clamp(shade_color[i].rgb + delta, vec3f(0.0), vec3f(1.0)), 1.0);
 }
+
+
+// ---- previous-frame placeholder (preview only; never used for export) ----
+
+struct Previous {
+  scale: vec2f,
+  offset: vec2f,
+  opacity: f32,
+}
+
+@group(0) @binding(13) var previous_image: texture_2d<f32>;
+@group(0) @binding(14) var previous_sampler: sampler;
+@group(0) @binding(15) var<uniform> previous_transform: Previous;
+
+@fragment
+fn previous(@builtin(position) position: vec4f) -> @location(0) vec4f {
+  let uv = position.xy / vec2f(f32(d.width), f32(d.height));
+  let source = uv * previous_transform.scale + previous_transform.offset;
+  // Zooming out or panning exposes regions the old image never covered. Keep the new image
+  // there rather than repeating or stretching its edge pixels into those regions.
+  if (any(source < vec2f(0.0)) || any(source > vec2f(1.0))) {
+    return vec4f(0.0);
+  }
+  let old = textureSampleLevel(previous_image, previous_sampler, source, 0.0);
+  return vec4f(old.rgb, previous_transform.opacity);
+}

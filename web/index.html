@@ -11,74 +11,64 @@
         <h1>Buddha · explorer</h1>
         <button type="button" class="secondary" id="close">Close</button>
       </header>
-      <p class="hint">Drag to pan · Scroll or pinch to zoom</p>
       <form id="controls">
-        <details>
-          <summary>Coordinates</summary>
-          <fieldset>
-            <legend>Window</legend>
-            <div class="pair">
-              <label>Center Re<input name="cre" type="number" required /></label>
-              <label>Center Im<input name="cim" type="number" required /></label>
-            </div>
-            <label
-              >Span<input
-                name="span"
-                type="number"
-                title="Complex units across the view's shorter side"
-                required
-            /></label>
-          </fieldset>
-        </details>
-        <details>
-          <summary>Channel iterations</summary>
-          <fieldset>
-            <legend>Channel iterations</legend>
-            <div class="pair">
-              <label>R min<input name="lowr" type="number" required /></label>
-              <label>R max<input name="highr" type="number" required /></label>
-              <label>G min<input name="lowg" type="number" required /></label>
-              <label>G max<input name="highg" type="number" required /></label>
-              <label>B min<input name="lowb" type="number" required /></label>
-              <label>B max<input name="highb" type="number" required /></label>
-            </div>
-          </fieldset>
-        </details>
-        <details>
-          <summary>Sampler tuning</summary>
-          <fieldset>
-            <legend>Sampler</legend>
-            <label
-              title="Metropolis chains, or naive uniform samples each drawn once: the unbiased Buddhabrot, which finds little when zoomed in"
-              >Sampler<select name="sampler">
-                <option value="metropolis">Metropolis</option>
-                <option value="naive">Naive</option>
-              </select></label
-            >
-          </fieldset>
-          <fieldset id="metropolis">
-            <legend>Metropolis sampler</legend>
-            <label title="Mutation radius, in percent of the view's shorter side"
-              >Radius %<input name="radius" type="number" required
-            /></label>
-            <label title="Density exponent of the orbit length L (target L^a C^b)"
-              >Length exp.<input name="exponent_l" type="number" required
-            /></label>
-            <label title="Density exponent of the orbit points in the window C (target L^a C^b)"
-              >Window exp.<input name="exponent_c" type="number" required
-            /></label>
-            <label title="Proposals per chain, as a multiple of max(256 C, 2 L)"
-              >Chain length ×<input name="chain_scale" type="number" required
-            /></label>
-            <label title="How chains find their first point"
-              >Seeds<select name="seeding">
-                <option value="newton">Newton</option>
-                <option value="walk">Random walk</option>
-                <option value="uniform">Uniform</option>
-              </select></label
-            >
-          </fieldset>
-        </details>
+        <fieldset>
+          <legend>Window</legend>
+          <div class="pair">
+            <label>Center Re<input name="cre" type="number" required /></label>
+            <label>Center Im<input name="cim" type="number" required /></label>
+          </div>
+          <label
+            >Span<input
+              name="span"
+              type="number"
+              title="Complex units across the view's shorter side"
+              required
+          /></label>
+        </fieldset>
+        <fieldset>
+          <legend>Channel iterations</legend>
+          <div class="pair">
+            <label>R min<input name="lowr" type="number" required /></label>
+            <label>R max<input name="highr" type="number" required /></label>
+            <label>G min<input name="lowg" type="number" required /></label>
+            <label>G max<input name="highg" type="number" required /></label>
+            <label>B min<input name="lowb" type="number" required /></label>
+            <label>B max<input name="highb" type="number" required /></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Sampler</legend>
+          <label
+            title="Metropolis chains, or naive uniform samples each drawn once: the unbiased Buddhabrot, which finds little when zoomed in"
+            >Sampler<select name="sampler">
+              <option value="metropolis">Metropolis</option>
+              <option value="naive">Naive</option>
+            </select></label
+          >
+        </fieldset>
+        <fieldset id="metropolis">
+          <legend>Metropolis sampler</legend>
+          <label title="Mutation radius, in percent of the view's shorter side"
+            >Radius %<input name="radius" type="number" required
+          /></label>
+          <label title="Density exponent of the orbit length L (target L^a C^b)"
+            >Length exp.<input name="exponent_l" type="number" required
+          /></label>
+          <label title="Density exponent of the orbit points in the window C (target L^a C^b)"
+            >Window exp.<input name="exponent_c" type="number" required
+          /></label>
+          <label title="Proposals per chain, as a multiple of max(256 C, 2 L)"
+            >Chain length ×<input name="chain_scale" type="number" required
+          /></label>
+          <label title="How chains find their first point"
+            >Seeds<select name="seeding">
+              <option value="newton">Newton</option>
+              <option value="walk">Random walk</option>
+              <option value="uniform">Uniform</option>
+            </select></label
+          >
+        </fieldset>
         <fieldset>
           <legend>Display</legend>
           <label
@@ -102,6 +92,7 @@
         </fieldset>
         <div class="actions">
           <button type="button" id="pause" disabled>Pause</button>
+          <button type="button" class="secondary" id="preset">Reset</button>
           <button
             type="button"
             class="secondary"
@@ -111,18 +102,11 @@
             Export
           </button>
         </div>
-        <div class="actions">
-          <button type="button" class="secondary" id="reset-view">Reset view</button>
-          <button type="button" class="secondary" id="reset-all">Reset all</button>
-        </div>
       </form>
       <section id="stats">
         <p id="message" role="status">Starting…</p>
         <button type="button" id="retry" hidden>Retry GPU</button>
-        <details>
-          <summary>Render details</summary>
-          <dl id="measures"></dl>
-        </details>
+        <dl id="measures"></dl>
       </section>
     </aside>
     <main>

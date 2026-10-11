@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "yarn format:check && yarn lint && yarn typecheck",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:gpu": "deno run --unstable-webgpu --allow-read --no-check tests/gpu-smoke.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

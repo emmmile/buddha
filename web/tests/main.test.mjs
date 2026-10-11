@@ -73,7 +73,8 @@ function setup({ available = true, hash = "" } = {}) {
     viewChanged;
   const samplers = [],
     devices = [],
-    exports = [];
+    exports = [],
+    previews = [];
   class Sampler {
     running = false;
     mirrorAxis = 0;
@@ -98,8 +99,17 @@ function setup({ available = true, hash = "" } = {}) {
     }
   }
   class Display {
-    setHistogram() {}
-    draw() {}
+    hasFrame = false;
+    setHistogram() {
+      this.hasFrame = false;
+    }
+    preserve() {
+      return this.hasFrame;
+    }
+    draw(_settings, transition) {
+      this.hasFrame = true;
+      previews.push(transition);
+    }
     async capture() {
       return { data: new Uint8Array(4) };
     }
@@ -183,6 +193,7 @@ function setup({ available = true, hash = "" } = {}) {
         },
       },
       GPUBufferUsage: { STORAGE: 1, COPY_DST: 2 },
+      GPUTextureUsage: { RENDER_ATTACHMENT: 1, COPY_DST: 2 },
       addEventListener: (name, callback) => globals.addEventListener(name, callback),
       requestAnimationFrame: (callback) => {
         frames.set(++id, callback);
@@ -226,6 +237,7 @@ function setup({ available = true, hash = "" } = {}) {
     samplers,
     devices,
     exports,
+    previews,
     location,
     frame,
     enableGpu,
@@ -272,7 +284,7 @@ test("GPU actions stay disabled during startup; unsupported browsers can retry s
   assert.equal(app.samplers.length, 1);
 });
 
-test("Pause persists through navigation, settings, resize, hash changes and both resets", async () => {
+test("Pause persists through navigation, settings, resize, hash changes and reset", async () => {
   const app = setup();
   await setImmediate();
   app.frame();
@@ -293,13 +305,7 @@ test("Pause persists through navigation, settings, resize, hash changes and both
   app.changeHash("#re=0.25&im=0.75&span=0.1&radius=2&gamma=0.5");
   app.frame();
   assert.equal(sampler.running, false);
-  app.elements.get("reset-view").click();
-  app.frame();
-  assert.equal(sampler.starts.at(-1).cre, 0);
-  assert.equal(sampler.starts.at(-1).radius, 2);
-  assert.equal(app.fields.get("gamma").value, "0.5");
-  assert.equal(sampler.running, false);
-  app.elements.get("reset-all").click();
+  app.elements.get("preset").click();
   app.frame();
   assert.equal(sampler.starts.at(-1).radius, 1);
   assert.equal(app.fields.get("gamma").value, "0.3");
@@ -361,4 +367,48 @@ test("native WebGPU error diagnostics remain visible even though GPUError is not
   assert.equal(app.elements.get("pause").disabled, true);
   assert.equal(app.elements.get("export").disabled, true);
   assert.equal(app.elements.get("retry").hidden, false);
+});
+
+test("navigation holds the old image until points accumulate and keeps exports free of placeholders", async () => {
+  const app = setup();
+  await setImmediate();
+  app.frame();
+  app.fields.get("span").value = "2";
+  app.navigate();
+  app.frame();
+  assert.equal(app.previews.at(-1).opacity, 1);
+  assert.deepEqual([...app.previews.at(-1).scale], [0.5, 0.5]);
+  assert.equal(app.elements.get("export").disabled, true);
+  app.samplers[0].metrics.increments = 800 * 600 * 4.5;
+  app.samplers[0].onBatch();
+  app.edit("gamma", 0.4, "input");
+  app.frame();
+  assert.equal(app.previews.at(-1).opacity, 0.5);
+  app.samplers[0].metrics.increments = 800 * 600 * 8;
+  app.samplers[0].onBatch();
+  app.edit("gamma", 0.5, "input");
+  app.frame();
+  assert.equal(app.previews.at(-1), undefined);
+  assert.equal(app.elements.get("export").disabled, false);
+});
+
+test("changing sampling settings or resizing removes an unfinished navigation placeholder", async () => {
+  const app = setup();
+  await setImmediate();
+  app.frame();
+  app.fields.get("span").value = "2";
+  app.navigate();
+  app.frame();
+  assert.equal(app.previews.at(-1).opacity, 1);
+  app.edit("radius", 2);
+  app.frame();
+  assert.equal(app.previews.at(-1), undefined);
+  app.fields.get("span").value = "1";
+  app.navigate();
+  app.frame();
+  assert.equal(app.previews.at(-1).opacity, 1);
+  app.resize({ width: 900, height: 700 });
+  app.timers(200);
+  app.frame();
+  assert.equal(app.previews.at(-1), undefined);
 });
