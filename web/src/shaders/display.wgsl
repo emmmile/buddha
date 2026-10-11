@@ -154,7 +154,8 @@ fn preview_shade(@builtin(position) position: vec4f) -> @location(0) vec4f {
   // so an empty band in an intermediate preview never masks a newer, populated histogram.
   // The offscreen preview is premultiplied; the visible canvas remains opaque and exports use
   // shade above, which always returns opaque pixels.
-  return vec4f(rgb, select(0.0, 1.0, any(rgb > vec3f(0.0))));
+  // Coverage follows visible color after conversion to the 8-bit preview texture.
+  return vec4f(rgb, select(0.0, 1.0, any(rgb > vec3f(0.5 / 255.0))));
 }
 
 
@@ -180,6 +181,11 @@ fn previous(@builtin(position) position: vec4f) -> @location(0) vec4f {
     return vec4f(0.0);
   }
   let old = textureSampleLevel(previous_image, previous_sampler, source, 0.0);
+  // Partial fades can round stored color to black while alpha remains positive.
+  // Such a frame carries no visible detail and must let the new histogram through.
+  if (!any(old.rgb > vec3f(0.0))) {
+    return vec4f(0.0);
+  }
   // Color already contains coverage from earlier blends. Scale both by opacity and use
   // premultiplied blending to avoid darkening it again during repeated navigation.
   return old * previous_transform.opacity;

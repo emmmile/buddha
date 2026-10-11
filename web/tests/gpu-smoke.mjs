@@ -99,6 +99,26 @@ for (let y = 0; y < size; ++y) {
     check(wider[y * 256 + x * 4] === 255, "Retained black ring must not hide newer detail");
   }
 }
+// Positive shader colors below half an 8-bit step still store as black. Their
+// coverage must not obscure new detail, including after a partial fade rounds to black.
+const identity = { scale: [1, 1], offset: [0, 0], opacity: 1 };
+device.queue.writeBuffer(histogram, 0, new Uint32Array(size * size * 3).fill(10));
+display.draw({ ...settings, exposure: -12 });
+check((await read())[0] === 0, "Faint positive colors should quantize to black");
+check(display.preserve(), "Preserve the faint frame");
+display.draw(settings, identity);
+check((await read())[0] === 255, "Quantized black must not obscure new detail");
+display.draw({ ...settings, exposure: -7 });
+check(display.preserve(), "Preserve a barely visible frame");
+const fadeEmpty = device.createCommandEncoder();
+fadeEmpty.clearBuffer(histogram);
+device.queue.submit([fadeEmpty.finish()]);
+display.draw(settings, { ...identity, opacity: 0.1 });
+check((await read())[0] === 0, "Partial fade should round the barely visible frame to black");
+check(display.preserve(), "Preserve the rounded partial fade");
+device.queue.writeBuffer(histogram, 0, new Uint32Array(size * size * 3).fill(10));
+display.draw(settings, identity);
+check((await read())[0] === 255, "Rounded partial-fade black must not obscure new detail");
 const blank = device.createCommandEncoder();
 blank.clearBuffer(histogram);
 device.queue.submit([blank.finish()]);
